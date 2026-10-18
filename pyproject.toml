@@ -30,6 +30,10 @@ deno = [
 requires = ["uv_build>=0.8.22,<0.9.0"]
 build-backend = "uv_build"
 
+[tool.uv]
+# When moving to a newer uv, also update setup-uv's version in ci.yml and the uv_build range above.
+required-version = ">=0.8.22"
+
 [tool.uv.build-backend]
 module-name = "scmp3"
 
@@ -48,7 +52,7 @@ extend-exclude = ["legacy"]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
 
 [tool.ruff.format]
-# Git on Windows may check files out with CRLF, so keep whatever ending each file has.
+# Checkouts made before .gitattributes may still have CRLF files, so keep each file's ending.
 line-ending = "auto"
 
 [dependency-groups]

@@ -21,6 +21,9 @@ jobs:
 
       # setup-uv only publishes exact version tags.
       - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          # Match the dev machine's uv, since setup-uv would otherwise pick the newest one that fits required-version.
+          version: "0.8.22"
 
       - name: Install ffmpeg (Linux)
         if: runner.os == 'Linux'

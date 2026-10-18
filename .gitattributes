@@ -1,0 +1,16 @@
+# Check out text files with LF everywhere, whatever core.autocrlf says.
+* text=auto eol=lf
+
+# cmd.exe can misparse labels in batch files with LF endings.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Never convert or text-diff these.
+*.png binary
+*.jpg binary
+*.ico binary
+*.icns binary
+*.woff2 binary
+*.mp3 binary
+*.m4a binary
+*.zip binary
