@@ -12,7 +12,7 @@ It replaces a single old script, `legacy/soundcloud_downloader.py`. That script 
   - Never commit it.
 - **Branches.** Each session works on one ticket, on its own branch.
   - Don't merge, push or change `main`. The planning session does the merging.
-  - Commit messages start with the ticket id, for example `T-012: Add the producer-credit rule`.
+- **Commit messages.** The subject is one plain line saying what the commit adds, for example `Add the producer-credit rule`. Don't put the ticket number in it.
 - **Settled decisions.** The decisions in the plan are settled. If the code or the outside world contradicts one, stop and ask instead of changing course.
 - **Files.** Only touch the files your ticket lists, and explain any exception in your report.
   - Don't change `pyproject.toml`, `uv.lock` or `tests/conftest.py` unless your ticket says so.
