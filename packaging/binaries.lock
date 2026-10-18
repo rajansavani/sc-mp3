@@ -1,0 +1,36 @@
+# Third-party binaries bundled into release builds. packaging/fetch_binaries.py reads this file.
+# Only binaries bundled at build time go here. The app can't read this file, so anything it
+# downloads at run time, like Deno, is pinned in the app's own data.
+# Each table is [<component>.<os>-<arch>], with os in windows, macos, linux and arch in x64, arm64.
+# sha256 is the hash of the downloaded archive. archive_member is the binary's path inside it.
+
+# gyan.dev "essentials" release build. The URL is gyan.dev's GitHub mirror, which keeps every
+# release; gyan.dev itself keeps only the latest two. Build notes: https://www.gyan.dev/ffmpeg/builds/
+[ffmpeg.windows-x64]
+url = "https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-essentials_build.zip"
+sha256 = "60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba"
+archive_member = "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe"
+version = "9.0.2"
+license = "GPL-3.0-or-later"
+source_url = "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz"
+
+# Martin Riedl's static release builds, which publish a .sha256 file per download. Build scripts:
+# https://git.martin-riedl.de/ffmpeg/build-script
+# Library versions: https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/versions.txt
+[ffmpeg.macos-arm64]
+url = "https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/ffmpeg.zip"
+sha256 = "c8ed4c4e6978a03c485edbfe4e0a5dc2380f8a30bba5150531b31b094492d924"
+archive_member = "ffmpeg"
+version = "9.0.2"
+license = "GPL-3.0-or-later"
+source_url = "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz"
+
+# Same builder. Its Intel releases stop in January 2027; published builds stay downloadable.
+# Library versions: https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/versions.txt
+[ffmpeg.macos-x64]
+url = "https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/ffmpeg.zip"
+sha256 = "7c6b4125b191cbf773832dc51f424cf2b6bb7da43007d1e066f95909e47cacd4"
+archive_member = "ffmpeg"
+version = "9.0.2"
+license = "GPL-3.0-or-later"
+source_url = "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz"
