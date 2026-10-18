@@ -1,4 +1,4 @@
-"""Shared fixtures: ffmpeg, and tiny audio files generated with it."""
+"""Shared fixtures: a temp SCMP3_HOME, ffmpeg, and tiny audio files generated with it."""
 
 import shutil
 import subprocess
@@ -8,8 +8,27 @@ import pytest
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Register the marker for opt-in tests that reach the internet."""
+    """Register the markers for internet tests and for tests of the real app folders."""
     config.addinivalue_line("markers", "network: needs the internet; run with `pytest -m network`")
+    config.addinivalue_line(
+        "markers", "real_app_folders: runs without SCMP3_HOME, to check the real app folders"
+    )
+
+
+@pytest.fixture(autouse=True)
+def scmp3_home(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Path | None:
+    """An empty folder set as SCMP3_HOME for every test, so no test touches the real app folders.
+
+    Tests marked `real_app_folders` run with SCMP3_HOME unset instead, and get None.
+    """
+    if request.node.get_closest_marker("real_app_folders"):
+        monkeypatch.delenv("SCMP3_HOME", raising=False)
+        return None
+    # A folder of its own, so a test's tmp_path stays empty for the test.
+    factory: pytest.TempPathFactory = request.getfixturevalue("tmp_path_factory")
+    home = factory.mktemp("scmp3_home")
+    monkeypatch.setenv("SCMP3_HOME", str(home))
+    return home
 
 
 @pytest.fixture(scope="session")

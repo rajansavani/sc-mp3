@@ -1,0 +1,279 @@
+"""Tests for building yt-dlp instances and making API calls through them, without the internet."""
+
+import io
+import json
+import logging
+import secrets
+import socket
+import threading
+from collections.abc import Iterator
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any, ClassVar
+
+import pytest
+import yt_dlp
+from yt_dlp.networking.common import Request, Response
+from yt_dlp.networking.exceptions import HTTPError, TransportError
+from yt_dlp.networking.impersonate import ImpersonateTarget
+from yt_dlp.utils import DownloadError
+
+from scmp3.core import engine, paths
+from scmp3.core.errors import ErrorKind, ScmpError
+from scmp3.core.log import MASK, redact
+
+API_URL = "https://api-v2.soundcloud.com/me"
+
+
+@pytest.fixture
+def fake_ffmpeg(scmp3_home: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """An empty file that SCMP3_FFMPEG points to, so ffmpeg is always "found"."""
+    exe = scmp3_home / "bin" / "ffmpeg.exe"
+    exe.parent.mkdir()
+    exe.write_bytes(b"")
+    monkeypatch.setenv(paths.FFMPEG_ENV, str(exe))
+    return exe
+
+
+def test_make_ydl_sets_the_standard_options(fake_ffmpeg: Path, scmp3_home: Path) -> None:
+    with engine.make_ydl() as ydl:
+        params = ydl.params
+    assert params["quiet"] is True
+    assert params["noprogress"] is True
+    assert isinstance(params["logger"], engine.YtDlpLogger)
+    assert params["color"] == "never"
+    assert params["ffmpeg_location"] == str(fake_ffmpeg)
+    assert params["cachedir"] == str(scmp3_home / "cache" / "yt-dlp")
+    assert params["socket_timeout"] == 30
+    for unset in ("username", "password", "progress_hooks"):
+        assert unset not in params
+
+
+def test_make_ydl_needs_no_network(fake_ffmpeg: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def no_network(*args: object, **kwargs: object) -> None:
+        raise AssertionError("make_ydl tried to use the network")
+
+    monkeypatch.setattr(socket.socket, "connect", no_network)
+    monkeypatch.setattr(socket, "create_connection", no_network)
+    monkeypatch.setattr(socket, "getaddrinfo", no_network)
+    with engine.make_ydl(auth_token=f"tok-{secrets.token_hex(8)}") as ydl:
+        assert ydl.params["quiet"] is True
+
+
+def test_a_token_logs_in_as_the_oauth_user_and_is_masked_from_then_on(fake_ffmpeg: Path) -> None:
+    token = f"tok-{secrets.token_hex(8)}"
+    with engine.make_ydl(auth_token=token) as ydl:
+        assert ydl.params["username"] == "oauth"
+        assert ydl.params["password"] == token
+    assert redact(f"password {token}") == f"password {MASK}"
+
+
+def test_a_progress_hook_is_registered(fake_ffmpeg: Path) -> None:
+    def hook(status: dict[str, Any]) -> None:
+        pass
+
+    with engine.make_ydl(progress_hook=hook) as ydl:
+        assert ydl.params["progress_hooks"] == [hook]
+
+
+def test_extra_options_are_added_and_override_the_standard_ones(fake_ffmpeg: Path) -> None:
+    with engine.make_ydl(extra={"format": "hls_aac_160k", "socket_timeout": 5}) as ydl:
+        assert ydl.params["format"] == "hls_aac_160k"
+        assert ydl.params["socket_timeout"] == 5
+
+
+def test_without_ffmpeg_yt_dlp_runs_without_it(
+    scmp3_home: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def missing() -> Path:
+        raise ScmpError(ErrorKind.convert_failed, "ffmpeg not found")
+
+    monkeypatch.setattr(engine.paths, "ffmpeg_exe", missing)
+    with caplog.at_level(logging.WARNING, logger=engine.__name__), engine.make_ydl() as ydl:
+        assert "ffmpeg_location" not in ydl.params
+    assert "ffmpeg wasn't found" in caplog.text
+
+
+def test_yt_dlp_messages_reach_python_logging_as_plain_text(
+    fake_ffmpeg: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.DEBUG, logger=engine.YTDLP_LOGGER), engine.make_ydl() as ydl:
+        ydl.to_screen("[soundcloud] 123: Downloading info JSON")
+        ydl.report_warning("Provided authorization token is invalid. Continuing as guest")
+        with pytest.raises(DownloadError):
+            ydl.report_error("[soundcloud] 123: This video is DRM protected")
+    logged = [(r.levelno, r.getMessage()) for r in caplog.records if r.name == engine.YTDLP_LOGGER]
+    assert (logging.DEBUG, "[soundcloud] 123: Downloading info JSON") in logged
+    assert (
+        logging.WARNING,
+        "Provided authorization token is invalid. Continuing as guest",
+    ) in logged
+    # No color codes, since "color" is "never".
+    assert (logging.ERROR, "ERROR: [soundcloud] 123: This video is DRM protected") in logged
+
+
+class FakeYdl:
+    """Answers urlopen with canned bodies or errors, and records each request."""
+
+    def __init__(self, *outcomes: bytes | Exception) -> None:
+        self.requests: list[Request] = []
+        self._outcomes = list(outcomes)
+
+    def urlopen(self, request: Request) -> io.BytesIO:
+        self.requests.append(request)
+        outcome = self._outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return io.BytesIO(outcome)
+
+
+def http_error(status: int) -> HTTPError:
+    return HTTPError(Response(io.BytesIO(b""), API_URL, {}, status=status))
+
+
+def api_error(ydl: Any, url: str = API_URL, **kwargs: Any) -> ScmpError:
+    """The ScmpError that api_get_json raises for this fake."""
+    with pytest.raises(ScmpError) as error_info:
+        engine.api_get_json(ydl, url, **kwargs)
+    return error_info.value
+
+
+def test_api_get_json_returns_the_object() -> None:
+    ydl = FakeYdl(b'{"username": "kaia", "permalink": "kaia"}')
+    assert engine.api_get_json(ydl, API_URL) == {"username": "kaia", "permalink": "kaia"}
+
+
+def test_api_get_json_impersonates_chrome_and_asks_for_json() -> None:
+    ydl = FakeYdl(b"{}")
+    engine.api_get_json(ydl, API_URL, headers={"Authorization": "OAuth x"})
+    [request] = ydl.requests
+    assert request.url == API_URL
+    assert request.headers["Accept"] == "application/json"
+    assert request.headers["Authorization"] == "OAuth x"
+    assert request.extensions["impersonate"] == ImpersonateTarget("chrome")
+
+
+@pytest.mark.parametrize(
+    ("status", "kind"),
+    [
+        (403, ErrorKind.engine_outdated),
+        (404, ErrorKind.unavailable),
+        (410, ErrorKind.unavailable),
+        (429, ErrorKind.rate_limited),
+        (500, ErrorKind.service_down),
+        (502, ErrorKind.service_down),
+        (503, ErrorKind.service_down),
+        (599, ErrorKind.service_down),
+        (400, ErrorKind.engine_outdated),
+        (418, ErrorKind.engine_outdated),
+    ],
+)
+def test_http_errors_become_error_kinds(status: int, kind: ErrorKind) -> None:
+    error = api_error(FakeYdl(http_error(status)))
+    assert error.kind is kind
+    assert error.detail == f"HTTP {status} from api-v2.soundcloud.com/me"
+
+
+@pytest.mark.parametrize("header", ["Authorization", "authorization"])
+def test_a_401_for_a_request_with_a_token_means_the_sign_in_expired(header: str) -> None:
+    error = api_error(FakeYdl(http_error(401)), headers={header: "OAuth x"})
+    assert error.kind is ErrorKind.auth_expired
+
+
+def test_a_401_without_a_token_means_the_client_id_is_stale() -> None:
+    assert api_error(FakeYdl(http_error(401))).kind is ErrorKind.engine_outdated
+
+
+def test_a_caller_can_say_what_a_status_means_for_its_endpoint() -> None:
+    meanings = {401: ErrorKind.preview_only, 404: ErrorKind.geo_blocked}
+    assert api_error(FakeYdl(http_error(401)), status_kinds=meanings).kind is ErrorKind.preview_only
+    assert api_error(FakeYdl(http_error(404)), status_kinds=meanings).kind is ErrorKind.geo_blocked
+    # Statuses the caller doesn't mention keep their usual meaning.
+    assert api_error(FakeYdl(http_error(429)), status_kinds=meanings).kind is ErrorKind.rate_limited
+
+
+def test_the_error_detail_leaves_out_the_query() -> None:
+    url = "https://api-v2.soundcloud.com/resolve?url=https%3A%2F%2Fsoundcloud.com%2Fa%2Fs-AbCd&client_id=x"
+    error = api_error(FakeYdl(http_error(404)), url)
+    assert error.detail == "HTTP 404 from api-v2.soundcloud.com/resolve"
+
+
+def test_a_network_failure_is_offline() -> None:
+    error = api_error(FakeYdl(TransportError(msg="Could not resolve host")))
+    assert error.kind is ErrorKind.offline
+
+
+@pytest.mark.parametrize("body", [b"<html>blocked</html>", b"[1, 2]", b""])
+def test_a_body_that_isnt_a_json_object_means_the_engine_needs_an_update(body: bytes) -> None:
+    assert api_error(FakeYdl(body)).kind is ErrorKind.engine_outdated
+
+
+class EchoHandler(BaseHTTPRequestHandler):
+    """Answers every GET with JSON describing the request it got."""
+
+    # Every path asked for, so a test can check that nothing was sent.
+    seen: ClassVar[list[str]] = []
+
+    def do_GET(self) -> None:
+        self.seen.append(self.path)
+        body = json.dumps(
+            {
+                "path": self.path,
+                "user_agent": self.headers.get("User-Agent", ""),
+                "accept": self.headers.get("Accept", ""),
+                "custom": self.headers.get("X-Test", ""),
+            }
+        ).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format: str, *args: Any) -> None:
+        """Keep the server quiet in test output."""
+
+
+@pytest.fixture
+def local_server() -> Iterator[str]:
+    """An HTTP server on this machine only, so the real opener is tested offline."""
+    EchoHandler.seen.clear()
+    server = ThreadingHTTPServer(("127.0.0.1", 0), EchoHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    yield f"http://127.0.0.1:{server.server_port}"
+    server.shutdown()
+    server.server_close()
+    thread.join(timeout=5)
+
+
+def test_api_get_json_works_through_the_real_opener(fake_ffmpeg: Path, local_server: str) -> None:
+    # An empty proxy means a direct connection, whatever proxy the machine has set.
+    with engine.make_ydl(extra={"proxy": ""}) as ydl:
+        data = engine.api_get_json(ydl, f"{local_server}/me?x=1", headers={"X-Test": "yes"})
+    assert data["path"] == "/me?x=1"
+    assert data["accept"] == "application/json"
+    assert data["custom"] == "yes"
+    # curl_cffi sent Chrome's headers, not yt-dlp's own.
+    assert "Chrome/" in data["user_agent"]
+
+
+def test_without_curl_cffi_nothing_is_sent_and_the_engine_needs_an_update(
+    fake_ffmpeg: Path, local_server: str
+) -> None:
+    with engine.make_ydl(extra={"proxy": ""}) as ydl:
+        # Removing yt-dlp's curl_cffi handler is what a missing curl_cffi looks like to it.
+        ydl._request_director.handlers.pop("CurlCFFI")
+        error = api_error(ydl, f"{local_server}/me")
+    assert error.kind is ErrorKind.engine_outdated
+    assert error.detail is not None
+    assert "Impersonate target" in error.detail
+    assert EchoHandler.seen == []
+
+
+def test_engine_version_is_the_loaded_yt_dlp_version() -> None:
+    assert engine.engine_version() == yt_dlp.version.__version__
+
+
+def test_load_yt_dlp_returns_the_module() -> None:
+    assert engine.load_yt_dlp() is yt_dlp

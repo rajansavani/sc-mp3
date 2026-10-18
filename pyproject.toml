@@ -49,7 +49,15 @@ target-version = "py313"
 extend-exclude = ["legacy"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "TID253"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+# The app imports yt-dlp only inside functions, after engine.load_yt_dlp() picks which copy to use.
+banned-module-level-imports = ["yt_dlp"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests import yt-dlp's classes directly, since they never choose between copies.
+"tests/**" = ["TID253"]
 
 [tool.ruff.format]
 # Checkouts made before .gitattributes may still have CRLF files, so keep each file's ending.
