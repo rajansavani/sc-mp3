@@ -1,0 +1,59 @@
+[project]
+name = "sc-mp3"
+version = "0.0.1"
+description = "Save SoundCloud and YouTube links as tagged MP3 files for Spotify Local Files."
+readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "keyring>=25.7.0",
+    "mutagen>=1.48.1",
+    "pillow>=13.0.0",
+    "platformdirs>=4.13.4",
+    "pywebview>=6.2.1",
+    "yt-dlp[curl-cffi,default]>=2026.8.19",
+]
+
+[project.scripts]
+scmp3 = "scmp3.__main__:main"
+
+[project.optional-dependencies]
+qt = [
+    "pywebview[qt]>=6.2.1",
+]
+deno = [
+    "yt-dlp[deno]>=2026.8.19",
+]
+
+[build-system]
+requires = ["uv_build>=0.8.22,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "scmp3"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# importlib mode lets two test files share a name, like tests/unit/x.py and tests/network/x.py.
+addopts = "-m 'not network' --import-mode=importlib"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+# The legacy script is kept byte for byte as a reference, so it isn't linted or formatted.
+extend-exclude = ["legacy"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.format]
+# Git on Windows may check files out with CRLF, so keep whatever ending each file has.
+line-ending = "auto"
+
+[dependency-groups]
+dev = [
+    "pyinstaller>=6.22.3",
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]

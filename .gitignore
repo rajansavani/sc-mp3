@@ -1,3 +1,24 @@
 # Local planning material: plan, spec, research, tickets, handoffs between sessions.
 # Never commit it.
 docs/planning/
+
+# Python and uv
+.venv/
+__pycache__/
+*.py[cod]
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+
+# Build output. Keep *.spec files: packaging/scmp3.spec is committed.
+build/
+dist/
+packaging/bin/
+
+# Logs, OS files and editor settings
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
