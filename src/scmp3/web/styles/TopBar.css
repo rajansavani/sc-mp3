@@ -1,0 +1,61 @@
+/* The top bar. A placeholder until the full design is built. */
+
+.top-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  padding: var(--pad-top-bar);
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--line-1);
+}
+
+.top-bar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-app-name);
+  font-weight: 700;
+  letter-spacing: var(--tracking-app-name);
+}
+
+.top-bar-logo rect {
+  fill: var(--accent);
+}
+
+.top-bar-logo path {
+  fill: none;
+  stroke: var(--on-accent);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.top-bar-paste {
+  display: flex;
+  flex: 1 1 380px;
+  gap: 8px;
+  min-width: 0;
+}
+
+.top-bar-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--height-control);
+  padding: 0 14px;
+  border: 1px solid var(--line-3);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  font-size: 14px;
+}
+
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.top-bar-actions .button {
+  background: transparent;
+  font-weight: 500;
+}

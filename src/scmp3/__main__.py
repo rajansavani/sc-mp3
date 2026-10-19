@@ -16,6 +16,11 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=f"Commands: {command_names}. Run 'scmp3 <command> --help' to see its options.",
     )
     parser.add_argument("--version", action="store_true", help="print the version and exit")
+    parser.add_argument(
+        "--dev-ui",
+        action="store_true",
+        help="open the interface in your browser with sample data, for working on the UI",
+    )
     return parser
 
 
@@ -31,6 +36,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if options.version:
         print(__version__)
         return 0
+
+    if options.dev_ui:
+        from scmp3.app import devserver
+
+        return devserver.run()
 
     # Imported here so CLI commands never load the window toolkit.
     from scmp3.app import main as app_main

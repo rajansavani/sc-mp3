@@ -1,0 +1,94 @@
+/* Design tokens for direction A, "Studio". Components use these instead of raw values. */
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --bg: #121110;
+  --surface-1: #161513; /* top bar, queue sidebar */
+  --surface-2: #1C1B19; /* inputs, buttons, segmented control track */
+  --surface-3: #191816; /* section cards */
+  --surface-selected: #22201D; /* selected queue item */
+
+  /* Lines */
+  --line-1: #2A2724; /* dividers, card borders */
+  --line-2: #2F2C28; /* segmented control border, progress track */
+  --line-3: #34302B; /* button borders, selected segment fill */
+  --line-4: #3A3631; /* input borders, selected queue item ring */
+  --line-dashed: #5A544C; /* chip border when a cleanup is off */
+
+  /* Text */
+  --text-1: #F4F1EC;
+  --text-2: #ABA59C; /* secondary text, labels */
+  --text-3: #8A847B; /* captions, placeholders */
+
+  /* Accent */
+  --accent: #FF7A30; /* primary button, logo, focus ring, progress fill */
+  --on-accent: #1B0E04; /* text and icons on the accent */
+  --accent-text: #FF9A5C; /* links and text buttons */
+  --accent-text-hover: #FFC29C;
+  --chip-on-bg: color-mix(in srgb, var(--accent) 14%, transparent);
+  --chip-on-text: color-mix(in srgb, var(--accent) 30%, #F4F1EC);
+
+  /* Status */
+  --warn: #E8C27A; /* needs review */
+  --ok: #7FD8A6; /* saved */
+  --ok-surface: #16241C;
+  --ok-line: #2E5A41;
+
+  /* Type */
+  --font-ui: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --text-body: 15px;
+  --text-small: 13px;
+  --text-caption: 12px;
+  --text-section-label: 12px;
+  --text-page-title: 24px;
+  --text-section-title: 15px;
+  --text-title-field: 18px;
+  --text-artist-field: 16px;
+  --text-app-name: 18px;
+  --line-height-body: 1.45;
+  --tracking-section-label: 0.08em;
+  --tracking-page-title: -0.015em;
+  --tracking-app-name: -0.01em;
+
+  /* Radii */
+  --radius-control: 10px; /* inputs and buttons */
+  --radius-primary: 12px;
+  --radius-card: 14px;
+  --radius-chip: 999px;
+  --radius-cover: 10px;
+  --radius-thumb: 6px;
+  --radius-segmented: 12px;
+  --radius-segment: 9px;
+
+  /* Heights */
+  --height-control: 44px;
+  --height-title-field: 50px;
+  --height-artist-field: 46px;
+  --height-primary: 48px;
+  --height-segment: 40px;
+
+  /* Padding */
+  --pad-top-bar: 14px 24px;
+  --pad-queue: 20px 14px;
+  --pad-editor: 28px 36px 32px;
+  --pad-card: 18px 20px;
+
+  /* Gaps */
+  --gap-sections: 24px;
+  --gap-fields: 16px;
+  --gap-field-grid: 12px;
+  --gap-chips: 8px;
+  --gap-queue: 4px;
+
+  /* Layout */
+  --queue-min: 280px;
+  --queue-max: 340px;
+  --cover-size: 248px;
+
+  /* Icons and focus */
+  --icon-stroke: 1.8;
+  --focus-width: 2px;
+  --focus-offset: 2px;
+}

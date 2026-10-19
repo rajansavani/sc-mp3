@@ -14,3 +14,7 @@
 *.mp3 binary
 *.m4a binary
 *.zip binary
+
+# Vendored files are checked by SHA-256 against their npm tarballs, so keep their exact bytes.
+src/scmp3/web/vendor/** -text
+src/scmp3/web/fonts/** -text

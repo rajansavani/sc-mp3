@@ -1,0 +1,84 @@
+/* The shell's layout: the top bar over the queue and the editor, full-window views, and dialogs. */
+
+#app {
+  height: 100%;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.app-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.app-queue {
+  flex: 1 1 var(--queue-min);
+  max-width: var(--queue-max);
+  padding: var(--pad-queue);
+  overflow-y: auto;
+  background: var(--surface-1);
+  border-right: 1px solid var(--line-1);
+}
+
+.app-editor {
+  flex: 999 1 560px;
+  min-width: 0;
+  padding: var(--pad-editor);
+  overflow-y: auto;
+}
+
+.app-view {
+  height: 100%;
+  padding: var(--pad-editor);
+  overflow-y: auto;
+}
+
+/* Shown in a slot until its ticket builds the real component. */
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--gap-fields);
+  color: var(--text-2);
+}
+
+.placeholder-title {
+  color: var(--text-1);
+  font-size: var(--text-page-title);
+  font-weight: 700;
+  letter-spacing: var(--tracking-page-title);
+}
+
+.button {
+  height: var(--height-control);
+  padding: 0 18px;
+  border: 1px solid var(--line-3);
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
+.dialog {
+  width: min(560px, calc(100vw - 48px));
+  padding: var(--pad-card);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-card);
+  background: var(--surface-1);
+  color: var(--text-1);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 60%);
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--gap-sections);
+}

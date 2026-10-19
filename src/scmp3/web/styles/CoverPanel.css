@@ -1,0 +1,13 @@
+/* The cover preview. A placeholder until the full design is built. */
+
+.cover-panel {
+  display: grid;
+  place-items: center;
+  width: var(--cover-size);
+  aspect-ratio: 1;
+  border: 1px dashed var(--line-4);
+  border-radius: var(--radius-cover);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: var(--text-caption);
+}
