@@ -34,6 +34,7 @@ class Wordlists:
     label_words: str
     channels: frozenset[str]  # channel keys
     channels_exact: frozenset[str]  # names matched exactly as written
+    domains: str  # top-level domains, dot included
     together: str
     caps_keep: frozenset[str]  # uppercase
 
@@ -64,6 +65,7 @@ def load_wordlists() -> Wordlists:
         label_words=alternation(data["labels"]["words"]),
         channels=frozenset(channel_key(name) for name in data["labels"]["channels"]),
         channels_exact=frozenset(data["labels"]["channels_exact"]),
+        domains=alternation(data["labels"]["domains"]),
         together=alternation(data["artists"]["together"]),
         caps_keep=frozenset(word.upper() for word in data["caps"]["keep"]),
     )

@@ -1,7 +1,7 @@
-"""Tests for the artist helpers: labels and channels, choosing the main artists, and settling."""
+"""Tests for the artist helpers in step 4: labels and channels."""
 
 from scmp3.core.models import Settings, SourceInfo
-from scmp3.core.suggest.artists import TitleArtist, choose_main, settle, uploader_is_label
+from scmp3.core.suggest.artists import uploader_is_label
 from scmp3.core.suggest.draft import Context
 from scmp3.core.suggest.words import load_wordlists
 
@@ -10,11 +10,6 @@ def context_for(uploader: str, publisher: tuple[str, ...] = ()) -> Context:
     """A context for a source uploaded by `uploader`."""
     source = SourceInfo(kind="soundcloud", id="x", url="u", title="t", uploader=uploader)
     return Context(source, Settings(), load_wordlists(), publisher, uploader)
-
-
-def plain(*names: str) -> list[TitleArtist]:
-    """Title artists with nothing put back into them."""
-    return [TitleArtist(name, name) for name in names]
 
 
 def test_an_uploader_with_a_label_word_is_a_label() -> None:
@@ -38,29 +33,16 @@ def test_an_uploader_that_isnt_a_publisher_artist_is_a_channel() -> None:
     assert not uploader_is_label(context_for("juicewrld", ("Juice WRLD",)))
 
 
-def test_choose_main_without_publisher_artists_takes_the_title_artists_then_the_uploader() -> None:
-    assert choose_main([], plain("Lou V"), "Some Channel") == ["Lou V"]
-    assert choose_main([], [], "Some Channel") == ["Some Channel"]
-    assert choose_main([], [], "") == []
+def test_an_uploader_that_is_the_publisher_artist_but_a_lost_letter_isnt_a_channel() -> None:
+    assert not uploader_is_label(context_for("Michael Bubl\u00e9", ("Michael Bubl?",)))
+    assert not uploader_is_label(context_for("Zoe", ("Zo\u00eb",)))
 
 
-def test_choose_main_keeps_the_publisher_list_and_adds_only_new_title_artists() -> None:
-    assert choose_main(["Kaia"], plain("Kaia", "Lou V"), "x") == ["Kaia", "Lou V"]
-    assert choose_main(["Chase & Status"], plain("Chase & Status"), "x") == ["Chase & Status"]
-    # "Kaia & Lou V" names a publisher artist, so it doesn't join as a second credit.
-    assert choose_main(["Kaia"], plain("Kaia & Lou V"), "x") == ["Kaia"]
+def test_an_uploader_named_like_a_website_is_a_channel() -> None:
+    for uploader in ["Thissongissick.com", "deepdance.FM", "kaia.co", "Kaia.tv "]:
+        assert uploader_is_label(context_for(uploader)), uploader
 
 
-def test_a_title_artist_with_a_feature_put_back_replaces_its_publisher_artist() -> None:
-    restored = [TitleArtist("Kaia ft. Lou V", "Kaia")]
-
-    assert choose_main(["Kaia", "Mara"], restored, "x") == ["Kaia ft. Lou V", "Mara"]
-
-
-def test_settle_moves_a_featured_name_out_of_the_main_list() -> None:
-    assert settle(["Kaia", "Lou V"], ["Lou V"]) == (["Kaia"], ["Lou V"])
-
-
-def test_settle_keeps_a_main_artist_who_is_also_featured_as_main_only() -> None:
-    assert settle(["Kaia"], ["kaia", "Lou V"]) == (["Kaia"], ["Lou V"])
-    assert settle(["Kaia"], ["kaia"]) == (["Kaia"], [])
+def test_a_dot_in_an_uploader_name_needs_a_whole_top_level_domain_at_the_end() -> None:
+    for uploader in ["Lou.Cosmo", "kaia.community", ".com", "Kaia.com Fan"]:
+        assert not uploader_is_label(context_for(uploader)), uploader

@@ -158,7 +158,7 @@ def _temp_files_under(folder: Path) -> Iterator[Path]:
 
 
 def _warn_unreadable_folder(error: OSError) -> None:
-    log.warning("Couldn't look for leftover files in a folder: %s", error.strerror)
+    log.warning("Couldn't look for leftover files in a folder: %s", error.strerror or error)
 
 
 def _modified_before(path: Path, cutoff: float) -> bool:
@@ -166,7 +166,7 @@ def _modified_before(path: Path, cutoff: float) -> bool:
         return path.lstat().st_mtime < cutoff
     except OSError as error:
         # Another running copy may have just finished with it.
-        log.debug("Skipped %s: %s", path, error.strerror)
+        log.debug("Skipped %s: %s", path, error.strerror or error)
         return False
 
 
@@ -190,7 +190,7 @@ def _remove_or_warn(path: Path) -> bool:
         path.unlink(missing_ok=True)
         return True
     except OSError as error:
-        log.warning("Couldn't delete %s: %s", path.name, error.strerror)
+        log.warning("Couldn't delete %s: %s", path.name, error.strerror or error)
         return False
 
 

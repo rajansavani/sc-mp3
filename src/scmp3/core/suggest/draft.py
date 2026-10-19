@@ -23,7 +23,8 @@ BRACKET_PAIRS = {
 }
 OPENERS = "".join(BRACKET_PAIRS)
 CLOSERS = "".join(BRACKET_PAIRS.values())
-_ANY_BRACKET = re.escape(OPENERS + CLOSERS)
+_BRACKETS = OPENERS + CLOSERS
+_ANY_BRACKET = re.escape(_BRACKETS)
 # A bracket right after ":" or ";" is part of an emoticon like ":(" or ";-)", not a bracket.
 NOT_EMOTICON = r"(?<![:;])(?<![:;]-)"
 # Innermost groups only, so "(a [b])" finds "[b]".
@@ -128,12 +129,60 @@ class Draft:
         self.claims.append(Claim(kind, start, end, enabled, names, part_end))
         return True
 
+    def claim_credit(self, kind: ClaimKind, group: Group, *, names: tuple[str, ...] = ()) -> bool:
+        """Claim a bracketed credit whole, or all of it but the claims that end it.
+
+        In "(feat. Lou V (VIP Mix))" the credit takes "(feat. Lou V" and the version the rest. In
+        "(feat. Lou V (prod. Hazy))" the producer credit keeps its own change.
+        """
+        if self.claim(kind, group.start, group.end, names=names):
+            return True
+        inside = [
+            claim for claim in self.claims if group.start < claim.start and claim.end < group.end
+        ]
+        if not inside:
+            return False
+        last = max(inside, key=lambda claim: claim.end)
+        # Only claims with nothing after them but the closing bracket.
+        if self.text[last.end : group.end - 1].strip():
+            return False
+        if not self.claim(kind, group.start, min(claim.start for claim in inside), names=names):
+            return False
+        if last.kind != VERSION:
+            # Tidying drops the closing bracket left on its own.
+            return True
+        # A version takes the closing bracket too, which tidying then balances.
+        return self.claim(VERSION, group.end - 1, group.end)
+
     def groups(self) -> list[Group]:
         """The bracketed parts nobody has claimed yet."""
         return [
             Group(match.start(), match.end(), match.group()[1:-1])
             for match in _GROUP.finditer(self.masked())
         ]
+
+    def nested_groups(self) -> list[Group]:
+        """The unclaimed bracketed parts with balanced brackets inside, like "(feat. A (UK))"."""
+        masked = self.masked()
+        found: list[Group] = []
+        open_at: list[int] = []
+        with_inner: set[int] = set()
+        # Groups a stray closer breaks, as in "[feat. A (UK]", are never reported.
+        broken: set[int] = set()
+        for index, char in enumerate(masked):
+            if char not in _BRACKETS or is_emoticon(masked, index):
+                continue
+            if char in OPENERS:
+                if open_at:
+                    with_inner.add(open_at[-1])
+                open_at.append(index)
+            elif open_at and BRACKET_PAIRS[masked[open_at[-1]]] == char:
+                start = open_at.pop()
+                if start in with_inner and start not in broken:
+                    found.append(Group(start, index + 1, masked[start + 1 : index]))
+            else:
+                broken.update(open_at)
+        return found
 
     def inline_matches(self, regex: re.Pattern[str]) -> Iterator[tuple[int, int, str]]:
         """Each keyword-and-names match outside claims, as (start, end, names), cut at a claim."""
@@ -151,6 +200,11 @@ class Draft:
 def has_words(text: str) -> bool:
     """Whether `text` has any letter or digit."""
     return any(char.isalnum() for char in text)
+
+
+def is_emoticon(text: str, index: int) -> bool:
+    """Whether the bracket at `index` ends an emoticon like ":(" or ";-)"."""
+    return text[:index].endswith((":", ";", ":-", ";-"))
 
 
 def assemble(

@@ -173,6 +173,8 @@ channels = [
 # One-word channels whose names are ordinary words, so artists share them. These match only
 # when written exactly like this, case and punctuation included.
 channels_exact = ["Selected.", "Proximity", "COLORS", "Cercle"]
+# An uploader named like a website, ending in one of these, is a channel: "Thissongissick.com".
+domains = [".com", ".net", ".org", ".co", ".fm", ".io", ".tv"]
 
 [artists]
 # Words that join artists into one credit. The names around them stay whole, as in "Kaia vs. Lou V".

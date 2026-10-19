@@ -1,18 +1,17 @@
-"""Steps 4, 5 and 9 of the suggestion engine: the artist in the title, featured artists, and the
-final main and featured lists."""
+"""Steps 4 and 5 of the suggestion engine: the artist in the title and featured artists."""
 
 import re
-from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Literal
 
 from scmp3.core.suggest import rules
-from scmp3.core.suggest.draft import VERSION, Claim, Context, Draft, has_words, names_pattern
+from scmp3.core.suggest.draft import VERSION, Context, Draft, Group, has_words, names_pattern
 from scmp3.core.suggest.names import (
+    JOINERS,
+    any_same_artist,
     channel_key,
-    dedupe,
     name_key,
-    spacing_key,
+    same_artist,
     split_credit,
     split_names,
 )
@@ -21,10 +20,6 @@ from scmp3.core.suggest.words import Wordlists, pattern, phrase_pattern
 _SPACED_DASH = re.compile(r"(?<=\s)-(?=\s)")
 # Separators and spaces trimmed off each part between spaced dashes.
 _SEGMENT_TRIM = " -|/:"
-# Symbols that join artists in one credit, as in "Kaia & Lou V" or "Kaia x Lou V".
-_JOINERS = "\\s*[,&+]\\s*|\\s+[xX\u00d7]\\s+"
-# The claims that take an artist from the title.
-ARTIST_KINDS = ("artist_from_title", "strip_redundant_artist")
 # Stands in for a publisher name while feature text is split, so the name stays whole.
 _HELD = re.compile("\x00([0-9]+)\x00")
 
@@ -54,21 +49,26 @@ class ArtistPart:
     has_feature: bool
 
 
-@dataclass(frozen=True)
-class TitleArtist:
-    """An artist credit taken from the title."""
-
-    name: str  # as it's credited
-    base: str  # the same without any feature that was put back into it
-    restored: tuple[str, ...] = ()  # the featured names put back into it
-
-
 def claim_bracket_features(draft: Draft, context: Context) -> None:
     """Step 5 in brackets: "(feat. Lou V)", "[ft. A & B]", "(with Lou V)" and "(w/ Lou V)"."""
+    _claim_feature_groups(draft, context, draft.groups())
+
+
+def claim_nested_features(draft: Draft, context: Context) -> None:
+    """Step 5 in brackets with brackets inside, once the inner ones are claimed.
+
+    "(feat. Lou V (UK))" features "Lou V (UK)". An inner version or producer credit keeps its
+    own claim, as in "(feat. Lou V (prod. Hazy))".
+    """
+    _claim_feature_groups(draft, context, [*draft.groups(), *draft.nested_groups()])
+
+
+def _claim_feature_groups(draft: Draft, context: Context, groups: list[Group]) -> None:
+    """Claim each group that starts with a feature keyword."""
     words = context.words
     keyword = pattern(rf"^\s*{words.feature}\s*:?\s*(?P<names>.*\S)")
     bracket_keyword = pattern(rf"^\s*{words.feature_bracketed}\s*(?P<names>.*\S)")
-    for group in draft.groups():
+    for group in groups:
         match = keyword.search(group.inner) or bracket_keyword.search(group.inner)
         if match is None:
             continue
@@ -76,7 +76,7 @@ def claim_bracket_features(draft: Draft, context: Context) -> None:
         # "(With You)" and "(with Strings)" are part of the title.
         if not names or name_key(names[0]) in words.not_names:
             continue
-        draft.claim("extract_feature", group.start, group.end, names=tuple(names))
+        draft.claim_credit("extract_feature", group, names=tuple(names))
 
 
 def claim_inline_features(draft: Draft, context: Context) -> None:
@@ -109,7 +109,7 @@ def _feature_names(text: str, context: Context) -> list[str]:
         return f"\x00{len(held) - 1}\x00"
 
     for name in sorted(context.publisher, key=len, reverse=True):
-        if pattern(_JOINERS).search(name):
+        if pattern(JOINERS).search(name):
             text = pattern(phrase_pattern(name)).sub(hold, text)
     names = split_names(text)
     return [_HELD.sub(lambda match: held[int(match[1])], name) for name in names]
@@ -175,6 +175,11 @@ def read_artist_part(
         end = feature.start()
     while end > start and masked[end - 1] in _SEGMENT_TRIM:
         end -= 1
+    # A closing bracket left by a credit cut short, as in "Kaia (feat. Lou V (prod. Hazy))".
+    while end > start and rules.ends_with_stray_closer(masked[start:end]):
+        end -= 1
+        while end > start and masked[end - 1] in _SEGMENT_TRIM:
+            end -= 1
     text = masked[start:end].strip()
     if not has_words(text):
         return None
@@ -187,7 +192,7 @@ def read_artist_part(
         end=end,
         part_end=part_end,
         text=text,
-        redundant=spacing_key(text) == spacing_key(context.uploader),
+        redundant=same_artist(text, context.uploader),
         from_publisher=_names_publisher(text, context),
         is_list=has_feature or _is_collaboration(text, context.words),
         has_feature=has_feature,
@@ -246,125 +251,28 @@ def dash_segments(masked: str) -> list[Segment]:
 def uploader_is_label(context: Context) -> bool:
     """Whether the uploader looks like a label or channel rather than the artist."""
     uploader = context.uploader
-    if context.publisher and not _overlaps([uploader], context.publisher):
+    if context.publisher and not any_same_artist([uploader], context.publisher):
         return True
     if channel_key(uploader) in context.words.channels:
         return True
     if uploader.strip() in context.words.channels_exact:
+        return True
+    # A website's name, like "Thissongissick.com", is a channel's.
+    if pattern(rf"\w{context.words.domains}\s*$").search(uploader):
         return True
     return bool(pattern(context.words.label_words).search(uploader))
 
 
 def _is_collaboration(text: str, words: Wordlists) -> bool:
     """Whether a credit joins several artists, as in "Kaia & Lou V" or "Kaia vs. Lou V"."""
-    return bool(pattern(_JOINERS).search(text) or pattern(words.together).search(text))
+    return bool(pattern(JOINERS).search(text) or pattern(words.together).search(text))
 
 
 def _credit_parts(text: str, words: Wordlists) -> list[str]:
     """The names a credit joins, for matching only: "Chase & Status" gives Chase and Status."""
-    return [part for part in pattern(rf"{_JOINERS}|\s+{words.together}\s+").split(text) if part]
+    return [part for part in pattern(rf"{JOINERS}|\s+{words.together}\s+").split(text) if part]
 
 
 def _names_publisher(text: str, context: Context) -> bool:
     """Whether a credit is a publisher artist, whole or by one of the names it joins."""
-    return _overlaps([text, *_credit_parts(text, context.words)], context.publisher)
-
-
-def _overlaps(names: Iterable[str], others: Iterable[str]) -> bool:
-    """Whether any name matches one of `others`, ignoring case and spacing."""
-    keys = {spacing_key(other) for other in others}
-    return any(spacing_key(name) in keys for name in names)
-
-
-def features_inside(draft: Draft, artist: Claim) -> list[Claim]:
-    """The feature claims inside an artist part, like "ft. Rihanna" in "Drake ft. Rihanna"."""
-    if artist.part_end is None:
-        return []
-    return [
-        claim
-        for claim in draft.claims
-        if claim.kind == "extract_feature" and artist.start <= claim.start < artist.part_end
-    ]
-
-
-def carried_features(draft: Draft) -> set[int]:
-    """Where the features inside a taken artist part start. They leave the title with it."""
-    return {
-        feature.start
-        for artist in draft.claims
-        if artist.kind in ARTIST_KINDS and artist.enabled
-        for feature in features_inside(draft, artist)
-    }
-
-
-def title_artists(draft: Draft) -> list[TitleArtist]:
-    """Step 9: the artists the title credits. A feature turned off goes back into the name."""
-    credits: list[TitleArtist] = []
-    for artist in draft.claims:
-        if artist.kind not in ARTIST_KINDS or not artist.enabled:
-            continue
-        kept = [feature for feature in features_inside(draft, artist) if not feature.enabled]
-        # A dropped uploader name credits nobody, unless a feature went back into it.
-        if artist.kind == "strip_redundant_artist" and not kept:
-            continue
-        credits.extend(_credits_with_features(draft, artist, kept))
-    return credits
-
-
-def _credits_with_features(draft: Draft, artist: Claim, kept: list[Claim]) -> list[TitleArtist]:
-    """The artist part's credits, with the features in `kept` put back into the last name."""
-    base = draft.span(artist)
-    if not kept:
-        return [TitleArtist(name, name) for name in artist.names]
-    end = max(feature.end for feature in kept)
-    cut = [feature for feature in features_inside(draft, artist) if feature not in kept]
-    text = draft.text[artist.start : end]
-    for feature in sorted(cut, key=lambda claim: claim.start, reverse=True):
-        start, stop = feature.start - artist.start, feature.end - artist.start
-        text = text[:start] + " " + text[stop:]
-    restored = tuple(name for feature in kept for name in feature.names)
-    names, bases = split_credit(rules.tidy(text)), split_credit(base)
-    if len(names) != len(bases):
-        return [TitleArtist(rules.tidy(text), base, restored)]
-    return [
-        TitleArtist(name, name_base, restored) for name, name_base in zip(names, bases, strict=True)
-    ]
-
-
-def choose_main(publisher: list[str], from_title: list[TitleArtist], uploader: str) -> list[str]:
-    """Step 9: the publisher artists, joined by new ones from the title; else the uploader."""
-    if not publisher:
-        return dedupe([artist.name for artist in from_title]) or dedupe([uploader])
-    main = list(publisher)
-    for artist in from_title:
-        _add_title_artist(main, artist)
-    return dedupe(main)
-
-
-def _add_title_artist(main: list[str], artist: TitleArtist) -> None:
-    """Add a title artist the publisher list doesn't have yet, whole or split."""
-    keys = [spacing_key(name) for name in main]
-    base = spacing_key(artist.base)
-    if base in keys:
-        # "Kaia ft. Lou V", with its feature put back, takes the place of the publisher's "Kaia".
-        if artist.name != artist.base:
-            main[keys.index(base)] = artist.name
-            # It names Lou V now, so the publisher's own "Lou V" goes.
-            restored = {spacing_key(name) for name in artist.restored}
-            main[:] = [name for name in main if spacing_key(name) not in restored]
-        return
-    parts = {spacing_key(part) for part in re.split(_JOINERS, artist.base)}
-    if not parts & set(keys):
-        main.append(artist.name)
-
-
-def settle(main: list[str], featured: list[str]) -> tuple[list[str], list[str]]:
-    """Step 9: list each artist once. A name the title marks as featured leaves the main list."""
-    featured = dedupe(featured)
-    featured_keys = {name_key(name) for name in featured}
-    kept = [name for name in main if name_key(name) not in featured_keys]
-    if kept:
-        return kept, featured
-    # Every main artist is also featured, so they stay main and drop out of the featured list.
-    main_keys = {name_key(name) for name in main}
-    return main, [name for name in featured if name_key(name) not in main_keys]
+    return any_same_artist([text, *_credit_parts(text, context.words)], context.publisher)

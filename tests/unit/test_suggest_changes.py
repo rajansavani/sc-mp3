@@ -118,6 +118,46 @@ def test_labels_use_the_design_wording() -> None:
     ]
 
 
+def test_a_feature_label_spells_each_name_as_the_tags_do() -> None:
+    capitals = replace(SAMPLE, title="Kaia - Song (feat. LOU V)", artists=["Kaia", "Lou V"])
+    accent = replace(SAMPLE, title="Song (feat. Zoe)", artists=["Kaia feat. Zo\u00eb"])
+    lost = replace(
+        SAMPLE,
+        title="Crazy Love",
+        uploader="Michael Bubl\u00e9",
+        artists=["Kaia feat. Michael Bubl?"],
+    )
+
+    def feature_labels(source: SourceInfo) -> list[str]:
+        changes = suggest(source, Settings()).changes
+        return [change.label for change in changes if change.kind == "extract_feature"]
+
+    assert feature_labels(capitals) == ["Lou V credited as featured artist"]
+    assert feature_labels(accent) == ["Zo\u00eb credited as featured artist"]
+    assert feature_labels(lost) == ["Michael Bubl\u00e9 credited as featured artist"]
+
+
+def test_a_feature_label_stays_the_same_when_the_feature_is_turned_off() -> None:
+    source = replace(SAMPLE, title="Song (feat. Zoe)", artists=["Kaia feat. Zo\u00eb"])
+    suggestion = suggest(source, Settings())
+
+    rebuilt = apply_changes(
+        switched(suggestion, {"extract_feature:(feat. Zoe)": False}), source, Settings()
+    )
+
+    assert [change.label for change in rebuilt.changes] == [
+        change.label for change in suggestion.changes
+    ]
+
+
+def test_a_credit_cut_short_by_a_version_shows_its_bracket_closed_in_the_label() -> None:
+    source = replace(SAMPLE, title="Paper Moon (prod. Hazy (Extended Mix))")
+
+    labels = [change.label for change in suggest(source, Settings()).changes]
+
+    assert labels == ["Removed “(prod. Hazy)”"]
+
+
 @pytest.mark.parametrize(
     ("kind", "span", "names", "label"),
     [

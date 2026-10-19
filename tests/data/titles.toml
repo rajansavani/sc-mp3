@@ -2878,3 +2878,552 @@ off = ["extract_feature:ft Under"]
 artist_field = ["6 ft Under", "Some Artist"]
 feat_in_title = ["6 ft Under", "Some Artist"]
 all_in_title = ["6 ft Under (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "a title duo named in a comma-joined publisher artist isn't added again"
+title = "Rival & Cadmium - Seasons (feat. Harley Bird) [Futuristik & whogaux Remix]"
+uploader = "NCS"
+artists = ["Rival, Cadmium, Harley Bird"]
+base_title = "Seasons"
+main = ["Rival, Cadmium, Harley Bird"]
+featured = []
+version = " [Futuristik & whogaux Remix]"
+on = ["artist_from_title:Rival & Cadmium", "extract_feature:(feat. Harley Bird)"]
+artist_field = ["Seasons [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
+feat_in_title = ["Seasons [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
+all_in_title = ["Seasons (Rival, Cadmium, Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Harley Bird)"]
+artist_field = ["Seasons (feat. Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
+feat_in_title = ["Seasons (feat. Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
+all_in_title = ["Seasons (feat. Harley Bird) (Rival, Cadmium, Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
+
+[[case.toggle]]
+off = ["artist_from_title:Rival & Cadmium"]
+artist_field = ["Rival & Cadmium - Seasons [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
+feat_in_title = ["Rival & Cadmium - Seasons [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
+all_in_title = ["Rival & Cadmium - Seasons (Rival, Cadmium, Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
+
+[[case]]
+checks = "title artists split on x and named in a comma-joined publisher artist aren't added again"
+title = "Rival x Cadmium - Seasons (feat. Harley Bird) [Futuristik & whogaux Remix]"
+uploader = "NCS"
+artists = ["Rival, Cadmium, Harley Bird"]
+base_title = "Seasons"
+main = ["Rival, Cadmium, Harley Bird"]
+featured = []
+version = " [Futuristik & whogaux Remix]"
+on = ["artist_from_title:Rival x Cadmium", "extract_feature:(feat. Harley Bird)"]
+artist_field = ["Seasons [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
+feat_in_title = ["Seasons [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
+all_in_title = ["Seasons (Rival, Cadmium, Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
+
+[[case]]
+checks = "a comma-joined publisher artist is never split, and a feature it doesn't name is still credited"
+title = "Tyler, The Creator - Paper Moon (feat. Okoye)"
+uploader = "Columbia Records"
+artists = ["Tyler, The Creator"]
+base_title = "Paper Moon"
+main = ["Tyler, The Creator"]
+featured = ["Okoye"]
+version = ""
+on = ["artist_from_title:Tyler, The Creator", "extract_feature:(feat. Okoye)"]
+artist_field = ["Paper Moon", "Tyler, The Creator, Okoye"]
+feat_in_title = ["Paper Moon (feat. Okoye)", "Tyler, The Creator"]
+all_in_title = ["Paper Moon (Tyler, The Creator, Okoye)", "Tyler, The Creator"]
+
+[[case]]
+checks = "a title artist matches a comma part of the publisher artist ignoring case and accents"
+title = "kaia & Zoe - Midnight Drive"
+uploader = "Some Label Records"
+artists = ["Kaia, Zoë"]
+base_title = "Midnight Drive"
+main = ["Kaia, Zoë"]
+featured = []
+version = ""
+on = ["artist_from_title:kaia & Zoe"]
+artist_field = ["Midnight Drive", "Kaia, Zoë"]
+feat_in_title = ["Midnight Drive", "Kaia, Zoë"]
+all_in_title = ["Midnight Drive (Kaia, Zoë)", "Kaia, Zoë"]
+
+[[case]]
+checks = "a feature put back into a title artist shows even when a comma-joined publisher artist names it"
+title = "Rival ft. Harley Bird - Seasons"
+uploader = "NCS"
+artists = ["Rival, Cadmium, Harley Bird"]
+base_title = "Seasons"
+main = ["Rival, Cadmium, Harley Bird"]
+featured = []
+version = ""
+on = ["artist_from_title:Rival", "extract_feature:ft. Harley Bird"]
+artist_field = ["Seasons", "Rival, Cadmium, Harley Bird"]
+feat_in_title = ["Seasons", "Rival, Cadmium, Harley Bird"]
+all_in_title = ["Seasons (Rival, Cadmium, Harley Bird)", "Rival, Cadmium, Harley Bird"]
+
+[[case.toggle]]
+off = ["extract_feature:ft. Harley Bird"]
+artist_field = ["Seasons", "Rival, Cadmium, Harley Bird, Rival ft. Harley Bird"]
+feat_in_title = ["Seasons", "Rival, Cadmium, Harley Bird, Rival ft. Harley Bird"]
+all_in_title = ["Seasons (Rival, Cadmium, Harley Bird, Rival ft. Harley Bird)", "Rival, Cadmium, Harley Bird, Rival ft. Harley Bird"]
+
+[[case]]
+checks = "an uploader named like a website is a channel, so the artist split starts on"
+title = "Quinn XCII - FFYL (prod. Hazy)"
+uploader = "Thissongissick.com"
+base_title = "FFYL"
+main = ["Quinn XCII"]
+featured = []
+version = ""
+on = ["artist_from_title:Quinn XCII", "remove_producer:(prod. Hazy)"]
+off = ["fix_caps:FFYL"]
+artist_field = ["FFYL", "Quinn XCII"]
+feat_in_title = ["FFYL", "Quinn XCII"]
+all_in_title = ["FFYL (Quinn XCII)", "Quinn XCII"]
+
+[[case.toggle]]
+off = ["artist_from_title:Quinn XCII"]
+artist_field = ["Quinn XCII - FFYL", "Thissongissick.com"]
+feat_in_title = ["Quinn XCII - FFYL", "Thissongissick.com"]
+all_in_title = ["Quinn XCII - FFYL (Thissongissick.com)", "Thissongissick.com"]
+
+[[case]]
+checks = "an uploader ending in another top-level domain is a channel too"
+title = "Kaia - Midnight Drive"
+uploader = "deepdance.fm"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a dot inside an uploader name that isn't a top-level domain doesn't make a channel"
+title = "Kaia - Midnight Drive"
+uploader = "Lou.Cosmo"
+base_title = "Kaia - Midnight Drive"
+main = ["Lou.Cosmo"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Kaia"]
+artist_field = ["Kaia - Midnight Drive", "Lou.Cosmo"]
+feat_in_title = ["Kaia - Midnight Drive", "Lou.Cosmo"]
+all_in_title = ["Kaia - Midnight Drive (Lou.Cosmo)", "Lou.Cosmo"]
+
+[[case]]
+checks = "a publisher artist with a question mark for a lost letter takes the title's spelling"
+title = "Michael Buble - Crazy Love"
+uploader = "Warner Records"
+artists = ["Michael Bubl?"]
+base_title = "Crazy Love"
+main = ["Michael Buble"]
+featured = []
+version = ""
+on = ["artist_from_title:Michael Buble"]
+artist_field = ["Crazy Love", "Michael Buble"]
+feat_in_title = ["Crazy Love", "Michael Buble"]
+all_in_title = ["Crazy Love (Michael Buble)", "Michael Buble"]
+
+[[case.toggle]]
+off = ["artist_from_title:Michael Buble"]
+artist_field = ["Michael Buble - Crazy Love", "Michael Bubl?"]
+feat_in_title = ["Michael Buble - Crazy Love", "Michael Bubl?"]
+all_in_title = ["Michael Buble - Crazy Love (Michael Bubl?)", "Michael Bubl?"]
+
+[[case]]
+checks = "a publisher artist with a lost letter takes the title's accented spelling"
+title = "Michael Bublé - Crazy Love"
+uploader = "Warner Records"
+artists = ["Michael Bubl?"]
+base_title = "Crazy Love"
+main = ["Michael Bublé"]
+featured = []
+version = ""
+on = ["artist_from_title:Michael Bublé"]
+artist_field = ["Crazy Love", "Michael Bublé"]
+feat_in_title = ["Crazy Love", "Michael Bublé"]
+all_in_title = ["Crazy Love (Michael Bublé)", "Michael Bublé"]
+
+[[case]]
+checks = "a publisher artist with a replacement character for a lost letter takes the title's spelling"
+title = "Michael Buble - Crazy Love"
+uploader = "Warner Records"
+artists = ["Michael Bubl\uFFFD"]
+base_title = "Crazy Love"
+main = ["Michael Buble"]
+featured = []
+version = ""
+on = ["artist_from_title:Michael Buble"]
+artist_field = ["Crazy Love", "Michael Buble"]
+feat_in_title = ["Crazy Love", "Michael Buble"]
+all_in_title = ["Crazy Love (Michael Buble)", "Michael Buble"]
+
+[[case]]
+checks = "a title artist that has the lost letter where the publisher's spelling is whole keeps the publisher's"
+title = "Michael Bubl? - Crazy Love"
+uploader = "Warner Records"
+artists = ["Michael Bublé"]
+base_title = "Crazy Love"
+main = ["Michael Bublé"]
+featured = []
+version = ""
+on = ["artist_from_title:Michael Bubl?"]
+artist_field = ["Crazy Love", "Michael Bublé"]
+feat_in_title = ["Crazy Love", "Michael Bublé"]
+all_in_title = ["Crazy Love (Michael Bublé)", "Michael Bublé"]
+
+[[case]]
+checks = "names that differ only by accents are one artist, spelled as the publisher has it"
+title = "Zoe - Paper Moon"
+uploader = "Some Label Records"
+artists = ["Zoë"]
+base_title = "Paper Moon"
+main = ["Zoë"]
+featured = []
+version = ""
+on = ["artist_from_title:Zoe"]
+artist_field = ["Paper Moon", "Zoë"]
+feat_in_title = ["Paper Moon", "Zoë"]
+all_in_title = ["Paper Moon (Zoë)", "Zoë"]
+
+[[case]]
+checks = "a title credit that a comma-joined publisher artist only partly names keeps the other names"
+title = "Tyler, The Creator & Kaia - Song"
+uploader = "Columbia Records"
+artists = ["Tyler, The Creator"]
+base_title = "Song"
+main = ["Tyler, The Creator", "Tyler, The Creator & Kaia"]
+featured = []
+version = ""
+on = ["artist_from_title:Tyler, The Creator & Kaia"]
+artist_field = ["Song", "Tyler, The Creator, Tyler, The Creator & Kaia"]
+feat_in_title = ["Song", "Tyler, The Creator, Tyler, The Creator & Kaia"]
+all_in_title = ["Song (Tyler, The Creator, Tyler, The Creator & Kaia)", "Tyler, The Creator, Tyler, The Creator & Kaia"]
+
+[[case]]
+checks = "a title duo with one name in a comma-joined publisher artist is still added"
+title = "Kaia & Lou V - Song"
+uploader = "Some Label Records"
+artists = ["Kaia, Mara"]
+base_title = "Song"
+main = ["Kaia, Mara", "Kaia & Lou V"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia & Lou V"]
+artist_field = ["Song", "Kaia, Mara, Kaia & Lou V"]
+feat_in_title = ["Song", "Kaia, Mara, Kaia & Lou V"]
+all_in_title = ["Song (Kaia, Mara, Kaia & Lou V)", "Kaia, Mara, Kaia & Lou V"]
+
+[[case]]
+checks = "a featured name with the letter a publisher artist lost replaces that main artist"
+title = "Song (feat. Michael Buble)"
+uploader = "Kaia"
+artists = ["Kaia", "Michael Bubl?"]
+base_title = "Song"
+main = ["Kaia"]
+featured = ["Michael Buble"]
+version = ""
+on = ["extract_feature:(feat. Michael Buble)"]
+artist_field = ["Song", "Kaia, Michael Buble"]
+feat_in_title = ["Song (feat. Michael Buble)", "Kaia"]
+all_in_title = ["Song (Kaia, Michael Buble)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Michael Buble)"]
+artist_field = ["Song (feat. Michael Buble)", "Kaia, Michael Bubl?"]
+feat_in_title = ["Song (feat. Michael Buble)", "Kaia, Michael Bubl?"]
+all_in_title = ["Song (feat. Michael Buble) (Kaia, Michael Bubl?)", "Kaia, Michael Bubl?"]
+
+[[case]]
+checks = "a featured name spelled without the accent of the only publisher artist is listed once"
+title = "Song (feat. Zoe)"
+uploader = "Kaia"
+artists = ["Zoë"]
+base_title = "Song"
+main = ["Zoë"]
+featured = []
+version = ""
+on = ["extract_feature:(feat. Zoe)"]
+artist_field = ["Song", "Zoë"]
+feat_in_title = ["Song", "Zoë"]
+all_in_title = ["Song (Zoë)", "Zoë"]
+
+[[case]]
+checks = "a feature spelled without the accent in the title and with it in the artist field is one change, spelled as the artist field has it"
+title = "Song (feat. Zoe)"
+uploader = "Kaia"
+artists = ["Kaia feat. Zoë"]
+base_title = "Song"
+main = ["Kaia"]
+featured = ["Zoë"]
+version = ""
+on = ["extract_feature:(feat. Zoe)"]
+artist_field = ["Song", "Kaia, Zoë"]
+feat_in_title = ["Song (feat. Zoë)", "Kaia"]
+all_in_title = ["Song (Kaia, Zoë)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Zoe)"]
+artist_field = ["Song (feat. Zoe)", "Kaia feat. Zoë"]
+feat_in_title = ["Song (feat. Zoe)", "Kaia feat. Zoë"]
+all_in_title = ["Song (feat. Zoe) (Kaia feat. Zoë)", "Kaia feat. Zoë"]
+
+[[case]]
+checks = "a publisher artist with a lost letter takes the uploader's spelling"
+title = "Crazy Love"
+uploader = "Michael Bublé"
+artists = ["Michael Bubl?"]
+base_title = "Crazy Love"
+main = ["Michael Bublé"]
+featured = []
+version = ""
+on = []
+artist_field = ["Crazy Love", "Michael Bublé"]
+feat_in_title = ["Crazy Love", "Michael Bublé"]
+all_in_title = ["Crazy Love (Michael Bublé)", "Michael Bublé"]
+
+[[case]]
+checks = "a title artist with a lost letter is the uploader, so suggesting again changes nothing"
+title = "Michael Bubl? - Crazy Love"
+uploader = "Michael Bublé"
+artists = ["Kaia"]
+base_title = "Crazy Love"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Michael Bubl?"]
+artist_field = ["Crazy Love", "Kaia"]
+feat_in_title = ["Crazy Love", "Kaia"]
+all_in_title = ["Crazy Love (Kaia)", "Kaia"]
+
+[[case.toggle]]
+off = ["strip_redundant_artist:Michael Bubl?"]
+artist_field = ["Michael Bubl? - Crazy Love", "Kaia"]
+feat_in_title = ["Michael Bubl? - Crazy Love", "Kaia"]
+all_in_title = ["Michael Bubl? - Crazy Love (Kaia)", "Kaia"]
+
+[[case]]
+checks = "an uploader that's the publisher artist but for a lost letter isn't a channel, so a pipe ending goes"
+title = "Crazy Love | Paris"
+uploader = "Michael Bublé"
+artists = ["Michael Bubl?"]
+base_title = "Crazy Love"
+main = ["Michael Bublé"]
+featured = []
+version = ""
+on = ["remove_promo:| Paris"]
+artist_field = ["Crazy Love", "Michael Bublé"]
+feat_in_title = ["Crazy Love", "Michael Bublé"]
+all_in_title = ["Crazy Love (Michael Bublé)", "Michael Bublé"]
+
+[[case]]
+checks = "a feature with brackets inside its own bracket comes out whole"
+title = "Midnight Drive (feat. Lou V (UK))"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V (UK)"]
+version = ""
+on = ["extract_feature:(feat. Lou V (UK))"]
+artist_field = ["Midnight Drive", "Kaia, Lou V (UK)"]
+feat_in_title = ["Midnight Drive (feat. Lou V (UK))", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V (UK))", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Lou V (UK))"]
+artist_field = ["Midnight Drive (feat. Lou V (UK))", "Kaia"]
+feat_in_title = ["Midnight Drive (feat. Lou V (UK))", "Kaia"]
+all_in_title = ["Midnight Drive (feat. Lou V (UK)) (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a featured list with brackets inside its bracket keeps each name's own brackets"
+title = "Paper Moon [feat. Okoye (Lagos) & Lou V]"
+uploader = "Kaia"
+base_title = "Paper Moon"
+main = ["Kaia"]
+featured = ["Okoye (Lagos)", "Lou V"]
+version = ""
+on = ["extract_feature:[feat. Okoye (Lagos) & Lou V]"]
+artist_field = ["Paper Moon", "Kaia, Okoye (Lagos), Lou V"]
+feat_in_title = ["Paper Moon (feat. Okoye (Lagos), Lou V)", "Kaia"]
+all_in_title = ["Paper Moon (Kaia, Okoye (Lagos), Lou V)", "Kaia"]
+
+[[case]]
+checks = "a producer credit with brackets inside its bracket comes out whole"
+title = "Paper Moon (prod. Hazy (UK))"
+uploader = "Kaia"
+base_title = "Paper Moon"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_producer:(prod. Hazy (UK))"]
+artist_field = ["Paper Moon", "Kaia"]
+feat_in_title = ["Paper Moon", "Kaia"]
+all_in_title = ["Paper Moon (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a version bracket at the end of a feature's bracket is the track's version"
+title = "Midnight Drive (feat. Lou V (VIP Mix))"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = " (VIP Mix)"
+on = ["extract_feature:(feat. Lou V"]
+artist_field = ["Midnight Drive (VIP Mix)", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V) (VIP Mix)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V) (VIP Mix)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Lou V"]
+artist_field = ["Midnight Drive (feat. Lou V (VIP Mix))", "Kaia"]
+feat_in_title = ["Midnight Drive (feat. Lou V (VIP Mix))", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (feat. Lou V (VIP Mix))", "Kaia"]
+
+[[case]]
+checks = "a version bracket at the end of a producer credit's bracket is the track's version"
+title = "Paper Moon (prod. Hazy (Extended Mix))"
+uploader = "Kaia"
+base_title = "Paper Moon"
+main = ["Kaia"]
+featured = []
+version = " (Extended Mix)"
+on = ["remove_producer:(prod. Hazy"]
+artist_field = ["Paper Moon (Extended Mix)", "Kaia"]
+feat_in_title = ["Paper Moon (Extended Mix)", "Kaia"]
+all_in_title = ["Paper Moon (Kaia) (Extended Mix)", "Kaia"]
+
+[[case.toggle]]
+off = ["remove_producer:(prod. Hazy"]
+artist_field = ["Paper Moon (prod. Hazy (Extended Mix))", "Kaia"]
+feat_in_title = ["Paper Moon (prod. Hazy (Extended Mix))", "Kaia"]
+all_in_title = ["Paper Moon (Kaia) (prod. Hazy (Extended Mix))", "Kaia"]
+
+[[case]]
+checks = "a producer credit inside a feature's bracket gets its own change, and the feature stops before it"
+title = "Midnight Drive (feat. Lou V (prod. Hazy))"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["extract_feature:(feat. Lou V", "remove_producer:(prod. Hazy)"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case.toggle]]
+off = ["remove_producer:(prod. Hazy)"]
+artist_field = ["Midnight Drive (prod. Hazy)", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (prod. Hazy) (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (prod. Hazy) (Kaia, Lou V)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Lou V"]
+artist_field = ["Midnight Drive (feat. Lou V)", "Kaia"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (feat. Lou V) (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a producer credit kept by the setting inside a feature's bracket stays in the title"
+title = "Midnight Drive (feat. Lou V (prod. Hazy))"
+uploader = "Kaia"
+settings = { remove_producer_credits = false }
+base_title = "Midnight Drive (prod. Hazy)"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["extract_feature:(feat. Lou V"]
+off = ["remove_producer:(prod. Hazy)"]
+artist_field = ["Midnight Drive (prod. Hazy)", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (prod. Hazy) (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (prod. Hazy) (Kaia, Lou V)", "Kaia"]
+
+[[case]]
+checks = "a comma inside a bracket in a featured name doesn't split the name"
+title = "Midnight Drive (feat. Lou V (London, UK))"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V (London, UK)"]
+version = ""
+on = ["extract_feature:(feat. Lou V (London, UK))"]
+artist_field = ["Midnight Drive", "Kaia, Lou V (London, UK)"]
+feat_in_title = ["Midnight Drive (feat. Lou V (London, UK))", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V (London, UK))", "Kaia"]
+
+[[case]]
+checks = "a featured name in capitals is credited as the publisher spells it"
+title = "Kaia - Song (feat. LOU V)"
+uploader = "Some Label Records"
+artists = ["Kaia", "Lou V"]
+base_title = "Song"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["artist_from_title:Kaia", "extract_feature:(feat. LOU V)"]
+artist_field = ["Song", "Kaia, Lou V"]
+feat_in_title = ["Song (feat. Lou V)", "Kaia"]
+all_in_title = ["Song (Kaia, Lou V)", "Kaia"]
+
+[[case]]
+checks = "a publisher's featured name with a lost letter takes the uploader's spelling"
+title = "Crazy Love"
+uploader = "Michael Bublé"
+artists = ["Kaia feat. Michael Bubl?"]
+base_title = "Crazy Love"
+main = ["Kaia"]
+featured = ["Michael Bublé"]
+version = ""
+on = ["extract_feature:feat. Michael Bubl?"]
+artist_field = ["Crazy Love", "Kaia, Michael Bublé"]
+feat_in_title = ["Crazy Love (feat. Michael Bublé)", "Kaia"]
+all_in_title = ["Crazy Love (Kaia, Michael Bublé)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:feat. Michael Bubl?"]
+artist_field = ["Crazy Love", "Kaia feat. Michael Bubl?"]
+feat_in_title = ["Crazy Love", "Kaia feat. Michael Bubl?"]
+all_in_title = ["Crazy Love (Kaia feat. Michael Bubl?)", "Kaia feat. Michael Bubl?"]
+
+[[case]]
+checks = "two spellings of one title artist with no publisher keep the one with accents"
+title = "Zoe x Zoë - Song"
+uploader = "Some Label Records"
+base_title = "Song"
+main = ["Zoë"]
+featured = []
+version = ""
+on = ["artist_from_title:Zoe x Zoë"]
+artist_field = ["Song", "Zoë"]
+feat_in_title = ["Song", "Zoë"]
+all_in_title = ["Song (Zoë)", "Zoë"]
+
+[[case]]
+checks = "an artist before a feature cut short by a producer credit is still taken from the title"
+title = "Kaia (feat. Lou V (prod. Hazy)) - Midnight Drive"
+uploader = "Some Label Records"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["artist_from_title:Kaia", "extract_feature:(feat. Lou V", "remove_producer:(prod. Hazy)"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Lou V"]
+artist_field = ["Midnight Drive", "Kaia (feat. Lou V)"]
+feat_in_title = ["Midnight Drive", "Kaia (feat. Lou V)"]
+all_in_title = ["Midnight Drive (Kaia (feat. Lou V))", "Kaia (feat. Lou V)"]
+
+[[case.toggle]]
+off = ["remove_producer:(prod. Hazy)"]
+artist_field = ["(prod. Hazy) - Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["(prod. Hazy) - Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["(prod. Hazy) - Midnight Drive (Kaia, Lou V)", "Kaia"]

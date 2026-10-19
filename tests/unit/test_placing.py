@@ -561,3 +561,60 @@ def test_remove_leftovers_logs_a_file_it_cant_delete(
     with caplog.at_level(logging.WARNING, logger=placing.__name__):
         assert remove_leftovers(tmp_path, now=lambda: NOW) == []
     assert "Couldn't delete .Kaia - Song.mp3.partial" in caplog.text
+
+
+def error_without_strerror(message: str) -> OSError:
+    """An OSError made from a message alone, so its strerror is None."""
+    error = OSError(message)
+    assert error.strerror is None
+    return error
+
+
+def test_a_delete_error_without_strerror_is_logged_with_its_message(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    stuck = make_old(tmp_path / ".Kaia - Song.mp3.partial")
+    real_unlink = Path.unlink
+
+    def unlink(path: Path, missing_ok: bool = False) -> None:
+        if path == stuck:
+            raise error_without_strerror("the file is in use")
+        real_unlink(path, missing_ok=missing_ok)
+
+    monkeypatch.setattr(Path, "unlink", unlink)
+    with caplog.at_level(logging.WARNING, logger=placing.__name__):
+        assert remove_leftovers(tmp_path, now=lambda: NOW) == []
+    assert "Couldn't delete .Kaia - Song.mp3.partial: the file is in use" in caplog.text
+
+
+def test_an_unreadable_folder_without_strerror_is_logged_with_its_message(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def walk(
+        top: Path, onerror: Callable[[OSError], None]
+    ) -> list[tuple[str, list[str], list[str]]]:
+        onerror(error_without_strerror("the folder went away"))
+        return []
+
+    monkeypatch.setattr(placing.os, "walk", walk)
+    with caplog.at_level(logging.WARNING, logger=placing.__name__):
+        assert remove_leftovers(tmp_path, now=lambda: NOW) == []
+    assert "Couldn't look for leftover files in a folder: the folder went away" in caplog.text
+
+
+def test_a_file_that_cant_be_checked_without_strerror_is_logged_with_its_message(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    gone = make_old(tmp_path / ".Kaia - Song.mp3.partial")
+    real_lstat = Path.lstat
+
+    def lstat(path: Path) -> os.stat_result:
+        if path == gone:
+            raise error_without_strerror("another copy just removed it")
+        return real_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", lstat)
+    with caplog.at_level(logging.DEBUG, logger=placing.__name__):
+        assert remove_leftovers(tmp_path, now=lambda: NOW) == []
+    assert "another copy just removed it" in caplog.text
+    assert gone.exists()

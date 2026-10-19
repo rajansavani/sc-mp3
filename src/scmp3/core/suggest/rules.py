@@ -12,6 +12,7 @@ from scmp3.core.suggest.draft import (
     Context,
     Draft,
     has_words,
+    is_emoticon,
     names_pattern,
 )
 from scmp3.core.suggest.words import Wordlists, pattern, phrase_pattern
@@ -92,9 +93,10 @@ def is_bare_version(segment: str, words: Wordlists) -> bool:
 def claim_bracket_producers(draft: Draft, context: Context) -> None:
     """Step 3 in brackets: "(prod. Hazy)" and "[produced by Hazy]"."""
     credit = pattern(rf"^\s*{context.words.producer}\s*:?\s*\S")
-    for group in draft.groups():
+    # A credit with brackets inside, like "(prod. Hazy (UK))", is taken whole.
+    for group in [*draft.groups(), *draft.nested_groups()]:
         if credit.search(group.inner):
-            draft.claim("remove_producer", group.start, group.end)
+            draft.claim_credit("remove_producer", group)
 
 
 def claim_inline_producers(draft: Draft, context: Context) -> None:
@@ -251,18 +253,8 @@ def tidy_version(text: str, *, spaced: bool = True) -> str | None:
 
 def balance_brackets(text: str) -> str:
     """Drop unmatched closers and close open brackets, dropping any with nothing after them."""
-    open_at: list[int] = []
-    dropped: set[int] = set()
-    for index, char in enumerate(text):
-        if _is_emoticon(text, index):
-            continue
-        if char in OPENERS:
-            open_at.append(index)
-        elif char in CLOSERS:
-            if open_at and BRACKET_PAIRS[text[open_at[-1]]] == char:
-                open_at.pop()
-            else:
-                dropped.add(index)
+    open_at, unmatched = _scan_brackets(text)
+    dropped = set(unmatched)
     closing = ""
     for index in open_at:
         if has_words(text[index + 1 :]):
@@ -273,10 +265,42 @@ def balance_brackets(text: str) -> str:
     return kept + closing
 
 
-def _is_emoticon(text: str, index: int) -> bool:
-    """Whether the bracket at `index` ends an emoticon like ":(" or ";-)"."""
-    before = text[:index]
-    return before.endswith((":", ";", ":-", ";-"))
+def carry_open_bracket(title: str, version: str) -> tuple[str, str]:
+    """Move a bracket the title leaves open into the version, when the version closes it.
+
+    With its feature kept, "Song (feat. Lou V (VIP Mix))" keeps the whole bracket as the version.
+    """
+    open_at, _unmatched = _scan_brackets(title)
+    if not open_at:
+        return title, version
+    start = open_at[-1]
+    _still_open, closers = _scan_brackets(version)
+    if not closers or version[closers[0]] != BRACKET_PAIRS[title[start]]:
+        return title, version
+    return title[:start], title[start:] + version
+
+
+def ends_with_stray_closer(text: str) -> bool:
+    """Whether `text` ends in a closing bracket with no opening one before it."""
+    _open_at, unmatched = _scan_brackets(text)
+    return bool(unmatched) and unmatched[-1] == len(text.rstrip()) - 1
+
+
+def _scan_brackets(text: str) -> tuple[list[int], list[int]]:
+    """Where the brackets left open are, and where the closers with no opener are."""
+    open_at: list[int] = []
+    unmatched: list[int] = []
+    for index, char in enumerate(text):
+        if is_emoticon(text, index):
+            continue
+        if char in OPENERS:
+            open_at.append(index)
+        elif char in CLOSERS:
+            if open_at and BRACKET_PAIRS[text[open_at[-1]]] == char:
+                open_at.pop()
+            else:
+                unmatched.append(index)
+    return open_at, unmatched
 
 
 def _drop_empty_groups(text: str) -> str:

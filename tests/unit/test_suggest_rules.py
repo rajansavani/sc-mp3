@@ -4,6 +4,8 @@ import pytest
 
 from scmp3.core.suggest.rules import (
     balance_brackets,
+    carry_open_bracket,
+    ends_with_stray_closer,
     is_all_caps,
     is_bare_version,
     is_dash_version,
@@ -71,6 +73,36 @@ def test_tidy_version_is_none_without_words() -> None:
 
 def test_balance_brackets_closes_nested_brackets_in_order() -> None:
     assert balance_brackets("Song (VIP [Edit") == "Song (VIP [Edit])"
+
+
+def test_carry_open_bracket_moves_a_bracket_the_version_closes_into_the_version() -> None:
+    assert carry_open_bracket("Song (feat. Lou V ", "(VIP Mix))") == (
+        "Song ",
+        "(feat. Lou V (VIP Mix))",
+    )
+
+
+@pytest.mark.parametrize(
+    ("title", "version"),
+    [
+        ("Song ", "(VIP Mix))"),
+        ("Song (feat. Lou V ", "(VIP Mix)"),
+        ("Song [feat. Lou V ", "(VIP Mix))"),
+        ("Song :( ", "(VIP Mix))"),
+    ],
+)
+def test_carry_open_bracket_leaves_brackets_the_version_doesnt_close(
+    title: str, version: str
+) -> None:
+    assert carry_open_bracket(title, version) == (title, version)
+
+
+def test_ends_with_stray_closer_spots_a_closing_bracket_with_no_opener() -> None:
+    assert ends_with_stray_closer("Kaia      )")
+    assert ends_with_stray_closer("Kaia ) ")
+    assert not ends_with_stray_closer("Kaia (UK)")
+    assert not ends_with_stray_closer("Kaia :)")
+    assert not ends_with_stray_closer("Kaia")
 
 
 @pytest.mark.parametrize(
