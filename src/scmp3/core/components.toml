@@ -1,0 +1,47 @@
+# Components sc-mp3 downloads at run time, read by core/components.py. This file ships with the
+# app; packaging/binaries.lock only covers binaries bundled at build time.
+#
+# Each component installs from the latest release of its GitHub repo, checked against the
+# checksum file that release publishes. The pins are a known release to use instead when the
+# latest one has no checksum file or no asset for this machine, or GitHub's API is rate limited.
+#
+# Each target is an <os>-<arch> from paths.platform_tag(). asset is the release file, member is
+# the binary inside it, and pinned_sha256 is the SHA-256 of the pinned release's asset.
+
+# Deno runs the scripts yt-dlp needs for YouTube. Every zip holds the one binary at its root.
+[deno]
+repo = "denoland/deno"
+# The release file with an asset's SHA-256, where {asset} is the asset's name.
+checksums = "{asset}.sha256sum"
+# Deno 2.9.7, published 2026-09-17. The hashes match its .zip.sha256sum files.
+pinned_tag = "v2.9.7"
+
+[deno.targets.windows-x64]
+asset = "deno-x86_64-pc-windows-msvc.zip"
+member = "deno.exe"
+pinned_sha256 = "a0c3101b4158d1dfb7d6a78a7bf0f3de80c96bb423c152beec8beb22786f2238"
+
+[deno.targets.windows-arm64]
+asset = "deno-aarch64-pc-windows-msvc.zip"
+member = "deno.exe"
+pinned_sha256 = "c4c4ac8bfdaa37814bda5c05fc9cdf2154904e2ef8277673a30bdceaaa649807"
+
+[deno.targets.macos-x64]
+asset = "deno-x86_64-apple-darwin.zip"
+member = "deno"
+pinned_sha256 = "95daaff11c116a52ad54785e7914c8e9c9cdcaba793c5ed929c74ca2d8e6259a"
+
+[deno.targets.macos-arm64]
+asset = "deno-aarch64-apple-darwin.zip"
+member = "deno"
+pinned_sha256 = "5cd46d6268f6f78f5d88bdc7159d20bd44cdaa4b3303474839f87ec6fe7ae25c"
+
+[deno.targets.linux-x64]
+asset = "deno-x86_64-unknown-linux-gnu.zip"
+member = "deno"
+pinned_sha256 = "c6527f24f4b16031d3ae4fa9f658d5f11534c8d84ce7dc8502420280919c3490"
+
+[deno.targets.linux-arm64]
+asset = "deno-aarch64-unknown-linux-gnu.zip"
+member = "deno"
+pinned_sha256 = "c832298b1ad4422481334855f6003e0f54145762c5a134f20a489511d2f65bbf"

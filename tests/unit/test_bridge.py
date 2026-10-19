@@ -48,7 +48,10 @@ CALLS: dict[type, set[str]] = {
     ComponentsApi: {"check_updates", "update_engine", "revert_engine", "install_youtube_support"},
 }
 
-STUBS = sorted(name for names in CALLS.values() for name in names)
+ALL_CALLS = sorted(name for names in CALLS.values() for name in names)
+# Calls that are built, so they no longer answer not_implemented. Each has its own test file.
+BUILT = {"install_youtube_support"}
+STUBS = [name for name in ALL_CALLS if name not in BUILT]
 
 SNAKE_CASE = re.compile(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)*")
 
@@ -79,7 +82,7 @@ def test_each_mixin_has_exactly_its_areas_calls(area: type) -> None:
 
 
 def test_the_api_offers_every_call_plus_snapshot(api: Api) -> None:
-    assert public_names(api) == {"snapshot", *STUBS}
+    assert public_names(api) == {"snapshot", *ALL_CALLS}
 
 
 def test_the_api_has_no_public_attributes_pywebview_would_expose(api: Api) -> None:
@@ -119,7 +122,11 @@ def test_the_snapshot_has_every_part(api: Api) -> None:
     assert set(snapshot) == {"jobs", "settings", "account", "components", "first_run"}
     assert snapshot["jobs"] == []
     assert snapshot["account"] is None
-    assert snapshot["components"] == {"app_version": __version__, "engine_version": "2026.08.19"}
+    assert snapshot["components"] == {
+        "app_version": __version__,
+        "engine_version": "2026.08.19",
+        "youtube_support": {"state": "missing", "version": None, "pct": None, "error": None},
+    }
 
 
 def test_the_snapshot_carries_the_saved_settings(api: Api, store: SettingsStore) -> None:

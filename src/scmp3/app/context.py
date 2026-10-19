@@ -3,10 +3,11 @@
 import importlib.metadata
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from scmp3.app.events import EventBus
 from scmp3.core import history, settings
+from scmp3.core.components import Components
 from scmp3.core.history import History
 from scmp3.core.settings import SettingsStore
 
@@ -32,6 +33,8 @@ class AppContext:
     history: History
     events: EventBus
     engine_version: Callable[[], str | None] = bundled_engine_version
+    # Downloaded helpers such as Deno, in the app's components folder.
+    components: Components = field(default_factory=Components)
 
     @classmethod
     def from_app_folders(cls) -> "AppContext":

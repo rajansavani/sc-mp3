@@ -20,6 +20,8 @@ class ErrorKind(StrEnum):
     duplicate = "duplicate"
     # SoundCloud or YouTube answered with a 5xx error.
     service_down = "service_down"
+    # A downloaded component didn't match its checksum or didn't run, so it wasn't installed.
+    bad_download = "bad_download"
     # An unexpected exception in sc-mp3's own code.
     internal = "internal"
 
