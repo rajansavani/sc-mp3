@@ -1,0 +1,203 @@
+# Word lists for the suggestion engine. Entries match case-insensitively and as whole words.
+# Write them in lowercase. Spaces inside an entry match any run of spaces.
+
+[promo]
+# Removed when they're in brackets, at the end of the title, or at the start before a separator.
+phrases = [
+    "free dl",
+    "free d/l",
+    "free download",
+    "out now",
+    "premiere",
+    "exclusive",
+    "ncs release",
+    "buy = free dl",
+    "official audio",
+    "official video",
+    "official music video",
+    "lyric video",
+    "lyrics",
+    "visualizer",
+    "hq",
+    "hd",
+    "4k",
+]
+# These take the rest of the segment with them, as in "OUT NOW ON Monstercat".
+with_tail = ["out now on", "supported by", "click buy"]
+# Removed only when they fill a whole bracket, since "Free" is also an ordinary word.
+bracket_only = ["free", "mv", "m/v"]
+# A bracket that ends with one of these is promo, as in "[Monstercat Release]".
+bracket_endings = ["release"]
+
+[producer]
+# A producer credit is one of these followed by names, as in "(prod. Hazy)".
+keywords = ["produced by", "prod. by", "prod by", "prod.", "prod"]
+
+[features]
+# A feature is one of these followed by names, in brackets or not.
+keywords = ["featuring", "feat.", "feat", "ft.", "ft"]
+# These count only inside brackets, as in "(with Lou V)", so "Dancing with Myself" stays a title.
+bracket_keywords = ["with", "w/"]
+# Words after "(with" that make it part of the title, as in "(With You)".
+not_names = [
+    "me",
+    "you",
+    "us",
+    "him",
+    "her",
+    "them",
+    "it",
+    "myself",
+    "yourself",
+    "ourselves",
+    "themselves",
+    "love",
+    "everyone",
+    "everybody",
+    "lyrics",
+    "strings",
+    "orchestra",
+    "choir",
+    "vocals",
+    "piano",
+    "guitar",
+    "band",
+]
+# A feature keyword right after one of these may mean feet or Fort, as in "Six Ft Under" or
+# "Midnight in Ft. Lauderdale", so the feature is only offered. A one- or two-digit number counts.
+uncertain_after = [
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
+    "twelve",
+    "twenty",
+    "hundred",
+    "in",
+    "at",
+    "to",
+    "from",
+    "near",
+]
+# A number after one of these is a part or volume, so a feature after it is sure: "Pt. 2 ft. X".
+part_words = ["pt.", "pt", "part", "vol.", "vol", "volume"]
+
+[keep]
+# Never removed. Brackets with one of these, and " - VIP Mix" style endings, become the version.
+words = [
+    "remix",
+    "edit",
+    "vip",
+    "bootleg",
+    "flip",
+    "rework",
+    "refix",
+    "mix",
+    "dub",
+    "version",
+    "live",
+    "acoustic",
+    "demo",
+    "instrumental",
+    "acapella",
+    "acappella",
+    "a capella",
+    "a cappella",
+    "slowed",
+    "sped up",
+    "reverb",
+    "extended",
+    "radio edit",
+    "clean",
+    "pt.",
+    "pt",
+    "part",
+    "remaster",
+    "remastered",
+]
+# A version only in brackets: "Song (Intro)" has one, but "Kaia - Intro" is a title.
+bracket_only = ["interlude", "intro", "outro"]
+# A " - " ending that starts with one of these is a version too, as in " - Live at Wembley".
+leads = ["live at", "live from", "live in"]
+# These don't protect a bracket that also has promo in it, as in "[Free Download - Full Version]".
+weak = ["version"]
+
+[labels]
+# Words in an uploader's name that mark a label or channel rather than an artist.
+words = [
+    "records",
+    "recordings",
+    "music",
+    "label",
+    "media",
+    "tv",
+    "official",
+    "repost",
+    "network",
+    "collective",
+]
+# Repost channels and labels known by name, matched ignoring case, spaces and punctuation.
+channels = [
+    "lyrical lemonade",
+    "trap nation",
+    "trap city",
+    "bass nation",
+    "chill nation",
+    "house nation",
+    "mrsuicidesheep",
+    "majestic casual",
+    "nocopyrightsounds",
+    "monstercat",
+    "monstercat uncaged",
+    "monstercat instinct",
+    "ukf",
+    "ukf drum & bass",
+    "ukf dubstep",
+    "liquicity",
+    "cloudkid",
+    "anjunabeats",
+    "anjunadeep",
+    "mixmag",
+    "boiler room",
+    "the sound you need",
+    "thissongissick",
+    "dubstep.net",
+]
+# One-word channels whose names are ordinary words, so artists share them. These match only
+# when written exactly like this, case and punctuation included.
+channels_exact = ["Selected.", "Proximity", "COLORS", "Cercle"]
+
+[artists]
+# Words that join artists into one credit. The names around them stay whole, as in "Kaia vs. Lou V".
+together = ["vs.", "vs", "b2b"]
+
+[caps]
+# Left in capitals when an all-caps title is changed to title case.
+keep = [
+    "dj",
+    "mc",
+    "vip",
+    "ep",
+    "lp",
+    "uk",
+    "usa",
+    "nyc",
+    "og",
+    "tv",
+    "bpm",
+    "ii",
+    "iii",
+    "iv",
+    "vi",
+    "vii",
+    "viii",
+    "ix",
+    "xx",
+]

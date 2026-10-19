@@ -1,0 +1,2880 @@
+# The title corpus for the suggestion engine (core/suggest). Every case says what it checks.
+#
+# Input: `title`, `uploader`, and optionally the publisher `artists` and `settings` changes.
+# Expected:
+# - `base_title`, `main`, `featured` and `version` ("" for none) of the suggestion
+# - `on` and `off`: the ids of the changes that start on and those offered switched off, in order.
+#   An id is "kind:span", with "#2" added when the same change appears twice.
+# - `artist_field`, `feat_in_title`, `all_in_title`: the [title, artist] each preset renders
+# - `[[case.toggle]]`: switching the `off` ids off and the `on` ids on renders each preset as given
+# - `all_off`, only for messy titles like "Kaia -": the title with every change off, once tidied
+#
+# tests/unit/test_suggest_corpus.py also checks every case for these, with no extra data:
+# - turning each change off puts its exact text back, once, in every preset
+# - with every change off, the title is the original with only whitespace and dashes normalized
+# - suggesting again from the result records no change that starts on, and renders the same
+
+[[case]]
+checks = "ft inside a word, as in Left, is not a feature keyword"
+title = "Left Behind"
+uploader = "Some Artist"
+base_title = "Left Behind"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+artist_field = ["Left Behind", "Some Artist"]
+feat_in_title = ["Left Behind", "Some Artist"]
+all_in_title = ["Left Behind (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "feat inside a word, as in Defeat, is not a feature keyword"
+title = "Defeat Me"
+uploader = "Some Artist"
+base_title = "Defeat Me"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+artist_field = ["Defeat Me", "Some Artist"]
+feat_in_title = ["Defeat Me", "Some Artist"]
+all_in_title = ["Defeat Me (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "ft inside a word, as in Gift, is not a feature keyword"
+title = "Gift Of Gab"
+uploader = "Some Artist"
+base_title = "Gift Of Gab"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+artist_field = ["Gift Of Gab", "Some Artist"]
+feat_in_title = ["Gift Of Gab", "Some Artist"]
+all_in_title = ["Gift Of Gab (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "a bare with outside brackets is part of the title"
+title = "Dancing with Myself"
+uploader = "Some Artist"
+base_title = "Dancing with Myself"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+artist_field = ["Dancing with Myself", "Some Artist"]
+feat_in_title = ["Dancing with Myself", "Some Artist"]
+all_in_title = ["Dancing with Myself (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "a bracketed feature and a bracketed producer credit are both taken out"
+title = "Song (feat. Future) [Prod. Metro Boomin]"
+uploader = "Some Artist"
+base_title = "Song"
+main = ["Some Artist"]
+featured = ["Future"]
+version = ""
+on = ["extract_feature:(feat. Future)", "remove_producer:[Prod. Metro Boomin]"]
+artist_field = ["Song", "Some Artist, Future"]
+feat_in_title = ["Song (feat. Future)", "Some Artist"]
+all_in_title = ["Song (Some Artist, Future)", "Some Artist"]
+
+[[case]]
+checks = "a trailing feature ends at the spaced dash, and the dash ending is kept as the version"
+title = "Song ft. Drake - VIP Mix"
+uploader = "Some Artist"
+base_title = "Song"
+main = ["Some Artist"]
+featured = ["Drake"]
+version = " - VIP Mix"
+on = ["extract_feature:ft. Drake"]
+artist_field = ["Song - VIP Mix", "Some Artist, Drake"]
+feat_in_title = ["Song (feat. Drake) - VIP Mix", "Some Artist"]
+all_in_title = ["Song (Some Artist, Drake) - VIP Mix", "Some Artist"]
+
+[[case]]
+checks = "a channel upload names the real artist before the dash, and the publisher artist confirms it"
+title = "Juice WRLD - Lucid Dreams"
+uploader = "Lyrical Lemonade"
+artists = ["Juice WRLD"]
+base_title = "Lucid Dreams"
+main = ["Juice WRLD"]
+featured = []
+version = ""
+on = ["artist_from_title:Juice WRLD"]
+artist_field = ["Lucid Dreams", "Juice WRLD"]
+feat_in_title = ["Lucid Dreams", "Juice WRLD"]
+all_in_title = ["Lucid Dreams (Juice WRLD)", "Juice WRLD"]
+
+[[case]]
+checks = "a known repost channel makes the artist split sure without publisher data"
+title = "Juice WRLD - Lucid Dreams"
+uploader = "Lyrical Lemonade"
+base_title = "Lucid Dreams"
+main = ["Juice WRLD"]
+featured = []
+version = ""
+on = ["artist_from_title:Juice WRLD"]
+artist_field = ["Lucid Dreams", "Juice WRLD"]
+feat_in_title = ["Lucid Dreams", "Juice WRLD"]
+all_in_title = ["Lucid Dreams (Juice WRLD)", "Juice WRLD"]
+
+[[case.toggle]]
+on = ["artist_from_title:Juice WRLD"]
+artist_field = ["Lucid Dreams", "Juice WRLD"]
+feat_in_title = ["Lucid Dreams", "Juice WRLD"]
+all_in_title = ["Lucid Dreams (Juice WRLD)", "Juice WRLD"]
+
+[[case]]
+checks = "names are never split on and, so A and B stays one name"
+title = "Simon and Garfunkel tribute (feat. A and B)"
+uploader = "Some Artist"
+base_title = "Simon and Garfunkel tribute"
+main = ["Some Artist"]
+featured = ["A and B"]
+version = ""
+on = ["extract_feature:(feat. A and B)"]
+artist_field = ["Simon and Garfunkel tribute", "Some Artist, A and B"]
+feat_in_title = ["Simon and Garfunkel tribute (feat. A and B)", "Some Artist"]
+all_in_title = ["Simon and Garfunkel tribute (Some Artist, A and B)", "Some Artist"]
+
+[[case]]
+checks = "the design sample: feature, producer and promo all come out"
+title = "Midnight Drive (feat. Lou V) [prod. Hazy] FREE DL"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["extract_feature:(feat. Lou V)", "remove_producer:[prod. Hazy]", "remove_promo:FREE DL"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case.toggle]]
+off = ["remove_promo:FREE DL"]
+artist_field = ["Midnight Drive FREE DL", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive FREE DL (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive FREE DL (Kaia, Lou V)", "Kaia"]
+
+[[case.toggle]]
+off = ["remove_producer:[prod. Hazy]"]
+artist_field = ["Midnight Drive [prod. Hazy]", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive [prod. Hazy] (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive [prod. Hazy] (Kaia, Lou V)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Lou V)"]
+artist_field = ["Midnight Drive (feat. Lou V)", "Kaia"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (feat. Lou V) (Kaia)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Lou V)", "remove_promo:FREE DL"]
+artist_field = ["Midnight Drive (feat. Lou V) FREE DL", "Kaia"]
+feat_in_title = ["Midnight Drive (feat. Lou V) FREE DL", "Kaia"]
+all_in_title = ["Midnight Drive (feat. Lou V) FREE DL (Kaia)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Lou V)", "remove_producer:[prod. Hazy]", "remove_promo:FREE DL"]
+artist_field = ["Midnight Drive (feat. Lou V) [prod. Hazy] FREE DL", "Kaia"]
+feat_in_title = ["Midnight Drive (feat. Lou V) [prod. Hazy] FREE DL", "Kaia"]
+all_in_title = ["Midnight Drive (feat. Lou V) [prod. Hazy] FREE DL (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a plain title is left alone"
+title = "Midnight Drive"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "ft inside Drift is not a feature keyword"
+title = "Drift Away"
+uploader = "Kaia"
+base_title = "Drift Away"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Drift Away", "Kaia"]
+feat_in_title = ["Drift Away", "Kaia"]
+all_in_title = ["Drift Away (Kaia)", "Kaia"]
+
+[[case]]
+checks = "ft inside Swift is not a feature keyword"
+title = "Swift Current"
+uploader = "Kaia"
+base_title = "Swift Current"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Swift Current", "Kaia"]
+feat_in_title = ["Swift Current", "Kaia"]
+all_in_title = ["Swift Current (Kaia)", "Kaia"]
+
+[[case]]
+checks = "feat inside Featherweight is not a feature keyword"
+title = "Featherweight"
+uploader = "Kaia"
+base_title = "Featherweight"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Featherweight", "Kaia"]
+feat_in_title = ["Featherweight", "Kaia"]
+all_in_title = ["Featherweight (Kaia)", "Kaia"]
+
+[[case]]
+checks = "With You without brackets is a title, not a feature"
+title = "With You"
+uploader = "Kaia"
+base_title = "With You"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["With You", "Kaia"]
+feat_in_title = ["With You", "Kaia"]
+all_in_title = ["With You (Kaia)", "Kaia"]
+
+[[case]]
+checks = "Free on its own is an ordinary word outside brackets"
+title = "Free Bird"
+uploader = "Kaia"
+base_title = "Free Bird"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Free Bird", "Kaia"]
+feat_in_title = ["Free Bird", "Kaia"]
+all_in_title = ["Free Bird (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a keep word in the plain title stays in the title, not the version"
+title = "Live Forever"
+uploader = "Kaia"
+base_title = "Live Forever"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Live Forever", "Kaia"]
+feat_in_title = ["Live Forever", "Kaia"]
+all_in_title = ["Live Forever (Kaia)", "Kaia"]
+
+[[case]]
+checks = "Intro as the whole title stays the title"
+title = "Intro"
+uploader = "Kaia"
+base_title = "Intro"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Intro", "Kaia"]
+feat_in_title = ["Intro", "Kaia"]
+all_in_title = ["Intro (Kaia)", "Kaia"]
+
+[[case]]
+checks = "Out of is not the promo phrase OUT NOW"
+title = "Out of Time"
+uploader = "Kaia"
+base_title = "Out of Time"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Out of Time", "Kaia"]
+feat_in_title = ["Out of Time", "Kaia"]
+all_in_title = ["Out of Time (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a single trailing word that may be promo is only offered when it isn't in capitals"
+title = "Mutually Exclusive"
+uploader = "Kaia"
+base_title = "Mutually Exclusive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+off = ["remove_promo:Exclusive"]
+artist_field = ["Mutually Exclusive", "Kaia"]
+feat_in_title = ["Mutually Exclusive", "Kaia"]
+all_in_title = ["Mutually Exclusive (Kaia)", "Kaia"]
+
+[[case.toggle]]
+on = ["remove_promo:Exclusive"]
+artist_field = ["Mutually", "Kaia"]
+feat_in_title = ["Mutually", "Kaia"]
+all_in_title = ["Mutually (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a dash that is part of a word is not an artist separator"
+title = "Re-Run"
+uploader = "Kaia"
+base_title = "Re-Run"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Re-Run", "Kaia"]
+feat_in_title = ["Re-Run", "Kaia"]
+all_in_title = ["Re-Run (Kaia)", "Kaia"]
+
+[[case]]
+checks = "bracketed FREE DL is removed"
+title = "Midnight Drive [FREE DL]"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:[FREE DL]"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "bracketed FREE DOWNLOAD is removed"
+title = "Midnight Drive (FREE DOWNLOAD)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:(FREE DOWNLOAD)"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "starred trailing promo is removed with its stars"
+title = "Midnight Drive *FREE DL*"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:*FREE DL*"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "[FREE] alone in brackets is promo"
+title = "Midnight Drive [Free]"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:[Free]"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "OUT NOW ON takes the label name with it, in brackets"
+title = "Midnight Drive [OUT NOW ON Monstercat]"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:[OUT NOW ON Monstercat]"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "OUT NOW ON takes the label name with it at the end"
+title = "Midnight Drive OUT NOW ON MONSTERCAT"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:OUT NOW ON MONSTERCAT"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a bracketed premiere tag is removed"
+title = "Midnight Drive [Premiere]"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:[Premiere]"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a leading PREMIERE before a colon is removed, and a network uploader makes the artist split sure"
+title = "PREMIERE: Kaia - Midnight Drive"
+uploader = "Proximity Network"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:PREMIERE", "artist_from_title:Kaia"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "an NCS release tag is removed"
+title = "Midnight Drive [NCS Release]"
+uploader = "NoCopyrightSounds"
+base_title = "Midnight Drive"
+main = ["NoCopyrightSounds"]
+featured = []
+version = ""
+on = ["remove_promo:[NCS Release]"]
+artist_field = ["Midnight Drive", "NoCopyrightSounds"]
+feat_in_title = ["Midnight Drive", "NoCopyrightSounds"]
+all_in_title = ["Midnight Drive (NoCopyrightSounds)", "NoCopyrightSounds"]
+
+[[case]]
+checks = "SUPPORTED BY takes the names after it"
+title = "Midnight Drive (Supported by Lou V)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:(Supported by Lou V)"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "BUY = FREE DL at the end is removed as one phrase"
+title = "Midnight Drive BUY = FREE DL"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:BUY = FREE DL"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "CLICK BUY takes the rest of the ending with it"
+title = "Midnight Drive CLICK BUY 4 FREE DL"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:CLICK BUY 4 FREE DL"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "official audio tags are removed"
+title = "Midnight Drive (Official Audio)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:(Official Audio)"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "official music video tags are removed"
+title = "Midnight Drive [Official Music Video]"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:[Official Music Video]"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "lyric video tags are removed"
+title = "Midnight Drive (Lyric Video)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:(Lyric Video)"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a visualizer tag is removed"
+title = "Midnight Drive (Visualizer)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:(Visualizer)"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a bracketed HD tag is removed"
+title = "Midnight Drive [HD]"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:[HD]"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a trailing HQ in capitals is removed"
+title = "Midnight Drive HQ"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:HQ"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a trailing EXCLUSIVE in capitals is removed"
+title = "Midnight Drive EXCLUSIVE"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:EXCLUSIVE"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "trailing hashtags are removed as one run"
+title = "Midnight Drive #house #techno"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:#house #techno"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a trailing pipe segment is removed"
+title = "Midnight Drive | Monstercat Release"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:| Monstercat Release"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "two trailing promo phrases are removed one at a time"
+title = "Midnight Drive FREE DL OUT NOW"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:FREE DL", "remove_promo:OUT NOW"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "promo before a trailing feature is removed once the feature is taken"
+title = "Midnight Drive FREE DL feat. Lou V"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["remove_promo:FREE DL", "extract_feature:feat. Lou V"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case]]
+checks = "a title that is nothing but promo is left alone, with the change offered"
+title = "[FREE DL]"
+uploader = "Kaia"
+base_title = "[FREE DL]"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+off = ["remove_promo:[FREE DL]"]
+artist_field = ["[FREE DL]", "Kaia"]
+feat_in_title = ["[FREE DL]", "Kaia"]
+all_in_title = ["[FREE DL] (Kaia)", "Kaia"]
+
+[[case]]
+checks = "with promo kept by the setting, the change starts off"
+title = "Midnight Drive FREE DL"
+uploader = "Kaia"
+settings = { remove_promo_text = false }
+base_title = "Midnight Drive FREE DL"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+off = ["remove_promo:FREE DL"]
+artist_field = ["Midnight Drive FREE DL", "Kaia"]
+feat_in_title = ["Midnight Drive FREE DL", "Kaia"]
+all_in_title = ["Midnight Drive FREE DL (Kaia)", "Kaia"]
+
+[[case]]
+checks = "the user's own words are removed"
+title = "Midnight Drive (Kaia Sessions)"
+uploader = "Kaia"
+settings = { custom_words = ["Kaia Sessions"] }
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["custom_word:Kaia Sessions"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "the user's own words match whole words only"
+title = "Midnight Drive Sessionsss"
+uploader = "Kaia"
+settings = { custom_words = ["Sessions"] }
+base_title = "Midnight Drive Sessionsss"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Midnight Drive Sessionsss", "Kaia"]
+feat_in_title = ["Midnight Drive Sessionsss", "Kaia"]
+all_in_title = ["Midnight Drive Sessionsss (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a trailing prod. credit is removed"
+title = "Midnight Drive prod. Hazy"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_producer:prod. Hazy"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "produced by in brackets is removed"
+title = "Midnight Drive (produced by Hazy)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_producer:(produced by Hazy)"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "prod by without a dot, with two producers, is removed"
+title = "Midnight Drive [prod by Hazy & Mara]"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_producer:[prod by Hazy & Mara]"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a trailing producer credit ends at a spaced dash"
+title = "Midnight Drive prod. Hazy - VIP Mix"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " - VIP Mix"
+on = ["remove_producer:prod. Hazy"]
+artist_field = ["Midnight Drive - VIP Mix", "Kaia"]
+feat_in_title = ["Midnight Drive - VIP Mix", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) - VIP Mix", "Kaia"]
+
+[[case]]
+checks = "with producer credits kept by the setting, the change starts off"
+title = "Midnight Drive (prod. Hazy)"
+uploader = "Kaia"
+settings = { remove_producer_credits = false }
+base_title = "Midnight Drive (prod. Hazy)"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+off = ["remove_producer:(prod. Hazy)"]
+artist_field = ["Midnight Drive (prod. Hazy)", "Kaia"]
+feat_in_title = ["Midnight Drive (prod. Hazy)", "Kaia"]
+all_in_title = ["Midnight Drive (prod. Hazy) (Kaia)", "Kaia"]
+
+[[case]]
+checks = "Prod inside a word is not a producer keyword"
+title = "Prodigy"
+uploader = "Kaia"
+base_title = "Prodigy"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Prodigy", "Kaia"]
+feat_in_title = ["Prodigy", "Kaia"]
+all_in_title = ["Prodigy (Kaia)", "Kaia"]
+
+[[case]]
+checks = "ft. in brackets is a feature"
+title = "Midnight Drive (ft. Lou V)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["extract_feature:(ft. Lou V)"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case]]
+checks = "featuring in brackets is a feature"
+title = "Midnight Drive (featuring Lou V)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["extract_feature:(featuring Lou V)"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case]]
+checks = "ft without a dot is a feature keyword"
+title = "Midnight Drive ft Lou V"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["extract_feature:ft Lou V"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case]]
+checks = "several names split on a comma and an ampersand"
+title = "Midnight Drive feat. Lou V, Mara & Juno"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V", "Mara", "Juno"]
+version = ""
+on = ["extract_feature:feat. Lou V, Mara & Juno"]
+artist_field = ["Midnight Drive", "Kaia, Lou V, Mara, Juno"]
+feat_in_title = ["Midnight Drive (feat. Lou V, Mara, Juno)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V, Mara, Juno)", "Kaia"]
+
+[[case]]
+checks = "names split on a spaced x"
+title = "Midnight Drive (feat. Lou V x Mara)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V", "Mara"]
+version = ""
+on = ["extract_feature:(feat. Lou V x Mara)"]
+artist_field = ["Midnight Drive", "Kaia, Lou V, Mara"]
+feat_in_title = ["Midnight Drive (feat. Lou V, Mara)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V, Mara)", "Kaia"]
+
+[[case]]
+checks = "names split on a plus"
+title = "Midnight Drive ft. Lou V + Mara"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V", "Mara"]
+version = ""
+on = ["extract_feature:ft. Lou V + Mara"]
+artist_field = ["Midnight Drive", "Kaia, Lou V, Mara"]
+feat_in_title = ["Midnight Drive (feat. Lou V, Mara)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V, Mara)", "Kaia"]
+
+[[case]]
+checks = "(with X) in brackets is a feature"
+title = "Midnight Drive (with Lou V)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["extract_feature:(with Lou V)"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case]]
+checks = "(w/ X) in brackets is a feature"
+title = "Midnight Drive [w/ Lou V]"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["extract_feature:[w/ Lou V]"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case]]
+checks = "(With You) in brackets is part of the title"
+title = "Stay (With You)"
+uploader = "Kaia"
+base_title = "Stay (With You)"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Stay (With You)", "Kaia"]
+feat_in_title = ["Stay (With You)", "Kaia"]
+all_in_title = ["Stay (With You) (Kaia)", "Kaia"]
+
+[[case]]
+checks = "an X at the end of a name doesn't split it"
+title = "Midnight Drive (feat. Lil Nas X & Mara)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lil Nas X", "Mara"]
+version = ""
+on = ["extract_feature:(feat. Lil Nas X & Mara)"]
+artist_field = ["Midnight Drive", "Kaia, Lil Nas X, Mara"]
+feat_in_title = ["Midnight Drive (feat. Lil Nas X, Mara)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lil Nas X, Mara)", "Kaia"]
+
+[[case]]
+checks = "a featured main artist is not listed twice"
+title = "Midnight Drive (feat. Kaia)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["extract_feature:(feat. Kaia)"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a feat. block in the publisher artist is a feature too"
+title = "Midnight Drive"
+uploader = "Kaia"
+artists = ["Kaia feat. Lou V"]
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["extract_feature:feat. Lou V"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:feat. Lou V"]
+artist_field = ["Midnight Drive", "Kaia feat. Lou V"]
+feat_in_title = ["Midnight Drive", "Kaia feat. Lou V"]
+all_in_title = ["Midnight Drive (Kaia feat. Lou V)", "Kaia feat. Lou V"]
+
+[[case]]
+checks = "a name the title marks as featured leaves the publisher's main list"
+title = "Midnight Drive (feat. Lou V)"
+uploader = "Kaia"
+artists = ["Kaia", "Lou V"]
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["extract_feature:(feat. Lou V)"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case]]
+checks = "the same feature in the title and the artist field is one change"
+title = "Midnight Drive (feat. Lou V)"
+uploader = "Kaia"
+artists = ["Kaia ft. Lou V"]
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["extract_feature:(feat. Lou V)"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Lou V)"]
+artist_field = ["Midnight Drive (feat. Lou V)", "Kaia ft. Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia ft. Lou V"]
+all_in_title = ["Midnight Drive (feat. Lou V) (Kaia ft. Lou V)", "Kaia ft. Lou V"]
+
+[[case]]
+checks = "an artist prefix that matches the uploader is dropped"
+title = "Kaia - Midnight Drive"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case.toggle]]
+off = ["strip_redundant_artist:Kaia"]
+artist_field = ["Kaia - Midnight Drive", "Kaia"]
+feat_in_title = ["Kaia - Midnight Drive", "Kaia"]
+all_in_title = ["Kaia - Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "the uploader match ignores case and spacing"
+title = "LOU V - Midnight Drive"
+uploader = "louv"
+base_title = "Midnight Drive"
+main = ["louv"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:LOU V"]
+artist_field = ["Midnight Drive", "louv"]
+feat_in_title = ["Midnight Drive", "louv"]
+all_in_title = ["Midnight Drive (louv)", "louv"]
+
+[[case]]
+checks = "an uploader with a label word makes the artist split sure"
+title = "Kaia - Midnight Drive"
+uploader = "Monstercat Records"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "an ampersand list before the dash makes the split sure and stays one credit"
+title = "Kaia & Lou V - Midnight Drive"
+uploader = "Some Channel"
+base_title = "Midnight Drive"
+main = ["Kaia & Lou V"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia & Lou V"]
+artist_field = ["Midnight Drive", "Kaia & Lou V"]
+feat_in_title = ["Midnight Drive", "Kaia & Lou V"]
+all_in_title = ["Midnight Drive (Kaia & Lou V)", "Kaia & Lou V"]
+
+[[case]]
+checks = "a list joined with x before the dash makes the artist split sure"
+title = "Kaia x Lou V - Midnight Drive"
+uploader = "Some Channel"
+base_title = "Midnight Drive"
+main = ["Kaia", "Lou V"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia x Lou V"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive", "Kaia, Lou V"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia, Lou V"]
+
+[[case]]
+checks = "a feature before the dash makes the artist split sure, and the feature is credited"
+title = "Drake ft. Rihanna - Take Care"
+uploader = "Some Channel"
+base_title = "Take Care"
+main = ["Drake"]
+featured = ["Rihanna"]
+version = ""
+on = ["artist_from_title:Drake", "extract_feature:ft. Rihanna"]
+artist_field = ["Take Care", "Drake, Rihanna"]
+feat_in_title = ["Take Care (feat. Rihanna)", "Drake"]
+all_in_title = ["Take Care (Drake, Rihanna)", "Drake"]
+
+[[case.toggle]]
+off = ["artist_from_title:Drake"]
+artist_field = ["Drake - Take Care", "Some Channel, Rihanna"]
+feat_in_title = ["Drake - Take Care (feat. Rihanna)", "Some Channel"]
+all_in_title = ["Drake - Take Care (Some Channel, Rihanna)", "Some Channel"]
+
+[[case.toggle]]
+off = ["extract_feature:ft. Rihanna"]
+artist_field = ["Take Care", "Drake ft. Rihanna"]
+feat_in_title = ["Take Care", "Drake ft. Rihanna"]
+all_in_title = ["Take Care (Drake ft. Rihanna)", "Drake ft. Rihanna"]
+
+[[case]]
+checks = "an unknown uploader only gets the artist split offered"
+title = "Kaia - Midnight Drive"
+uploader = "Some Channel"
+base_title = "Kaia - Midnight Drive"
+main = ["Some Channel"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Kaia"]
+artist_field = ["Kaia - Midnight Drive", "Some Channel"]
+feat_in_title = ["Kaia - Midnight Drive", "Some Channel"]
+all_in_title = ["Kaia - Midnight Drive (Some Channel)", "Some Channel"]
+
+[[case]]
+checks = "an uploader that isn't the publisher artist is a channel, and the title artist joins the publisher's"
+title = "Kaia - Midnight Drive"
+uploader = "Some Channel"
+artists = ["Mara"]
+base_title = "Midnight Drive"
+main = ["Mara", "Kaia"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia"]
+artist_field = ["Midnight Drive", "Mara, Kaia"]
+feat_in_title = ["Midnight Drive", "Mara, Kaia"]
+all_in_title = ["Midnight Drive (Mara, Kaia)", "Mara, Kaia"]
+
+[[case]]
+checks = "a redundant prefix and a dash version together"
+title = "Kaia - Midnight Drive - VIP Mix"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " - VIP Mix"
+on = ["strip_redundant_artist:Kaia"]
+artist_field = ["Midnight Drive - VIP Mix", "Kaia"]
+feat_in_title = ["Midnight Drive - VIP Mix", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) - VIP Mix", "Kaia"]
+
+[[case]]
+checks = "a redundant prefix, a bracketed remix and promo together"
+title = "Kaia - Midnight Drive (Lou V Remix) [FREE DOWNLOAD]"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (Lou V Remix)"
+on = ["strip_redundant_artist:Kaia", "remove_promo:[FREE DOWNLOAD]"]
+artist_field = ["Midnight Drive (Lou V Remix)", "Kaia"]
+feat_in_title = ["Midnight Drive (Lou V Remix)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (Lou V Remix)", "Kaia"]
+
+[[case]]
+checks = "an en dash reads as a hyphen"
+title = "Kaia – Midnight Drive"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "Intro after a dash is a title, not a version"
+title = "Kaia - Intro"
+uploader = "Monstercat Records"
+base_title = "Intro"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia"]
+artist_field = ["Intro", "Kaia"]
+feat_in_title = ["Intro", "Kaia"]
+all_in_title = ["Intro (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a remixer after a dash with no publisher data is unclear, so the title stays whole"
+title = "Midnight Drive - Lou V Remix"
+uploader = "Kaia"
+base_title = "Midnight Drive - Lou V Remix"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Midnight Drive"]
+artist_field = ["Midnight Drive - Lou V Remix", "Kaia"]
+feat_in_title = ["Midnight Drive - Lou V Remix", "Kaia"]
+all_in_title = ["Midnight Drive - Lou V Remix (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a bracketed VIP mix is the version"
+title = "Midnight Drive (VIP Mix)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (VIP Mix)"
+on = []
+artist_field = ["Midnight Drive (VIP Mix)", "Kaia"]
+feat_in_title = ["Midnight Drive (VIP Mix)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (VIP Mix)", "Kaia"]
+
+[[case]]
+checks = "a radio edit is the version"
+title = "Midnight Drive (Radio Edit)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (Radio Edit)"
+on = []
+artist_field = ["Midnight Drive (Radio Edit)", "Kaia"]
+feat_in_title = ["Midnight Drive (Radio Edit)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (Radio Edit)", "Kaia"]
+
+[[case]]
+checks = "a bootleg is the version"
+title = "Midnight Drive [Lou V Bootleg]"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " [Lou V Bootleg]"
+on = []
+artist_field = ["Midnight Drive [Lou V Bootleg]", "Kaia"]
+feat_in_title = ["Midnight Drive [Lou V Bootleg]", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) [Lou V Bootleg]", "Kaia"]
+
+[[case]]
+checks = "slowed and reverb is the version"
+title = "Midnight Drive (Slowed + Reverb)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (Slowed + Reverb)"
+on = []
+artist_field = ["Midnight Drive (Slowed + Reverb)", "Kaia"]
+feat_in_title = ["Midnight Drive (Slowed + Reverb)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (Slowed + Reverb)", "Kaia"]
+
+[[case]]
+checks = "sped up is the version"
+title = "Midnight Drive (Sped Up)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (Sped Up)"
+on = []
+artist_field = ["Midnight Drive (Sped Up)", "Kaia"]
+feat_in_title = ["Midnight Drive (Sped Up)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (Sped Up)", "Kaia"]
+
+[[case]]
+checks = "live at in brackets is the version"
+title = "Midnight Drive (Live at Wembley)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (Live at Wembley)"
+on = []
+artist_field = ["Midnight Drive (Live at Wembley)", "Kaia"]
+feat_in_title = ["Midnight Drive (Live at Wembley)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (Live at Wembley)", "Kaia"]
+
+[[case]]
+checks = "an acoustic version is the version"
+title = "Midnight Drive (Acoustic Version)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (Acoustic Version)"
+on = []
+artist_field = ["Midnight Drive (Acoustic Version)", "Kaia"]
+feat_in_title = ["Midnight Drive (Acoustic Version)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (Acoustic Version)", "Kaia"]
+
+[[case]]
+checks = "a remaster with a year is the version"
+title = "Midnight Drive (2011 Remaster)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (2011 Remaster)"
+on = []
+artist_field = ["Midnight Drive (2011 Remaster)", "Kaia"]
+feat_in_title = ["Midnight Drive (2011 Remaster)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (2011 Remaster)", "Kaia"]
+
+[[case]]
+checks = "part with a number after a dash is the version"
+title = "Midnight Drive - Part 2"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " - Part 2"
+on = []
+artist_field = ["Midnight Drive - Part 2", "Kaia"]
+feat_in_title = ["Midnight Drive - Part 2", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) - Part 2", "Kaia"]
+
+[[case]]
+checks = "Intro in brackets is the version"
+title = "Midnight Drive (Intro)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (Intro)"
+on = []
+artist_field = ["Midnight Drive (Intro)", "Kaia"]
+feat_in_title = ["Midnight Drive (Intro)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (Intro)", "Kaia"]
+
+[[case]]
+checks = "a version and a later feature: the feature comes out and the version stays"
+title = "Midnight Drive (Mara Remix) (feat. Lou V)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = " (Mara Remix)"
+on = ["extract_feature:(feat. Lou V)"]
+artist_field = ["Midnight Drive (Mara Remix)", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V) (Mara Remix)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V) (Mara Remix)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Lou V)"]
+artist_field = ["Midnight Drive (Mara Remix) (feat. Lou V)", "Kaia"]
+feat_in_title = ["Midnight Drive (Mara Remix) (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (Mara Remix) (feat. Lou V)", "Kaia"]
+
+[[case]]
+checks = "a feature before a version"
+title = "Midnight Drive feat. Lou V (Mara Remix)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = " (Mara Remix)"
+on = ["extract_feature:feat. Lou V"]
+artist_field = ["Midnight Drive (Mara Remix)", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V) (Mara Remix)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V) (Mara Remix)", "Kaia"]
+
+[[case]]
+checks = "an extended mix with promo after it"
+title = "Midnight Drive (Extended Mix) [FREE DL]"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (Extended Mix)"
+on = ["remove_promo:[FREE DL]"]
+artist_field = ["Midnight Drive (Extended Mix)", "Kaia"]
+feat_in_title = ["Midnight Drive (Extended Mix)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (Extended Mix)", "Kaia"]
+
+[[case.toggle]]
+off = ["remove_promo:[FREE DL]"]
+artist_field = ["Midnight Drive (Extended Mix) [FREE DL]", "Kaia"]
+feat_in_title = ["Midnight Drive (Extended Mix) [FREE DL]", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (Extended Mix) [FREE DL]", "Kaia"]
+
+[[case]]
+checks = "a keep word protects its bracket from promo removal"
+title = "Midnight Drive (Free Remix)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (Free Remix)"
+on = []
+artist_field = ["Midnight Drive (Free Remix)", "Kaia"]
+feat_in_title = ["Midnight Drive (Free Remix)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (Free Remix)", "Kaia"]
+
+[[case]]
+checks = "each run of emoji is its own change"
+title = "🔥 Midnight Drive 🔥"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_emoji:🔥", "remove_emoji:🔥#2"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case.toggle]]
+off = ["remove_emoji:🔥#2"]
+artist_field = ["Midnight Drive 🔥", "Kaia"]
+feat_in_title = ["Midnight Drive 🔥", "Kaia"]
+all_in_title = ["Midnight Drive 🔥 (Kaia)", "Kaia"]
+
+[[case]]
+checks = "emoji next to a feature"
+title = "Midnight Drive ✨ (feat. Lou V)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["remove_emoji:✨", "extract_feature:(feat. Lou V)"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case]]
+checks = "emoji before an artist prefix don't hide the uploader match"
+title = "🌙 Kaia - Midnight Drive"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_emoji:🌙", "strip_redundant_artist:Kaia"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "an all-caps title is offered title case, off by default"
+title = "LUCID DREAMS"
+uploader = "Kaia"
+base_title = "LUCID DREAMS"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+off = ["fix_caps:LUCID DREAMS"]
+artist_field = ["LUCID DREAMS", "Kaia"]
+feat_in_title = ["LUCID DREAMS", "Kaia"]
+all_in_title = ["LUCID DREAMS (Kaia)", "Kaia"]
+
+[[case.toggle]]
+on = ["fix_caps:LUCID DREAMS"]
+artist_field = ["Lucid Dreams", "Kaia"]
+feat_in_title = ["Lucid Dreams", "Kaia"]
+all_in_title = ["Lucid Dreams (Kaia)", "Kaia"]
+
+[[case]]
+checks = "an all-caps title with a feature and a version"
+title = "MIDNIGHT DRIVE (FEAT. LOU V) [VIP MIX]"
+uploader = "Kaia"
+base_title = "MIDNIGHT DRIVE"
+main = ["Kaia"]
+featured = ["LOU V"]
+version = " [VIP MIX]"
+on = ["extract_feature:(FEAT. LOU V)"]
+off = ["fix_caps:MIDNIGHT DRIVE [VIP MIX]"]
+artist_field = ["MIDNIGHT DRIVE [VIP MIX]", "Kaia, LOU V"]
+feat_in_title = ["MIDNIGHT DRIVE (feat. LOU V) [VIP MIX]", "Kaia"]
+all_in_title = ["MIDNIGHT DRIVE (Kaia, LOU V) [VIP MIX]", "Kaia"]
+
+[[case.toggle]]
+on = ["fix_caps:MIDNIGHT DRIVE [VIP MIX]"]
+artist_field = ["Midnight Drive [VIP Mix]", "Kaia, LOU V"]
+feat_in_title = ["Midnight Drive (feat. LOU V) [VIP Mix]", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, LOU V) [VIP Mix]", "Kaia"]
+
+[[case]]
+checks = "accented letters are kept and the edit is the version"
+title = "Café del Mar (Ibiza Edit)"
+uploader = "Kaia"
+base_title = "Café del Mar"
+main = ["Kaia"]
+featured = []
+version = " (Ibiza Edit)"
+on = []
+artist_field = ["Café del Mar (Ibiza Edit)", "Kaia"]
+feat_in_title = ["Café del Mar (Ibiza Edit)", "Kaia"]
+all_in_title = ["Café del Mar (Kaia) (Ibiza Edit)", "Kaia"]
+
+[[case]]
+checks = "accented names after ft."
+title = "Mañana ft. Zoë"
+uploader = "Kaia"
+base_title = "Mañana"
+main = ["Kaia"]
+featured = ["Zoë"]
+version = ""
+on = ["extract_feature:ft. Zoë"]
+artist_field = ["Mañana", "Kaia, Zoë"]
+feat_in_title = ["Mañana (feat. Zoë)", "Kaia"]
+all_in_title = ["Mañana (Kaia, Zoë)", "Kaia"]
+
+[[case]]
+checks = "a Japanese title with a feature"
+title = "夜に駆ける (feat. ikura)"
+uploader = "YOASOBI"
+base_title = "夜に駆ける"
+main = ["YOASOBI"]
+featured = ["ikura"]
+version = ""
+on = ["extract_feature:(feat. ikura)"]
+artist_field = ["夜に駆ける", "YOASOBI, ikura"]
+feat_in_title = ["夜に駆ける (feat. ikura)", "YOASOBI"]
+all_in_title = ["夜に駆ける (YOASOBI, ikura)", "YOASOBI"]
+
+[[case]]
+checks = "a Cyrillic title is left alone"
+title = "Белые розы"
+uploader = "Ласковый Май"
+base_title = "Белые розы"
+main = ["Ласковый Май"]
+featured = []
+version = ""
+on = []
+artist_field = ["Белые розы", "Ласковый Май"]
+feat_in_title = ["Белые розы", "Ласковый Май"]
+all_in_title = ["Белые розы (Ласковый Май)", "Ласковый Май"]
+
+[[case]]
+checks = "an empty title stays empty"
+title = ""
+uploader = "Kaia"
+base_title = ""
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["", "Kaia"]
+feat_in_title = ["", "Kaia"]
+all_in_title = ["", "Kaia"]
+
+[[case]]
+checks = "a whitespace-only title becomes empty"
+title = "   "
+uploader = "Kaia"
+base_title = ""
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["", "Kaia"]
+feat_in_title = ["", "Kaia"]
+all_in_title = ["", "Kaia"]
+
+[[case]]
+checks = "a bracketed feature comes out and an unclear dash ending stays in the title"
+title = "Midnight Drive (feat. Lou V) - Mara Remix"
+uploader = "Kaia"
+base_title = "Midnight Drive - Mara Remix"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["extract_feature:(feat. Lou V)"]
+off = ["artist_from_title:Midnight Drive"]
+artist_field = ["Midnight Drive - Mara Remix", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive - Mara Remix (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive - Mara Remix (Kaia, Lou V)", "Kaia"]
+
+[[case]]
+checks = "a redundant prefix and a trailing feature"
+title = "Kaia - Midnight Drive ft. Lou V"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["strip_redundant_artist:Kaia", "extract_feature:ft. Lou V"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case.toggle]]
+off = ["strip_redundant_artist:Kaia"]
+artist_field = ["Kaia - Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Kaia - Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Kaia - Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:ft. Lou V"]
+artist_field = ["Midnight Drive ft. Lou V", "Kaia"]
+feat_in_title = ["Midnight Drive ft. Lou V", "Kaia"]
+all_in_title = ["Midnight Drive ft. Lou V (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a label upload with artist, feature and version"
+title = "Kaia - Midnight Drive (feat. Lou V) [Mara Remix]"
+uploader = "Monstercat Records"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = " [Mara Remix]"
+on = ["artist_from_title:Kaia", "extract_feature:(feat. Lou V)"]
+artist_field = ["Midnight Drive [Mara Remix]", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V) [Mara Remix]", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V) [Mara Remix]", "Kaia"]
+
+[[case]]
+checks = "a radio edit after a dash is the version"
+title = "Midnight Drive - Radio Edit"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " - Radio Edit"
+on = []
+artist_field = ["Midnight Drive - Radio Edit", "Kaia"]
+feat_in_title = ["Midnight Drive - Radio Edit", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) - Radio Edit", "Kaia"]
+
+[[case]]
+checks = "a bare VIP after a dash is the version"
+title = "Midnight Drive - VIP"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " - VIP"
+on = []
+artist_field = ["Midnight Drive - VIP", "Kaia"]
+feat_in_title = ["Midnight Drive - VIP", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) - VIP", "Kaia"]
+
+[[case]]
+checks = "a dub mix is the version"
+title = "Midnight Drive (Dub Mix)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (Dub Mix)"
+on = []
+artist_field = ["Midnight Drive (Dub Mix)", "Kaia"]
+feat_in_title = ["Midnight Drive (Dub Mix)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (Dub Mix)", "Kaia"]
+
+[[case]]
+checks = "an instrumental is the version"
+title = "Midnight Drive [Instrumental]"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " [Instrumental]"
+on = []
+artist_field = ["Midnight Drive [Instrumental]", "Kaia"]
+feat_in_title = ["Midnight Drive [Instrumental]", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) [Instrumental]", "Kaia"]
+
+[[case]]
+checks = "a cappella is the version"
+title = "Midnight Drive (A Cappella)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (A Cappella)"
+on = []
+artist_field = ["Midnight Drive (A Cappella)", "Kaia"]
+feat_in_title = ["Midnight Drive (A Cappella)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (A Cappella)", "Kaia"]
+
+[[case]]
+checks = "a clean version is the version"
+title = "Midnight Drive (Clean)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (Clean)"
+on = []
+artist_field = ["Midnight Drive (Clean)", "Kaia"]
+feat_in_title = ["Midnight Drive (Clean)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (Clean)", "Kaia"]
+
+[[case]]
+checks = "a flip with promo and hashtags after it"
+title = "Midnight Drive (Lou V Flip) [FREE DL] #dnb"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (Lou V Flip)"
+on = ["remove_promo:[FREE DL]", "remove_promo:#dnb"]
+artist_field = ["Midnight Drive (Lou V Flip)", "Kaia"]
+feat_in_title = ["Midnight Drive (Lou V Flip)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (Lou V Flip)", "Kaia"]
+
+[[case]]
+checks = "two features in one title are both credited"
+title = "Midnight Drive (feat. Lou V) ft. Mara"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V", "Mara"]
+version = ""
+on = ["extract_feature:(feat. Lou V)", "extract_feature:ft. Mara"]
+artist_field = ["Midnight Drive", "Kaia, Lou V, Mara"]
+feat_in_title = ["Midnight Drive (feat. Lou V, Mara)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V, Mara)", "Kaia"]
+
+[[case]]
+checks = "a promo phrase inside a word is not promo"
+title = "Hdtv Dreams"
+uploader = "Kaia"
+base_title = "Hdtv Dreams"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Hdtv Dreams", "Kaia"]
+feat_in_title = ["Hdtv Dreams", "Kaia"]
+all_in_title = ["Hdtv Dreams (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a label upload ending in a keep word is unclear, so the title stays whole with the split offered"
+title = "Kaia - Midnight Drive Remix"
+uploader = "Monstercat Records"
+base_title = "Kaia - Midnight Drive Remix"
+main = ["Monstercat Records"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Kaia"]
+artist_field = ["Kaia - Midnight Drive Remix", "Monstercat Records"]
+feat_in_title = ["Kaia - Midnight Drive Remix", "Monstercat Records"]
+all_in_title = ["Kaia - Midnight Drive Remix (Monstercat Records)", "Monstercat Records"]
+
+[[case]]
+checks = "a label upload whose ending is only version words keeps it as the version"
+title = "Midnight Drive - VIP Mix"
+uploader = "Monstercat Records"
+base_title = "Midnight Drive"
+main = ["Monstercat Records"]
+featured = []
+version = " - VIP Mix"
+on = []
+artist_field = ["Midnight Drive - VIP Mix", "Monstercat Records"]
+feat_in_title = ["Midnight Drive - VIP Mix", "Monstercat Records"]
+all_in_title = ["Midnight Drive (Monstercat Records) - VIP Mix", "Monstercat Records"]
+
+[[case]]
+checks = "ft right after a number may be a measure, so the feature is only offered"
+title = "Six Ft Under"
+uploader = "Kaia"
+base_title = "Six Ft Under"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+off = ["extract_feature:Ft Under"]
+artist_field = ["Six Ft Under", "Kaia"]
+feat_in_title = ["Six Ft Under", "Kaia"]
+all_in_title = ["Six Ft Under (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a remix ending is the version when the publisher names the artist, even from a label"
+title = "Midnight Drive - Lou V Remix"
+uploader = "Monstercat"
+artists = ["Kaia"]
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " - Lou V Remix"
+on = []
+artist_field = ["Midnight Drive - Lou V Remix", "Kaia"]
+feat_in_title = ["Midnight Drive - Lou V Remix", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) - Lou V Remix", "Kaia"]
+
+[[case]]
+checks = "an uploader that isn't the publisher doesn't turn a remix ending into an artist split"
+title = "Midnight Drive - Lou V Remix"
+uploader = "kaiabeats"
+artists = ["Kaia"]
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " - Lou V Remix"
+on = []
+artist_field = ["Midnight Drive - Lou V Remix", "Kaia"]
+feat_in_title = ["Midnight Drive - Lou V Remix", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) - Lou V Remix", "Kaia"]
+
+[[case]]
+checks = "a label word in the uploader doesn't turn a remix ending into an artist split"
+title = "Midnight Drive - Lou V Remix"
+uploader = "Kaia Music"
+base_title = "Midnight Drive - Lou V Remix"
+main = ["Kaia Music"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Midnight Drive"]
+artist_field = ["Midnight Drive - Lou V Remix", "Kaia Music"]
+feat_in_title = ["Midnight Drive - Lou V Remix", "Kaia Music"]
+all_in_title = ["Midnight Drive - Lou V Remix (Kaia Music)", "Kaia Music"]
+
+[[case]]
+checks = "an artist account named Official only gets the split offered for a remix ending"
+title = "Midnight Drive - Lou V Remix"
+uploader = "Kaia (Official)"
+base_title = "Midnight Drive - Lou V Remix"
+main = ["Kaia (Official)"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Midnight Drive"]
+artist_field = ["Midnight Drive - Lou V Remix", "Kaia (Official)"]
+feat_in_title = ["Midnight Drive - Lou V Remix", "Kaia (Official)"]
+all_in_title = ["Midnight Drive - Lou V Remix (Kaia (Official))", "Kaia (Official)"]
+
+[[case]]
+checks = "a label upload with artist, title and remix keeps the remix as the version"
+title = "Kaia - Midnight Drive - Lou V Remix"
+uploader = "Monstercat Records"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " - Lou V Remix"
+on = ["artist_from_title:Kaia"]
+artist_field = ["Midnight Drive - Lou V Remix", "Kaia"]
+feat_in_title = ["Midnight Drive - Lou V Remix", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) - Lou V Remix", "Kaia"]
+
+[[case]]
+checks = "a publisher artist with an ampersand matches whole and is credited once"
+title = "Chase & Status - Baddadan"
+uploader = "UKF"
+artists = ["Chase & Status"]
+base_title = "Baddadan"
+main = ["Chase & Status"]
+featured = []
+version = ""
+on = ["artist_from_title:Chase & Status"]
+artist_field = ["Baddadan", "Chase & Status"]
+feat_in_title = ["Baddadan", "Chase & Status"]
+all_in_title = ["Baddadan (Chase & Status)", "Chase & Status"]
+
+[[case]]
+checks = "a duo publisher artist matches whole, and the feature is still credited"
+title = "Above & Beyond - Sun & Moon (feat. Richard Bedford)"
+uploader = "Anjunabeats"
+artists = ["Above & Beyond"]
+base_title = "Sun & Moon"
+main = ["Above & Beyond"]
+featured = ["Richard Bedford"]
+version = ""
+on = ["artist_from_title:Above & Beyond", "extract_feature:(feat. Richard Bedford)"]
+artist_field = ["Sun & Moon", "Above & Beyond, Richard Bedford"]
+feat_in_title = ["Sun & Moon (feat. Richard Bedford)", "Above & Beyond"]
+all_in_title = ["Sun & Moon (Above & Beyond, Richard Bedford)", "Above & Beyond"]
+
+[[case]]
+checks = "a publisher artist with a comma matches whole and is credited once"
+title = "Tyler, The Creator - EARFQUAKE"
+uploader = "Columbia Records"
+artists = ["Tyler, The Creator"]
+base_title = "EARFQUAKE"
+main = ["Tyler, The Creator"]
+featured = []
+version = ""
+on = ["artist_from_title:Tyler, The Creator"]
+off = ["fix_caps:EARFQUAKE"]
+artist_field = ["EARFQUAKE", "Tyler, The Creator"]
+feat_in_title = ["EARFQUAKE", "Tyler, The Creator"]
+all_in_title = ["EARFQUAKE (Tyler, The Creator)", "Tyler, The Creator"]
+
+[[case]]
+checks = "a feature in full-width brackets comes out whole"
+title = "夜に駆ける（feat. Kaia）"
+uploader = "Some Artist"
+base_title = "夜に駆ける"
+main = ["Some Artist"]
+featured = ["Kaia"]
+version = ""
+on = ["extract_feature:（feat. Kaia）"]
+artist_field = ["夜に駆ける", "Some Artist, Kaia"]
+feat_in_title = ["夜に駆ける (feat. Kaia)", "Some Artist"]
+all_in_title = ["夜に駆ける (Some Artist, Kaia)", "Some Artist"]
+
+[[case]]
+checks = "a version in full-width brackets is the version and keeps its spacing"
+title = "Midnight Drive（Kaia Remix）"
+uploader = "Some Artist"
+base_title = "Midnight Drive"
+main = ["Some Artist"]
+featured = []
+version = "（Kaia Remix）"
+on = []
+artist_field = ["Midnight Drive（Kaia Remix）", "Some Artist"]
+feat_in_title = ["Midnight Drive（Kaia Remix）", "Some Artist"]
+all_in_title = ["Midnight Drive (Some Artist)（Kaia Remix）", "Some Artist"]
+
+[[case]]
+checks = "a feature inside a redundant artist prefix goes back into the artist when turned off"
+title = "Kaia ft. Lou V - Midnight Drive"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["strip_redundant_artist:Kaia", "extract_feature:ft. Lou V"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:ft. Lou V"]
+artist_field = ["Midnight Drive", "Kaia ft. Lou V"]
+feat_in_title = ["Midnight Drive", "Kaia ft. Lou V"]
+all_in_title = ["Midnight Drive (Kaia ft. Lou V)", "Kaia ft. Lou V"]
+
+[[case]]
+checks = "a bracketed feature before the dash makes the split sure, and goes back into the artist when off"
+title = "Drake (feat. Rihanna) - Take Care"
+uploader = "Some Channel"
+base_title = "Take Care"
+main = ["Drake"]
+featured = ["Rihanna"]
+version = ""
+on = ["artist_from_title:Drake", "extract_feature:(feat. Rihanna)"]
+artist_field = ["Take Care", "Drake, Rihanna"]
+feat_in_title = ["Take Care (feat. Rihanna)", "Drake"]
+all_in_title = ["Take Care (Drake, Rihanna)", "Drake"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Rihanna)"]
+artist_field = ["Take Care", "Drake (feat. Rihanna)"]
+feat_in_title = ["Take Care", "Drake (feat. Rihanna)"]
+all_in_title = ["Take Care (Drake (feat. Rihanna))", "Drake (feat. Rihanna)"]
+
+[[case.toggle]]
+off = ["artist_from_title:Drake"]
+artist_field = ["Drake - Take Care", "Some Channel, Rihanna"]
+feat_in_title = ["Drake - Take Care (feat. Rihanna)", "Some Channel"]
+all_in_title = ["Drake - Take Care (Some Channel, Rihanna)", "Some Channel"]
+
+[[case]]
+checks = "a feature in the artist part goes back into it, with a remix and promo in the title"
+title = "Kaia feat. Lou V - Midnight Drive (Hazy Remix) [FREE DL]"
+uploader = "Hazy"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = " (Hazy Remix)"
+on = ["artist_from_title:Kaia", "extract_feature:feat. Lou V", "remove_promo:[FREE DL]"]
+artist_field = ["Midnight Drive (Hazy Remix)", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V) (Hazy Remix)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V) (Hazy Remix)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:feat. Lou V"]
+artist_field = ["Midnight Drive (Hazy Remix)", "Kaia feat. Lou V"]
+feat_in_title = ["Midnight Drive (Hazy Remix)", "Kaia feat. Lou V"]
+all_in_title = ["Midnight Drive (Kaia feat. Lou V) (Hazy Remix)", "Kaia feat. Lou V"]
+
+[[case]]
+checks = "a feature put back into the artist part replaces the matching publisher artist"
+title = "Kaia ft. Lou V - Midnight Drive"
+uploader = "Kaia"
+artists = ["Kaia"]
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["strip_redundant_artist:Kaia", "extract_feature:ft. Lou V"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:ft. Lou V"]
+artist_field = ["Midnight Drive", "Kaia ft. Lou V"]
+feat_in_title = ["Midnight Drive", "Kaia ft. Lou V"]
+all_in_title = ["Midnight Drive (Kaia ft. Lou V)", "Kaia ft. Lou V"]
+
+[[case]]
+checks = "a producer credit ends where a feature starts"
+title = "Midnight Drive prod. Hazy ft. Lou V"
+uploader = "Some Artist"
+base_title = "Midnight Drive"
+main = ["Some Artist"]
+featured = ["Lou V"]
+version = ""
+on = ["remove_producer:prod. Hazy", "extract_feature:ft. Lou V"]
+artist_field = ["Midnight Drive", "Some Artist, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Some Artist"]
+all_in_title = ["Midnight Drive (Some Artist, Lou V)", "Some Artist"]
+
+[[case]]
+checks = "a featured artist named with a keep word is still credited"
+title = "Secret Love Song (feat. Little Mix)"
+uploader = "Some Artist"
+base_title = "Secret Love Song"
+main = ["Some Artist"]
+featured = ["Little Mix"]
+version = ""
+on = ["extract_feature:(feat. Little Mix)"]
+artist_field = ["Secret Love Song", "Some Artist, Little Mix"]
+feat_in_title = ["Secret Love Song (feat. Little Mix)", "Some Artist"]
+all_in_title = ["Secret Love Song (Some Artist, Little Mix)", "Some Artist"]
+
+[[case]]
+checks = "a featured artist named Clean Bandit is still credited"
+title = "Rockabye (feat. Clean Bandit)"
+uploader = "Some Artist"
+base_title = "Rockabye"
+main = ["Some Artist"]
+featured = ["Clean Bandit"]
+version = ""
+on = ["extract_feature:(feat. Clean Bandit)"]
+artist_field = ["Rockabye", "Some Artist, Clean Bandit"]
+feat_in_title = ["Rockabye (feat. Clean Bandit)", "Some Artist"]
+all_in_title = ["Rockabye (Some Artist, Clean Bandit)", "Some Artist"]
+
+[[case]]
+checks = "a producer named with a keep word is still a producer credit"
+title = "Midnight Drive [prod. Mix Master]"
+uploader = "Some Artist"
+base_title = "Midnight Drive"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = ["remove_producer:[prod. Mix Master]"]
+artist_field = ["Midnight Drive", "Some Artist"]
+feat_in_title = ["Midnight Drive", "Some Artist"]
+all_in_title = ["Midnight Drive (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "a producer named Live is still a producer credit"
+title = "Midnight Drive (prod. Live)"
+uploader = "Some Artist"
+base_title = "Midnight Drive"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = ["remove_producer:(prod. Live)"]
+artist_field = ["Midnight Drive", "Some Artist"]
+feat_in_title = ["Midnight Drive", "Some Artist"]
+all_in_title = ["Midnight Drive (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "Full Version doesn't protect promo in the same bracket"
+title = "Midnight Drive [Free Download - Full Version]"
+uploader = "Some Artist"
+base_title = "Midnight Drive"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = ["remove_promo:[Free Download - Full Version]"]
+artist_field = ["Midnight Drive", "Some Artist"]
+feat_in_title = ["Midnight Drive", "Some Artist"]
+all_in_title = ["Midnight Drive (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "a feature inside a remix bracket is credited and the remix stays"
+title = "Midnight Drive (Kaia Remix feat. Lou V)"
+uploader = "Some Artist"
+base_title = "Midnight Drive"
+main = ["Some Artist"]
+featured = ["Lou V"]
+version = " (Kaia Remix)"
+on = ["extract_feature:feat. Lou V"]
+artist_field = ["Midnight Drive (Kaia Remix)", "Some Artist, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V) (Kaia Remix)", "Some Artist"]
+all_in_title = ["Midnight Drive (Some Artist, Lou V) (Kaia Remix)", "Some Artist"]
+
+[[case.toggle]]
+off = ["extract_feature:feat. Lou V"]
+artist_field = ["Midnight Drive (Kaia Remix feat. Lou V)", "Some Artist"]
+feat_in_title = ["Midnight Drive (Kaia Remix feat. Lou V)", "Some Artist"]
+all_in_title = ["Midnight Drive (Some Artist) (Kaia Remix feat. Lou V)", "Some Artist"]
+
+[[case]]
+checks = "With Lyrics is promo, not a featured artist"
+title = "Midnight Drive (With Lyrics)"
+uploader = "Some Artist"
+base_title = "Midnight Drive"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = ["remove_promo:(With Lyrics)"]
+artist_field = ["Midnight Drive", "Some Artist"]
+feat_in_title = ["Midnight Drive", "Some Artist"]
+all_in_title = ["Midnight Drive (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "with Strings is part of the title, not a featured artist"
+title = "Midnight Drive (with Strings)"
+uploader = "Some Artist"
+base_title = "Midnight Drive (with Strings)"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+artist_field = ["Midnight Drive (with Strings)", "Some Artist"]
+feat_in_title = ["Midnight Drive (with Strings)", "Some Artist"]
+all_in_title = ["Midnight Drive (with Strings) (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "with Orchestra is part of the title, not a featured artist"
+title = "Midnight Drive (with Orchestra)"
+uploader = "Some Artist"
+base_title = "Midnight Drive (with Orchestra)"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+artist_field = ["Midnight Drive (with Orchestra)", "Some Artist"]
+feat_in_title = ["Midnight Drive (with Orchestra)", "Some Artist"]
+all_in_title = ["Midnight Drive (with Orchestra) (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "a sad emoticon is left alone"
+title = "i miss u :("
+uploader = "Some Artist"
+base_title = "i miss u :("
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+artist_field = ["i miss u :(", "Some Artist"]
+feat_in_title = ["i miss u :(", "Some Artist"]
+all_in_title = ["i miss u :( (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "a smiling emoticon is left alone"
+title = "Midnight Drive :)"
+uploader = "Some Artist"
+base_title = "Midnight Drive :)"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+artist_field = ["Midnight Drive :)", "Some Artist"]
+feat_in_title = ["Midnight Drive :)", "Some Artist"]
+all_in_title = ["Midnight Drive :) (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "a winking emoticon is left alone"
+title = "Midnight Drive ;)"
+uploader = "Some Artist"
+base_title = "Midnight Drive ;)"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+artist_field = ["Midnight Drive ;)", "Some Artist"]
+feat_in_title = ["Midnight Drive ;)", "Some Artist"]
+all_in_title = ["Midnight Drive ;) (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "an emoticon survives tidying when promo next to it comes out"
+title = "i miss u :( FREE DL"
+uploader = "Some Artist"
+base_title = "i miss u :("
+main = ["Some Artist"]
+featured = []
+version = ""
+on = ["remove_promo:FREE DL"]
+artist_field = ["i miss u :(", "Some Artist"]
+feat_in_title = ["i miss u :(", "Some Artist"]
+all_in_title = ["i miss u :( (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "a pipe after the uploader's name works like the artist dash"
+title = "Kaia | Midnight Drive"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "starred CLICK BUY promo comes out with both stars, and the remix stays the version"
+title = "Midnight Drive (Kaia Remix) *CLICK BUY FOR FREE DL*"
+uploader = "Some Artist"
+base_title = "Midnight Drive"
+main = ["Some Artist"]
+featured = []
+version = " (Kaia Remix)"
+on = ["remove_promo:*CLICK BUY FOR FREE DL*"]
+artist_field = ["Midnight Drive (Kaia Remix)", "Some Artist"]
+feat_in_title = ["Midnight Drive (Kaia Remix)", "Some Artist"]
+all_in_title = ["Midnight Drive (Some Artist) (Kaia Remix)", "Some Artist"]
+
+[[case]]
+checks = "a remix ending from an unknown uploader leaves the title whole with the split offered"
+title = "Kaia - Midnight Drive Remix"
+uploader = "Some Channel"
+base_title = "Kaia - Midnight Drive Remix"
+main = ["Some Channel"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Kaia"]
+artist_field = ["Kaia - Midnight Drive Remix", "Some Channel"]
+feat_in_title = ["Kaia - Midnight Drive Remix", "Some Channel"]
+all_in_title = ["Kaia - Midnight Drive Remix (Some Channel)", "Some Channel"]
+
+[[case.toggle]]
+on = ["artist_from_title:Kaia"]
+artist_field = ["Midnight Drive Remix", "Kaia"]
+feat_in_title = ["Midnight Drive Remix", "Kaia"]
+all_in_title = ["Midnight Drive Remix (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a mix with a year from a radio channel leaves the title whole with the split offered"
+title = "Kaia - Essential Mix 2023"
+uploader = "BBC Radio 1"
+base_title = "Kaia - Essential Mix 2023"
+main = ["BBC Radio 1"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Kaia"]
+artist_field = ["Kaia - Essential Mix 2023", "BBC Radio 1"]
+feat_in_title = ["Kaia - Essential Mix 2023", "BBC Radio 1"]
+all_in_title = ["Kaia - Essential Mix 2023 (BBC Radio 1)", "BBC Radio 1"]
+
+[[case]]
+checks = "a one-word keep ending from a label is unclear: Clean"
+title = "Kaia - Clean"
+uploader = "Monstercat Records"
+base_title = "Kaia - Clean"
+main = ["Monstercat Records"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Kaia"]
+artist_field = ["Kaia - Clean", "Monstercat Records"]
+feat_in_title = ["Kaia - Clean", "Monstercat Records"]
+all_in_title = ["Kaia - Clean (Monstercat Records)", "Monstercat Records"]
+
+[[case]]
+checks = "a one-word keep ending from a label is unclear: Live"
+title = "Kaia - Live"
+uploader = "Monstercat Records"
+base_title = "Kaia - Live"
+main = ["Monstercat Records"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Kaia"]
+artist_field = ["Kaia - Live", "Monstercat Records"]
+feat_in_title = ["Kaia - Live", "Monstercat Records"]
+all_in_title = ["Kaia - Live (Monstercat Records)", "Monstercat Records"]
+
+[[case]]
+checks = "a one-word keep ending from a label is unclear even when it reads as a version"
+title = "Midnight Drive - VIP"
+uploader = "Monstercat Records"
+base_title = "Midnight Drive - VIP"
+main = ["Monstercat Records"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Midnight Drive"]
+artist_field = ["Midnight Drive - VIP", "Monstercat Records"]
+feat_in_title = ["Midnight Drive - VIP", "Monstercat Records"]
+all_in_title = ["Midnight Drive - VIP (Monstercat Records)", "Monstercat Records"]
+
+[[case]]
+checks = "a sharp sign is a musical symbol, not an emoji"
+title = "Sonata in C♯ Minor"
+uploader = "Some Artist"
+base_title = "Sonata in C♯ Minor"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+artist_field = ["Sonata in C♯ Minor", "Some Artist"]
+feat_in_title = ["Sonata in C♯ Minor", "Some Artist"]
+all_in_title = ["Sonata in C♯ Minor (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "a star between two words stays in the title, with its removal offered"
+title = "Midnight Drive ★ Kaia Remix"
+uploader = "Some Artist"
+base_title = "Midnight Drive ★ Kaia Remix"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+off = ["remove_emoji:★"]
+artist_field = ["Midnight Drive ★ Kaia Remix", "Some Artist"]
+feat_in_title = ["Midnight Drive ★ Kaia Remix", "Some Artist"]
+all_in_title = ["Midnight Drive ★ Kaia Remix (Some Artist)", "Some Artist"]
+
+[[case.toggle]]
+on = ["remove_emoji:★"]
+artist_field = ["Midnight Drive Kaia Remix", "Some Artist"]
+feat_in_title = ["Midnight Drive Kaia Remix", "Some Artist"]
+all_in_title = ["Midnight Drive Kaia Remix (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "a symbol between two artists doesn't block the artist split"
+title = "Kaia ✖ Lou V - Midnight Drive"
+uploader = "Some Channel"
+base_title = "Kaia ✖ Lou V - Midnight Drive"
+main = ["Some Channel"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Kaia ✖ Lou V"]
+artist_field = ["Kaia ✖ Lou V - Midnight Drive", "Some Channel"]
+feat_in_title = ["Kaia ✖ Lou V - Midnight Drive", "Some Channel"]
+all_in_title = ["Kaia ✖ Lou V - Midnight Drive (Some Channel)", "Some Channel"]
+
+[[case]]
+checks = "a keycap emoji is removed"
+title = "Midnight Drive 1️⃣"
+uploader = "Some Artist"
+base_title = "Midnight Drive"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = ["remove_emoji:1️⃣"]
+artist_field = ["Midnight Drive", "Some Artist"]
+feat_in_title = ["Midnight Drive", "Some Artist"]
+all_in_title = ["Midnight Drive (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "MV in a Japanese title is noise, and the title isn't offered title case"
+title = "夜に駆ける【MV】"
+uploader = "YOASOBI"
+base_title = "夜に駆ける"
+main = ["YOASOBI"]
+featured = []
+version = ""
+on = ["remove_promo:【MV】"]
+artist_field = ["夜に駆ける", "YOASOBI"]
+feat_in_title = ["夜に駆ける", "YOASOBI"]
+all_in_title = ["夜に駆ける (YOASOBI)", "YOASOBI"]
+
+[[case]]
+checks = "Ft. after a preposition may mean Fort, so the feature is only offered"
+title = "Midnight in Ft. Lauderdale"
+uploader = "Some Artist"
+base_title = "Midnight in Ft. Lauderdale"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+off = ["extract_feature:Ft. Lauderdale"]
+artist_field = ["Midnight in Ft. Lauderdale", "Some Artist"]
+feat_in_title = ["Midnight in Ft. Lauderdale", "Some Artist"]
+all_in_title = ["Midnight in Ft. Lauderdale (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "turning off a leading promo after the artist split leaves one separator"
+title = "PREMIERE: Kaia - Midnight Drive"
+uploader = "Some Channel"
+base_title = "Kaia - Midnight Drive"
+main = ["Some Channel"]
+featured = []
+version = ""
+on = ["remove_promo:PREMIERE"]
+off = ["artist_from_title:Kaia"]
+artist_field = ["Kaia - Midnight Drive", "Some Channel"]
+feat_in_title = ["Kaia - Midnight Drive", "Some Channel"]
+all_in_title = ["Kaia - Midnight Drive (Some Channel)", "Some Channel"]
+
+[[case.toggle]]
+off = ["remove_promo:PREMIERE"]
+on = ["artist_from_title:Kaia"]
+artist_field = ["PREMIERE: Midnight Drive", "Kaia"]
+feat_in_title = ["PREMIERE: Midnight Drive", "Kaia"]
+all_in_title = ["PREMIERE: Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a label release tag comes out, and a known label makes the split sure"
+title = "Kaia - Midnight Drive [Monstercat Release]"
+uploader = "Monstercat"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia", "remove_promo:[Monstercat Release]"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "an ampersand duo without publisher data stays one artist"
+title = "Chase & Status - Baddadan"
+uploader = "UKF"
+base_title = "Baddadan"
+main = ["Chase & Status"]
+featured = []
+version = ""
+on = ["artist_from_title:Chase & Status"]
+artist_field = ["Baddadan", "Chase & Status"]
+feat_in_title = ["Baddadan", "Chase & Status"]
+all_in_title = ["Baddadan (Chase & Status)", "Chase & Status"]
+
+[[case]]
+checks = "an ampersand duo from a label stays one artist"
+title = "Camo & Krooked - Ember"
+uploader = "Hospital Records"
+base_title = "Ember"
+main = ["Camo & Krooked"]
+featured = []
+version = ""
+on = ["artist_from_title:Camo & Krooked"]
+artist_field = ["Ember", "Camo & Krooked"]
+feat_in_title = ["Ember", "Camo & Krooked"]
+all_in_title = ["Ember (Camo & Krooked)", "Camo & Krooked"]
+
+[[case]]
+checks = "emoji in the uploader name come out of the artist, and can be put back"
+title = "Midnight Drive"
+uploader = "kaia ♡"
+base_title = "Midnight Drive"
+main = ["kaia"]
+featured = []
+version = ""
+on = ["remove_emoji:♡"]
+artist_field = ["Midnight Drive", "kaia"]
+feat_in_title = ["Midnight Drive", "kaia"]
+all_in_title = ["Midnight Drive (kaia)", "kaia"]
+
+[[case.toggle]]
+off = ["remove_emoji:♡"]
+artist_field = ["Midnight Drive", "kaia ♡"]
+feat_in_title = ["Midnight Drive", "kaia ♡"]
+all_in_title = ["Midnight Drive (kaia ♡)", "kaia ♡"]
+
+[[case]]
+checks = "a moon emoji in the uploader name comes out of the artist"
+title = "Midnight Drive"
+uploader = "Kaia 🌙"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_emoji:🌙"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "title case changes the title only, never a featured name"
+title = "MIDNIGHT DRIVE (FEAT. LOU V)"
+uploader = "Some Artist"
+base_title = "MIDNIGHT DRIVE"
+main = ["Some Artist"]
+featured = ["LOU V"]
+version = ""
+on = ["extract_feature:(FEAT. LOU V)"]
+off = ["fix_caps:MIDNIGHT DRIVE"]
+artist_field = ["MIDNIGHT DRIVE", "Some Artist, LOU V"]
+feat_in_title = ["MIDNIGHT DRIVE (feat. LOU V)", "Some Artist"]
+all_in_title = ["MIDNIGHT DRIVE (Some Artist, LOU V)", "Some Artist"]
+
+[[case.toggle]]
+on = ["fix_caps:MIDNIGHT DRIVE"]
+artist_field = ["Midnight Drive", "Some Artist, LOU V"]
+feat_in_title = ["Midnight Drive (feat. LOU V)", "Some Artist"]
+all_in_title = ["Midnight Drive (Some Artist, LOU V)", "Some Artist"]
+
+[[case]]
+checks = "a known channel matches ignoring punctuation"
+title = "Juice WRLD - Lucid Dreams"
+uploader = "lyrical-lemonade"
+base_title = "Lucid Dreams"
+main = ["Juice WRLD"]
+featured = []
+version = ""
+on = ["artist_from_title:Juice WRLD"]
+artist_field = ["Lucid Dreams", "Juice WRLD"]
+feat_in_title = ["Lucid Dreams", "Juice WRLD"]
+all_in_title = ["Lucid Dreams (Juice WRLD)", "Juice WRLD"]
+
+[[case]]
+checks = "vs. joins two artists into one credit"
+title = "Kaia vs. Lou V - Midnight Drive"
+uploader = "Some Channel"
+base_title = "Midnight Drive"
+main = ["Kaia vs. Lou V"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia vs. Lou V"]
+artist_field = ["Midnight Drive", "Kaia vs. Lou V"]
+feat_in_title = ["Midnight Drive", "Kaia vs. Lou V"]
+all_in_title = ["Midnight Drive (Kaia vs. Lou V)", "Kaia vs. Lou V"]
+
+[[case]]
+checks = "b2b joins two artists into one credit"
+title = "Kaia b2b Lou V - Midnight Drive"
+uploader = "Some Channel"
+base_title = "Midnight Drive"
+main = ["Kaia b2b Lou V"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia b2b Lou V"]
+artist_field = ["Midnight Drive", "Kaia b2b Lou V"]
+feat_in_title = ["Midnight Drive", "Kaia b2b Lou V"]
+all_in_title = ["Midnight Drive (Kaia b2b Lou V)", "Kaia b2b Lou V"]
+
+[[case]]
+checks = "FREE D/L is promo"
+title = "Midnight Drive FREE D/L"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:FREE D/L"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a bracketed M/V tag is noise"
+title = "Midnight Drive [M/V]"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:[M/V]"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a feature after a word containing ft is still a feature"
+title = "Gift (feat. Lou V)"
+uploader = "Some Artist"
+base_title = "Gift"
+main = ["Some Artist"]
+featured = ["Lou V"]
+version = ""
+on = ["extract_feature:(feat. Lou V)"]
+artist_field = ["Gift", "Some Artist, Lou V"]
+feat_in_title = ["Gift (feat. Lou V)", "Some Artist"]
+all_in_title = ["Gift (Some Artist, Lou V)", "Some Artist"]
+
+[[case]]
+checks = "Ft. after a number word is only offered"
+title = "Two Ft. Tall"
+uploader = "Some Artist"
+base_title = "Two Ft. Tall"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+off = ["extract_feature:Ft. Tall"]
+artist_field = ["Two Ft. Tall", "Some Artist"]
+feat_in_title = ["Two Ft. Tall", "Some Artist"]
+all_in_title = ["Two Ft. Tall (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "Six Feet Under has no feature keyword at all"
+title = "Six Feet Under"
+uploader = "Some Artist"
+base_title = "Six Feet Under"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+artist_field = ["Six Feet Under", "Some Artist"]
+feat_in_title = ["Six Feet Under", "Some Artist"]
+all_in_title = ["Six Feet Under (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "an emoji before trailing promo comes out with it"
+title = "Paper Moon 🔥 FREE DL 🔥"
+uploader = "Some Artist"
+base_title = "Paper Moon"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = ["remove_emoji:🔥", "remove_promo:FREE DL", "remove_emoji:🔥#2"]
+artist_field = ["Paper Moon", "Some Artist"]
+feat_in_title = ["Paper Moon", "Some Artist"]
+all_in_title = ["Paper Moon (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "an emoji before a producer credit comes out with it"
+title = "Paper Moon 🔥 prod. Sable"
+uploader = "Some Artist"
+base_title = "Paper Moon"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = ["remove_emoji:🔥", "remove_producer:prod. Sable"]
+artist_field = ["Paper Moon", "Some Artist"]
+feat_in_title = ["Paper Moon", "Some Artist"]
+all_in_title = ["Paper Moon (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "an emoji before a feature comes out with it"
+title = "Paper Moon 🔥 ft. Okoye"
+uploader = "Some Artist"
+base_title = "Paper Moon"
+main = ["Some Artist"]
+featured = ["Okoye"]
+version = ""
+on = ["remove_emoji:🔥", "extract_feature:ft. Okoye"]
+artist_field = ["Paper Moon", "Some Artist, Okoye"]
+feat_in_title = ["Paper Moon (feat. Okoye)", "Some Artist"]
+all_in_title = ["Paper Moon (Some Artist, Okoye)", "Some Artist"]
+
+[[case]]
+checks = "sparkles around FREE DOWNLOAD come out with it"
+title = "Paper Moon ✨ FREE DOWNLOAD ✨"
+uploader = "Some Artist"
+base_title = "Paper Moon"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = ["remove_emoji:✨", "remove_promo:FREE DOWNLOAD", "remove_emoji:✨#2"]
+artist_field = ["Paper Moon", "Some Artist"]
+feat_in_title = ["Paper Moon", "Some Artist"]
+all_in_title = ["Paper Moon (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "an emoji between two title words is offered for removal"
+title = "Paper 🌙 Moon"
+uploader = "Some Artist"
+base_title = "Paper 🌙 Moon"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+off = ["remove_emoji:🌙"]
+artist_field = ["Paper 🌙 Moon", "Some Artist"]
+feat_in_title = ["Paper 🌙 Moon", "Some Artist"]
+all_in_title = ["Paper 🌙 Moon (Some Artist)", "Some Artist"]
+
+[[case.toggle]]
+on = ["remove_emoji:🌙"]
+artist_field = ["Paper Moon", "Some Artist"]
+feat_in_title = ["Paper Moon", "Some Artist"]
+all_in_title = ["Paper Moon (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "an emoji between words is offered and one at the end comes out"
+title = "Okoye ✨ Paper Moon ✨"
+uploader = "Okoye"
+base_title = "Okoye ✨ Paper Moon"
+main = ["Okoye"]
+featured = []
+version = ""
+on = ["remove_emoji:✨#2"]
+off = ["remove_emoji:✨"]
+artist_field = ["Okoye ✨ Paper Moon", "Okoye"]
+feat_in_title = ["Okoye ✨ Paper Moon", "Okoye"]
+all_in_title = ["Okoye ✨ Paper Moon (Okoye)", "Okoye"]
+
+[[case]]
+checks = "a feature put back into the artist part replaces both publisher artists it names"
+title = "Okoye ft. Marlo - Paper Moon"
+uploader = "Some Label Records"
+artists = ["Okoye", "Marlo"]
+base_title = "Paper Moon"
+main = ["Okoye"]
+featured = ["Marlo"]
+version = ""
+on = ["artist_from_title:Okoye", "extract_feature:ft. Marlo"]
+artist_field = ["Paper Moon", "Okoye, Marlo"]
+feat_in_title = ["Paper Moon (feat. Marlo)", "Okoye"]
+all_in_title = ["Paper Moon (Okoye, Marlo)", "Okoye"]
+
+[[case.toggle]]
+off = ["extract_feature:ft. Marlo"]
+artist_field = ["Paper Moon", "Okoye ft. Marlo"]
+feat_in_title = ["Paper Moon", "Okoye ft. Marlo"]
+all_in_title = ["Paper Moon (Okoye ft. Marlo)", "Okoye ft. Marlo"]
+
+[[case]]
+checks = "a bracketed feature put back replaces both publisher artists it names"
+title = "Kaia (feat. Lou V) - Midnight Drive"
+uploader = "Monstercat"
+artists = ["Kaia", "Lou V"]
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["artist_from_title:Kaia", "extract_feature:(feat. Lou V)"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Lou V)"]
+artist_field = ["Midnight Drive", "Kaia (feat. Lou V)"]
+feat_in_title = ["Midnight Drive", "Kaia (feat. Lou V)"]
+all_in_title = ["Midnight Drive (Kaia (feat. Lou V))", "Kaia (feat. Lou V)"]
+
+[[case]]
+checks = "a featured duo the publisher lists whole stays whole"
+title = "Paper Moon (feat. Chase & Status)"
+uploader = "Okoye"
+artists = ["Okoye", "Chase & Status"]
+base_title = "Paper Moon"
+main = ["Okoye"]
+featured = ["Chase & Status"]
+version = ""
+on = ["extract_feature:(feat. Chase & Status)"]
+artist_field = ["Paper Moon", "Okoye, Chase & Status"]
+feat_in_title = ["Paper Moon (feat. Chase & Status)", "Okoye"]
+all_in_title = ["Paper Moon (Okoye, Chase & Status)", "Okoye"]
+
+[[case]]
+checks = "a featured name with a comma the publisher lists whole stays whole"
+title = "Paper Moon (feat. Tyler, The Creator)"
+uploader = "Okoye"
+artists = ["Okoye", "Tyler, The Creator"]
+base_title = "Paper Moon"
+main = ["Okoye"]
+featured = ["Tyler, The Creator"]
+version = ""
+on = ["extract_feature:(feat. Tyler, The Creator)"]
+artist_field = ["Paper Moon", "Okoye, Tyler, The Creator"]
+feat_in_title = ["Paper Moon (feat. Tyler, The Creator)", "Okoye"]
+all_in_title = ["Paper Moon (Okoye, Tyler, The Creator)", "Okoye"]
+
+[[case]]
+checks = "title case covers an offered artist part too"
+title = "MIDNIGHT DRIVE - KAIA REMIX"
+uploader = "Some Artist"
+base_title = "MIDNIGHT DRIVE - KAIA REMIX"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:MIDNIGHT DRIVE", "fix_caps:MIDNIGHT DRIVE - KAIA REMIX"]
+artist_field = ["MIDNIGHT DRIVE - KAIA REMIX", "Some Artist"]
+feat_in_title = ["MIDNIGHT DRIVE - KAIA REMIX", "Some Artist"]
+all_in_title = ["MIDNIGHT DRIVE - KAIA REMIX (Some Artist)", "Some Artist"]
+
+[[case.toggle]]
+on = ["fix_caps:MIDNIGHT DRIVE - KAIA REMIX"]
+artist_field = ["Midnight Drive - Kaia Remix", "Some Artist"]
+feat_in_title = ["Midnight Drive - Kaia Remix", "Some Artist"]
+all_in_title = ["Midnight Drive - Kaia Remix (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "title case covers an offered artist split from a channel"
+title = "KAIA - MIDNIGHT DRIVE"
+uploader = "Some Channel"
+base_title = "KAIA - MIDNIGHT DRIVE"
+main = ["Some Channel"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:KAIA", "fix_caps:KAIA - MIDNIGHT DRIVE"]
+artist_field = ["KAIA - MIDNIGHT DRIVE", "Some Channel"]
+feat_in_title = ["KAIA - MIDNIGHT DRIVE", "Some Channel"]
+all_in_title = ["KAIA - MIDNIGHT DRIVE (Some Channel)", "Some Channel"]
+
+[[case.toggle]]
+on = ["fix_caps:KAIA - MIDNIGHT DRIVE"]
+artist_field = ["Kaia - Midnight Drive", "Some Channel"]
+feat_in_title = ["Kaia - Midnight Drive", "Some Channel"]
+all_in_title = ["Kaia - Midnight Drive (Some Channel)", "Some Channel"]
+
+[[case]]
+checks = "a channel's artist before a pipe is the artist, and the event is the title"
+title = "Okoye | Boiler Room London"
+uploader = "Boiler Room"
+base_title = "Boiler Room London"
+main = ["Okoye"]
+featured = []
+version = ""
+on = ["artist_from_title:Okoye"]
+artist_field = ["Boiler Room London", "Okoye"]
+feat_in_title = ["Boiler Room London", "Okoye"]
+all_in_title = ["Boiler Room London (Okoye)", "Okoye"]
+
+[[case]]
+checks = "a label's release tag after a pipe is still promo"
+title = "Midnight Drive | Monstercat Release"
+uploader = "Monstercat"
+base_title = "Midnight Drive"
+main = ["Monstercat"]
+featured = []
+version = ""
+on = ["remove_promo:| Monstercat Release"]
+artist_field = ["Midnight Drive", "Monstercat"]
+feat_in_title = ["Midnight Drive", "Monstercat"]
+all_in_title = ["Midnight Drive (Monstercat)", "Monstercat"]
+
+[[case]]
+checks = "a dangling dash is tidied even with nothing cut"
+title = "Kaia -"
+uploader = "Kaia"
+base_title = "Kaia"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Kaia", "Kaia"]
+feat_in_title = ["Kaia", "Kaia"]
+all_in_title = ["Kaia (Kaia)", "Kaia"]
+all_off = "Kaia"
+
+[[case]]
+checks = "an open bracket is closed even with nothing cut"
+title = "Midnight Drive (VIP"
+uploader = "Kaia"
+base_title = "Midnight Drive (VIP)"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Midnight Drive (VIP)", "Kaia"]
+feat_in_title = ["Midnight Drive (VIP)", "Kaia"]
+all_in_title = ["Midnight Drive (VIP) (Kaia)", "Kaia"]
+all_off = "Midnight Drive (VIP)"
+
+[[case]]
+checks = "an artist named like a one-word channel isn't a label"
+title = "Love - Paper Moon"
+uploader = "Lowly"
+base_title = "Love - Paper Moon"
+main = ["Lowly"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Love"]
+artist_field = ["Love - Paper Moon", "Lowly"]
+feat_in_title = ["Love - Paper Moon", "Lowly"]
+all_in_title = ["Love - Paper Moon (Lowly)", "Lowly"]
+
+[[case]]
+checks = "a one-word channel written exactly as styled is a label"
+title = "Kaia - Midnight Drive"
+uploader = "Selected."
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a one-word channel name written differently isn't a label"
+title = "Kaia - Midnight Drive"
+uploader = "selected"
+base_title = "Kaia - Midnight Drive"
+main = ["selected"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Kaia"]
+artist_field = ["Kaia - Midnight Drive", "selected"]
+feat_in_title = ["Kaia - Midnight Drive", "selected"]
+all_in_title = ["Kaia - Midnight Drive (selected)", "selected"]
+
+[[case]]
+checks = "two promo phrases before a colon come out together"
+title = "EXCLUSIVE PREMIERE: Okoye - Paper Moon"
+uploader = "Some Channel"
+base_title = "Okoye - Paper Moon"
+main = ["Some Channel"]
+featured = []
+version = ""
+on = ["remove_promo:EXCLUSIVE PREMIERE"]
+off = ["artist_from_title:Okoye"]
+artist_field = ["Okoye - Paper Moon", "Some Channel"]
+feat_in_title = ["Okoye - Paper Moon", "Some Channel"]
+all_in_title = ["Okoye - Paper Moon (Some Channel)", "Some Channel"]
+
+[[case]]
+checks = "ft after a part number is a feature"
+title = "Paper Moon Pt. 2 ft. Okoye"
+uploader = "Some Artist"
+base_title = "Paper Moon Pt. 2"
+main = ["Some Artist"]
+featured = ["Okoye"]
+version = ""
+on = ["extract_feature:ft. Okoye"]
+artist_field = ["Paper Moon Pt. 2", "Some Artist, Okoye"]
+feat_in_title = ["Paper Moon Pt. 2 (feat. Okoye)", "Some Artist"]
+all_in_title = ["Paper Moon Pt. 2 (Some Artist, Okoye)", "Some Artist"]
+
+[[case]]
+checks = "ft after a year is a feature"
+title = "Summer 2024 ft. Okoye"
+uploader = "Some Artist"
+base_title = "Summer 2024"
+main = ["Some Artist"]
+featured = ["Okoye"]
+version = ""
+on = ["extract_feature:ft. Okoye"]
+artist_field = ["Summer 2024", "Some Artist, Okoye"]
+feat_in_title = ["Summer 2024 (feat. Okoye)", "Some Artist"]
+all_in_title = ["Summer 2024 (Some Artist, Okoye)", "Some Artist"]
+
+[[case]]
+checks = "ft after a small number may be a measure, so it's only offered"
+title = "6 ft Under"
+uploader = "Some Artist"
+base_title = "6 ft Under"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = []
+off = ["extract_feature:ft Under"]
+artist_field = ["6 ft Under", "Some Artist"]
+feat_in_title = ["6 ft Under", "Some Artist"]
+all_in_title = ["6 ft Under (Some Artist)", "Some Artist"]
