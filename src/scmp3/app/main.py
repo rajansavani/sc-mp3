@@ -5,7 +5,9 @@ import html
 import logging
 import mimetypes
 import os
+import socket
 import threading
+import time
 import webbrowser
 from collections.abc import Callable, MutableMapping
 from pathlib import Path
@@ -69,6 +71,12 @@ font:15px/1.45 'Segoe UI',system-ui,sans-serif">
 PAGE_CHECK = "[window.location.href, typeof window.scmp3]"
 # Added to the page's address for the one retry. The UI ignores it.
 RETRY_QUERY = "retry"
+
+# How long to wait for pywebview's server to take connections, and how long each try may take.
+# Each try is short, since Windows takes 2 s to refuse a connection to a closed local port.
+SERVER_WAIT_SECONDS = 5.0
+SERVER_TRY_SECONDS = 0.1
+SERVER_PAUSE_SECONDS = 0.05
 
 # Windows MessageBox flags, and the answer for its Yes button.
 MB_YESNO = 0x04
@@ -153,6 +161,39 @@ def page_location(page: Path, app_root: Path) -> str:
     except ValueError:
         # Windows can't express a path on another drive relative to this one.
         return str(page)
+
+
+def is_servable(page: str) -> bool:
+    """Whether pywebview's server can serve the page; it cuts a local path at its first #."""
+    return "#" not in page
+
+
+def wait_for_server(address: str, timeout: float = SERVER_WAIT_SECONDS) -> bool:
+    """Wait until the server at `address` takes connections. Returns False if it doesn't in time."""
+    parts = urlsplit(address)
+    target = (parts.hostname, parts.port)
+    deadline = time.monotonic() + timeout
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
+        try:
+            with socket.create_connection(target, timeout=min(remaining, SERVER_TRY_SECONDS)):
+                return True
+        except OSError:
+            time.sleep(SERVER_PAUSE_SECONDS)
+
+
+def start_page_server(start_server: Callable[..., tuple[str, Any, Any]], page: str) -> str:
+    """Start the page's server and wait until it takes connections. Returns the server's address.
+
+    pywebview marks its server as running before its thread has bound the port, so a window that
+    loads at once can get an error page. On macOS, that fires no `loaded` event to retry on.
+    """
+    address, _, _ = start_server(urls=[page])
+    if not wait_for_server(address):
+        log.warning("pywebview's server didn't take connections within %s s", SERVER_WAIT_SECONDS)
+    return address
 
 
 def plain_page(message: str, label: str, path: Path) -> str:
@@ -243,7 +284,7 @@ def open_window(
     """
     # The app never loads files from disk into the window, so a dropped or linked file can't either.
     toolkit.settings["ALLOW_FILE_URLS"] = False
-    if "#" in page:
+    if not is_servable(page):
         log.warning("The UI's path has a #, which pywebview's server can't handle: %s", page)
         return show_folder_problem(toolkit, WEB_DIR)
 
@@ -286,4 +327,7 @@ def run() -> int:
     route_pywebview_logging()
     context = AppContext.from_app_folders()
     page = page_location(INDEX_PAGE, Path(get_app_root()))
+    if is_servable(page):
+        # webview.start() reuses the server that's already running.
+        start_page_server(webview.http.start_global_server, page)
     return open_window(webview, Api(context), context.events, page=page)

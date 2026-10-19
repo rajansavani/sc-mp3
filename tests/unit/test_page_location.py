@@ -5,8 +5,12 @@ window, on folders named like the ones people have.
 """
 
 import os
+import socket
 import sys
+import threading
+import time
 import urllib.request
+from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -40,6 +44,50 @@ def fetch(url: str) -> tuple[int, bytes]:
         return error.code, b""
 
 
+@pytest.fixture
+def unused_port() -> Iterator[socket.socket]:
+    """A socket bound to a free local port that doesn't listen yet, so connections are refused."""
+    sock = socket.socket()
+    sock.bind(("127.0.0.1", 0))
+    yield sock
+    sock.close()
+
+
+def address_of(sock: socket.socket) -> str:
+    return f"http://127.0.0.1:{sock.getsockname()[1]}/"
+
+
+def test_waiting_for_the_server_ends_when_it_starts_listening(unused_port: socket.socket) -> None:
+    starts_listening = threading.Timer(0.3, unused_port.listen)
+    started = time.monotonic()
+    starts_listening.start()
+    try:
+        assert main.wait_for_server(address_of(unused_port))
+    finally:
+        starts_listening.join()
+    assert time.monotonic() - started >= 0.3
+
+
+def test_waiting_for_a_server_that_never_listens_gives_up_in_time(
+    unused_port: socket.socket,
+) -> None:
+    started = time.monotonic()
+    assert not main.wait_for_server(address_of(unused_port), timeout=0.5)
+    assert time.monotonic() - started < 2
+
+
+def test_the_apps_page_server_takes_connections_once_started(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    web, app_root = make_install(tmp_path)
+    monkeypatch.setattr(webview.util, "get_app_root", lambda: str(app_root))
+    location = main.page_location(web / "index.html", app_root)
+    # pywebview's start_server, which is start_global_server without setting the global server.
+    address = main.start_page_server(webview.http.start_server, location)
+    # No waiting here: start_page_server has done it.
+    assert fetch(urljoin(address, "index.html"))[0] == 200
+
+
 def test_the_page_is_relative_to_the_app_root(tmp_path: Path) -> None:
     web, app_root = make_install(tmp_path)
     location = main.page_location(web / "index.html", app_root)
@@ -62,6 +110,8 @@ def test_pywebviews_server_finds_the_page_in_an_odd_install_folder(
     location = main.page_location(web / "index.html", app_root)
 
     address, common_path, server = webview.http.BottleServer.start_server([location], None)
+    # pywebview reports the server as running before its thread has bound the port.
+    assert main.wait_for_server(address), f"pywebview's server at {address} took no connections"
     # The same steps as pywebview's Window._resolve_url.
     page_url = urljoin(address, os.path.relpath(location, common_path))
 
