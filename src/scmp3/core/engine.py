@@ -11,16 +11,19 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlencode
 
 from scmp3.core import paths
 from scmp3.core.errors import ErrorKind, ScmpError
-from scmp3.core.log import register_secret, safe_url
+from scmp3.core.log import redact, register_secret, safe_url
 
 if TYPE_CHECKING:
     from yt_dlp import YoutubeDL
+    from yt_dlp.networking.exceptions import HTTPError
 
 YTDLP_LOGGER = "scmp3.ytdlp"
 SOCKET_TIMEOUT = 30  # seconds
+FORM_CONTENT_TYPE = "application/x-www-form-urlencoded; charset=UTF-8"
 
 # What an HTTP error status from an API means for the job. 401 and 5xx are handled in
 # _status_kind, and any other status is engine_outdated.
@@ -35,6 +38,17 @@ STATUS_KINDS: dict[int, ErrorKind] = {
 ProgressHook = Callable[[dict[str, Any]], None]
 
 log = logging.getLogger(__name__)
+
+
+class HttpStatusError(ScmpError):
+    """An API answered with an HTTP error status. `answer` is the JSON object in its body, or {}."""
+
+    def __init__(
+        self, kind: ErrorKind, detail: str, *, status: int, answer: dict[str, Any]
+    ) -> None:
+        super().__init__(kind, detail)
+        self.status = status
+        self.answer = answer
 
 
 def load_yt_dlp() -> ModuleType:
@@ -133,11 +147,76 @@ def api_get_json(
         kind = _status_kind(error.status, sent_token=sent_token, overrides=status_kinds or {})
         raise ScmpError(kind, f"HTTP {error.status} from {where}") from error
     except TransportError as error:
-        raise ScmpError(ErrorKind.offline, f"couldn't reach {where}: {error}") from error
+        raise ScmpError(ErrorKind.offline, _failure(f"couldn't reach {where}", error)) from None
     except RequestError as error:
         # This is also how yt-dlp says it can't impersonate a browser, when curl_cffi is missing.
-        raise ScmpError(ErrorKind.engine_outdated, f"request to {where} failed: {error}") from error
+        detail = _failure(f"request to {where} failed", error)
+        raise ScmpError(ErrorKind.engine_outdated, detail) from None
+    return _json_object(body, where)
 
+
+def api_post_form(
+    ydl: YoutubeDL,
+    url: str,
+    form: Mapping[str, str],
+    *,
+    status_kinds: Mapping[int, ErrorKind] | None = None,
+) -> dict[str, Any]:
+    """POST a form through yt-dlp's opener, impersonating Chrome, and return the JSON object.
+
+    An error status raises HttpStatusError, whose `answer` holds the body's JSON, such as an OAuth
+    error code. `status_kinds` works as in api_get_json.
+    """
+    load_yt_dlp()
+    from yt_dlp.networking.exceptions import HTTPError, RequestError, TransportError
+
+    where = safe_url(url)
+    headers = {"Accept": "application/json", "Content-Type": FORM_CONTENT_TYPE}
+    try:
+        body = _fetch(ydl, url, headers, data=urlencode(form).encode())
+    except HTTPError as error:
+        answer = _error_answer(error)
+        kind = _status_kind(error.status, sent_token=False, overrides=status_kinds or {})
+        detail = f"HTTP {error.status} from {where}"
+        raise HttpStatusError(kind, detail, status=error.status, answer=answer) from error
+    except TransportError as error:
+        raise ScmpError(ErrorKind.offline, _failure(f"couldn't reach {where}", error)) from None
+    except RequestError as error:
+        detail = _failure(f"request to {where} failed", error)
+        raise ScmpError(ErrorKind.engine_outdated, detail) from None
+    return _json_object(body, where)
+
+
+def _failure(what: str, error: Exception) -> str:
+    """A detail with yt-dlp's error type and its text, redacted.
+
+    The request can hold a token, so callers raise this detail without chaining the error itself.
+    """
+    # Only yt-dlp's text is redacted, since a URL ending in /token reads like a token's name.
+    return f"{what}: {type(error).__name__}: {redact(str(error))}"
+
+
+def _error_answer(error: HTTPError) -> dict[str, Any]:
+    """The JSON object in an error response's body, or {} when there isn't one."""
+    from yt_dlp.networking.exceptions import RequestError
+
+    try:
+        body = error.response.read()
+    except RequestError as read_error:
+        log.debug("Couldn't read an error response's body: %s", type(read_error).__name__)
+        return {}
+    finally:
+        error.close()
+    try:
+        data = json.loads(body)
+    except ValueError:
+        # An error page in HTML is common, and the status alone still says what happened.
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _json_object(body: bytes, where: str) -> dict[str, Any]:
+    """The JSON object in a response body. Anything else means SoundCloud's API changed."""
     try:
         data = json.loads(body)
     except ValueError as error:
@@ -160,12 +239,16 @@ def _status_kind(status: int, *, sent_token: bool, overrides: Mapping[int, Error
     return STATUS_KINDS.get(status, ErrorKind.engine_outdated)
 
 
-def _fetch(ydl: YoutubeDL, url: str, headers: dict[str, str]) -> bytes:
-    """GET `url` and return the body, impersonating Chrome as SoundCloud's bot protection needs."""
+def _fetch(ydl: YoutubeDL, url: str, headers: dict[str, str], data: bytes | None = None) -> bytes:
+    """GET `url`, or POST `data` to it, impersonating Chrome as SoundCloud's bot protection needs.
+
+    Returns the response body.
+    """
     from yt_dlp.networking.common import Request
     from yt_dlp.networking.impersonate import ImpersonateTarget
 
     # A bare "chrome" target gets the newest desktop Chrome that curl_cffi offers.
-    request = Request(url, headers=headers, extensions={"impersonate": ImpersonateTarget("chrome")})
+    impersonate = {"impersonate": ImpersonateTarget("chrome")}
+    request = Request(url, data=data, headers=headers, extensions=impersonate)
     with ydl.urlopen(request) as response:
         return response.read()

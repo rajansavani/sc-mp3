@@ -1,10 +1,14 @@
-"""Shared fixtures: a temp SCMP3_HOME, ffmpeg, and tiny audio files generated with it."""
+"""Shared fixtures: a temp SCMP3_HOME, a fake keyring, ffmpeg, and tiny audio files made with it."""
 
 import shutil
 import subprocess
 from pathlib import Path
 
+import keyring.core
 import pytest
+from keyring.errors import PasswordDeleteError
+
+from scmp3.core.token_store import TokenStore
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -29,6 +33,40 @@ def scmp3_home(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) 
     home = factory.mktemp("scmp3_home")
     monkeypatch.setenv("SCMP3_HOME", str(home))
     return home
+
+
+class MemoryKeyring:
+    """A keyring backend that keeps its entries in a dict."""
+
+    def __init__(self) -> None:
+        self.entries: dict[tuple[str, str], str] = {}
+
+    def get_password(self, service: str, username: str) -> str | None:
+        return self.entries.get((service, username))
+
+    def set_password(self, service: str, username: str, password: str) -> None:
+        self.entries[(service, username)] = password
+
+    def delete_password(self, service: str, username: str) -> None:
+        if (service, username) not in self.entries:
+            raise PasswordDeleteError("not found")
+        del self.entries[(service, username)]
+
+
+@pytest.fixture(autouse=True)
+def fake_keyring(monkeypatch: pytest.MonkeyPatch) -> MemoryKeyring:
+    """A fresh in-memory keyring for every test, so no test reaches the system's keyring.
+
+    Child processes get keyring's backend that refuses every call. A test that needs a broken
+    or limited keyring passes its own backend on top of this.
+    """
+    fake = MemoryKeyring()
+    # set_keyring can't put back a backend keyring hasn't chosen yet, so the global is swapped.
+    monkeypatch.setattr(keyring.core, "_keyring_backend", fake)
+    monkeypatch.setenv("PYTHON_KEYRING_BACKEND", "keyring.backends.fail.Keyring")
+    # The store remembers a refused keyring for the process, so no test leaks that to the next.
+    monkeypatch.setattr(TokenStore, "keyring_refused", False)
+    return fake
 
 
 @pytest.fixture(scope="session")

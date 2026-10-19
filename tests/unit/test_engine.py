@@ -6,7 +6,8 @@ import logging
 import secrets
 import socket
 import threading
-from collections.abc import Iterator
+import traceback
+from collections.abc import Callable, Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, ClassVar
@@ -14,13 +15,13 @@ from typing import Any, ClassVar
 import pytest
 import yt_dlp
 from yt_dlp.networking.common import Request, Response
-from yt_dlp.networking.exceptions import HTTPError, TransportError
+from yt_dlp.networking.exceptions import HTTPError, RequestError, TransportError
 from yt_dlp.networking.impersonate import ImpersonateTarget
 from yt_dlp.utils import DownloadError
 
 from scmp3.core import engine, paths
 from scmp3.core.errors import ErrorKind, ScmpError
-from scmp3.core.log import MASK, redact
+from scmp3.core.log import MASK, redact, register_secret
 
 API_URL = "https://api-v2.soundcloud.com/me"
 
@@ -127,8 +128,8 @@ class FakeYdl:
         return io.BytesIO(outcome)
 
 
-def http_error(status: int) -> HTTPError:
-    return HTTPError(Response(io.BytesIO(b""), API_URL, {}, status=status))
+def http_error(status: int, body: bytes = b"") -> HTTPError:
+    return HTTPError(Response(io.BytesIO(body), API_URL, {}, status=status))
 
 
 def api_error(ydl: Any, url: str = API_URL, **kwargs: Any) -> ScmpError:
@@ -222,17 +223,132 @@ def test_a_body_that_isnt_a_json_object_means_the_engine_needs_an_update(body: b
     assert api_error(FakeYdl(body)).kind is ErrorKind.engine_outdated
 
 
+TOKEN_URL = "https://secure.soundcloud.com/oauth/token"
+FORM = {"grant_type": "refresh_token", "refresh_token": "abc def&x=1"}
+
+
+def post_error(ydl: Any, **kwargs: Any) -> ScmpError:
+    """The ScmpError that api_post_form raises for this fake."""
+    with pytest.raises(ScmpError) as error_info:
+        engine.api_post_form(ydl, TOKEN_URL, FORM, **kwargs)
+    return error_info.value
+
+
+def test_api_post_form_returns_the_object() -> None:
+    ydl = FakeYdl(b'{"access_token": "x", "expires_in": 86399}')
+    assert engine.api_post_form(ydl, TOKEN_URL, FORM) == {"access_token": "x", "expires_in": 86399}
+
+
+def test_api_post_form_sends_the_form_encoded_and_impersonates_chrome() -> None:
+    ydl = FakeYdl(b"{}")
+    engine.api_post_form(ydl, TOKEN_URL, FORM)
+    [request] = ydl.requests
+    assert request.url == TOKEN_URL
+    assert request.method == "POST"
+    assert request.data == b"grant_type=refresh_token&refresh_token=abc+def%26x%3D1"
+    assert request.headers["Content-Type"] == "application/x-www-form-urlencoded; charset=UTF-8"
+    assert request.headers["Accept"] == "application/json"
+    assert request.extensions["impersonate"] == ImpersonateTarget("chrome")
+
+
+def test_an_error_status_carries_the_status_and_the_json_in_its_body() -> None:
+    body = b'{"error": "invalid_grant", "error_description": "expired"}'
+    error = post_error(FakeYdl(http_error(400, body)), status_kinds={400: ErrorKind.auth_expired})
+    assert isinstance(error, engine.HttpStatusError)
+    assert error.kind is ErrorKind.auth_expired
+    assert error.status == 400
+    assert error.answer == {"error": "invalid_grant", "error_description": "expired"}
+    assert error.detail == "HTTP 400 from secure.soundcloud.com/oauth/token"
+
+
+@pytest.mark.parametrize(
+    ("status", "kind"),
+    [
+        # The form isn't an Authorization header, so a 401 alone doesn't mean the sign-in expired.
+        (401, ErrorKind.engine_outdated),
+        (403, ErrorKind.engine_outdated),
+        (429, ErrorKind.rate_limited),
+        (503, ErrorKind.service_down),
+    ],
+)
+def test_a_post_error_status_has_the_usual_meaning(status: int, kind: ErrorKind) -> None:
+    assert post_error(FakeYdl(http_error(status))).kind is kind
+
+
+@pytest.mark.parametrize("body", [b"<html>blocked</html>", b"[1, 2]", b"", b"\xff\xfe"])
+def test_an_error_body_that_isnt_a_json_object_gives_an_empty_answer(body: bytes) -> None:
+    error = post_error(FakeYdl(http_error(400, body)))
+    assert isinstance(error, engine.HttpStatusError)
+    assert error.answer == {}
+
+
+def full_text(error: BaseException) -> str:
+    """An exception's message and traceback, with every exception chained to it."""
+    return "".join(traceback.format_exception(error))
+
+
+QUOTING_FAILURES = [
+    (lambda text: TransportError(msg=text), ErrorKind.offline, "TransportError"),
+    (lambda text: RequestError(msg=text), ErrorKind.engine_outdated, "RequestError"),
+]
+
+
+@pytest.mark.parametrize(("make_error", "kind", "type_name"), QUOTING_FAILURES)
+def test_a_post_that_fails_on_the_way_keeps_a_secret_out_of_the_whole_traceback(
+    make_error: Callable[[str], Exception], kind: ErrorKind, type_name: str
+) -> None:
+    secret = secrets.token_hex(16)
+    register_secret(secret)
+    error = post_error(FakeYdl(make_error(f"connection reset while sending {secret}")))
+    assert error.kind is kind
+    assert error.detail is not None
+    assert "secure.soundcloud.com/oauth/token" in error.detail
+    assert type_name in error.detail
+    assert secret not in full_text(error)
+
+
+@pytest.mark.parametrize(("make_error", "kind", "type_name"), QUOTING_FAILURES)
+def test_a_get_that_fails_on_the_way_keeps_a_secret_out_of_the_whole_traceback(
+    make_error: Callable[[str], Exception], kind: ErrorKind, type_name: str
+) -> None:
+    secret = secrets.token_hex(16)
+    register_secret(secret)
+    error = api_error(FakeYdl(make_error(f"connection reset after OAuth {secret}")))
+    assert error.kind is kind
+    assert error.detail is not None
+    assert "api-v2.soundcloud.com/me" in error.detail
+    assert type_name in error.detail
+    assert secret not in full_text(error)
+
+
+@pytest.mark.parametrize("body", [b"<html>blocked</html>", b"[1, 2]"])
+def test_a_post_answer_that_isnt_a_json_object_means_the_engine_needs_an_update(
+    body: bytes,
+) -> None:
+    assert post_error(FakeYdl(body)).kind is ErrorKind.engine_outdated
+
+
 class EchoHandler(BaseHTTPRequestHandler):
-    """Answers every GET with JSON describing the request it got."""
+    """Answers every GET and POST with JSON describing the request it got."""
 
     # Every path asked for, so a test can check that nothing was sent.
     seen: ClassVar[list[str]] = []
 
     def do_GET(self) -> None:
+        self._answer("")
+
+    def do_POST(self) -> None:
+        length = int(self.headers.get("Content-Length", "0"))
+        self._answer(self.rfile.read(length).decode())
+
+    def _answer(self, sent: str) -> None:
         self.seen.append(self.path)
         body = json.dumps(
             {
                 "path": self.path,
+                "method": self.command,
+                "body": sent,
+                "content_type": self.headers.get("Content-Type", ""),
                 "user_agent": self.headers.get("User-Agent", ""),
                 "accept": self.headers.get("Accept", ""),
                 "custom": self.headers.get("X-Test", ""),
@@ -269,6 +385,17 @@ def test_api_get_json_works_through_the_real_opener(fake_ffmpeg: Path, local_ser
     assert data["accept"] == "application/json"
     assert data["custom"] == "yes"
     # curl_cffi sent Chrome's headers, not yt-dlp's own.
+    assert "Chrome/" in data["user_agent"]
+
+
+def test_api_post_form_works_through_the_real_opener(fake_ffmpeg: Path, local_server: str) -> None:
+    with engine.make_ydl(extra={"proxy": ""}) as ydl:
+        data = engine.api_post_form(ydl, f"{local_server}/oauth/token", {"a": "1", "b": "x y"})
+    assert data["method"] == "POST"
+    assert data["path"] == "/oauth/token"
+    assert data["body"] == "a=1&b=x+y"
+    assert data["content_type"] == "application/x-www-form-urlencoded; charset=UTF-8"
+    assert data["accept"] == "application/json"
     assert "Chrome/" in data["user_agent"]
 
 
