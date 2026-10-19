@@ -1,0 +1,5 @@
+# Downloaded yt-dlp zipapp and Deno, PyInstaller output, and run reports.
+downloads/
+build/
+dist/
+results/
