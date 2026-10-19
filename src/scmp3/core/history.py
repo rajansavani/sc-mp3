@@ -4,6 +4,7 @@ import logging
 import os
 import sqlite3
 import threading
+import time
 import unicodedata
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -14,6 +15,7 @@ from pathlib import Path
 from scmp3.core import paths
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.models import HistoryEntry
+from scmp3.core.placing import BRIEF_LOCK_ERRORS, LOCK_RETRY_DELAYS
 
 DB_NAME = "history.db"
 
@@ -77,11 +79,19 @@ def _now() -> datetime:
 class History:
     """The saved-files store. Each call opens its own connection, so any thread can use it."""
 
-    def __init__(self, path: Path, *, clock: Callable[[], datetime] = _now) -> None:
+    def __init__(
+        self,
+        path: Path,
+        *,
+        clock: Callable[[], datetime] = _now,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
         self.path = path
         self._clock = clock
-        # Only one thread at a time replaces a damaged file.
-        self._repair_lock = threading.Lock()
+        self._sleep = sleep
+        # Held while a connection is opened, and while a damaged file is replaced. So no other
+        # thread has the damaged file open when it's renamed, which Windows would refuse.
+        self._open_lock = threading.Lock()
 
     def add(self, entry: HistoryEntry) -> HistoryEntry:
         """Record a saved file. Returns the entry with its id and save time filled in."""
@@ -150,14 +160,11 @@ class History:
 
     def _open(self) -> sqlite3.Connection:
         """Connect with the schema in place. A damaged file is moved aside and a new one started."""
-        db = self._try_open()
-        if db:
-            return db
-        with self._repair_lock:
-            # Another thread may have replaced the file while this one waited.
+        with self._open_lock:
             db = self._try_open()
             if db:
                 return db
+            # The failed attempt has closed its connection, and the lock keeps others out.
             self._move_aside()
             db = self._try_open()
         if db is None:
@@ -182,7 +189,7 @@ class History:
             self.path.parent.mkdir(parents=True, exist_ok=True)
         except OSError as error:
             raise ScmpError(
-                ErrorKind.disk, f"can't create the data folder: {error.strerror}"
+                ErrorKind.disk, f"can't create the data folder: {error.strerror or error}"
             ) from error
         db = sqlite3.connect(self.path)
         try:
@@ -199,16 +206,30 @@ class History:
         """Rename a damaged history.db to history.bad-<time>.db, in local time."""
         backup = paths.backup_path(self.path, self._clock().astimezone())
         try:
-            os.replace(self.path, backup)
+            self._rename(backup)
         except OSError as error:
             raise ScmpError(
                 ErrorKind.disk,
-                f"history.db is damaged and couldn't be moved aside: {error.strerror}",
+                f"history.db is damaged and couldn't be moved aside: {error.strerror or error}",
             ) from error
         log.warning(
             "history.db wasn't a usable database, so it was renamed %s and a new one started",
             backup.name,
         )
+
+    def _rename(self, backup: Path) -> None:
+        """os.replace, tried again for about 2 seconds while Windows says the file is locked."""
+        # Another program, such as Defender or a backup tool, can still have it open briefly.
+        for delay in LOCK_RETRY_DELAYS:
+            try:
+                os.replace(self.path, backup)
+                return
+            except OSError as error:
+                if getattr(error, "winerror", None) not in BRIEF_LOCK_ERRORS:
+                    raise
+            log.debug("history.db is locked, so the rename is tried again")
+            self._sleep(delay)
+        os.replace(self.path, backup)
 
 
 def _is_damaged(error: sqlite3.DatabaseError) -> bool:

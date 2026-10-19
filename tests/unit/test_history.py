@@ -2,10 +2,15 @@
 
 import itertools
 import logging
+import os
+import sqlite3
+import threading
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -202,11 +207,195 @@ def test_a_damaged_database_is_moved_aside_and_a_new_one_started(
     assert store.recent() == [added]
 
 
-def test_threads_that_find_a_damaged_database_replace_it_once(tmp_path: Path) -> None:
+class OverlapProbe:
+    """Holds threads inside the damaged file while another one renames it, and counts them.
+
+    The first thread to open the damaged file goes ahead. Any other thread's connection to it
+    stays open until the rename has been tried, and the rename waits briefly for one to arrive.
+    Code that lets threads open the file during a repair is therefore caught with the file open
+    on every OS, not only when Windows happens to refuse the rename.
+    """
+
+    def __init__(self, damaged: Path) -> None:
+        self.damaged = damaged
+        self.open_at_rename: list[int] = []
+        self._open = 0
+        self._first_thread: int | None = None
+        self._lock = threading.Lock()
+        self._renamed = False
+        self._other_arrived = threading.Event()
+        self._rename_tried = threading.Event()
+        self._real_connect = sqlite3.connect
+        self._real_replace = os.replace
+
+    def install(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(history.sqlite3, "connect", self.connect)
+        monkeypatch.setattr(history.os, "replace", self.replace)
+
+    def connect(self, database: Path, *args: Any, **kwargs: Any) -> sqlite3.Connection:
+        db = self._real_connect(database, *args, factory=TrackedConnection, **kwargs)
+        with self._lock:
+            if self._renamed or Path(database) != self.damaged:
+                return db
+            db.on_close = self._closed
+            self._open += 1
+            if self._first_thread is None:
+                self._first_thread = threading.get_ident()
+            is_first_thread = self._first_thread == threading.get_ident()
+        if not is_first_thread:
+            self._other_arrived.set()
+            self._rename_tried.wait(timeout=5)
+        return db
+
+    def replace(self, src: str | Path, dst: str | Path) -> None:
+        if Path(src) == self.damaged:
+            # Give a thread outside the repair the chance to open the damaged file first.
+            self._other_arrived.wait(timeout=0.5)
+            with self._lock:
+                self.open_at_rename.append(self._open)
+                self._renamed = True
+        try:
+            self._real_replace(src, dst)
+        finally:
+            self._rename_tried.set()
+
+    def _closed(self) -> None:
+        with self._lock:
+            self._open -= 1
+
+
+class TrackedConnection(sqlite3.Connection):
+    """A connection that reports its first close, so a test can count open ones."""
+
+    on_close: Callable[[], None] | None = None
+
+    def close(self) -> None:
+        callback, self.on_close = self.on_close, None
+        super().close()
+        if callback:
+            callback()
+
+
+def test_no_thread_has_the_damaged_file_open_while_it_is_renamed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     db = tmp_path / "history.db"
     db.write_bytes(b"this is not a database " * 100)
+    probe = OverlapProbe(db)
+    probe.install(monkeypatch)
     store = History(db, clock=StepClock())
+    start = threading.Barrier(4)
+
+    def add_after_start(n: int) -> HistoryEntry:
+        start.wait(timeout=5)
+        return store.add(entry(title=f"Track {n}"))
+
     with ThreadPoolExecutor(max_workers=4) as pool:
-        list(pool.map(lambda n: store.add(entry(title=f"Track {n}")), range(8)))
-    assert len(store.recent(limit=100)) == 8
+        list(pool.map(add_after_start, range(4)))
+    assert probe.open_at_rename == [0]
+    assert len(store.recent(limit=100)) == 4
     assert len(list(tmp_path.glob("history.bad-*.db"))) == 1
+
+
+def lock_error(winerror: int) -> OSError:
+    """What Windows raises while another program has the file open for a moment."""
+    error = PermissionError(13, "The process cannot access the file")
+    error.winerror = winerror
+    return error
+
+
+class RecordingSleep:
+    """A stand-in for time.sleep that only notes how long it was asked to wait."""
+
+    def __init__(self) -> None:
+        self.waits: list[float] = []
+
+    def __call__(self, seconds: float) -> None:
+        self.waits.append(seconds)
+
+
+def damaged_store(tmp_path: Path, sleep: RecordingSleep) -> History:
+    db = tmp_path / "history.db"
+    db.write_bytes(b"this is not a database " * 100)
+    return History(db, clock=lambda: START, sleep=sleep)
+
+
+@pytest.mark.parametrize("winerror", [5, 32])
+def test_a_briefly_locked_damaged_file_is_renamed_on_a_later_try(
+    winerror: int, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sleep = RecordingSleep()
+    store = damaged_store(tmp_path, sleep)
+    real_replace = os.replace
+    failures = [lock_error(winerror), lock_error(winerror)]
+
+    def locked_twice(src: str | Path, dst: str | Path) -> None:
+        if failures:
+            raise failures.pop()
+        real_replace(src, dst)
+
+    monkeypatch.setattr(history.os, "replace", locked_twice)
+    store.add(entry())
+    assert sleep.waits == [0.1, 0.2]
+    assert len(list(tmp_path.glob("history.bad-*.db"))) == 1
+
+
+def test_a_damaged_file_that_stays_locked_is_a_disk_error_after_about_two_seconds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sleep = RecordingSleep()
+    store = damaged_store(tmp_path, sleep)
+
+    def always_locked(src: str | Path, dst: str | Path) -> None:
+        raise lock_error(32)
+
+    monkeypatch.setattr(history.os, "replace", always_locked)
+    with pytest.raises(ScmpError) as error_info:
+        store.add(entry())
+    assert error_info.value.kind is ErrorKind.disk
+    assert len(sleep.waits) == 5
+    assert sum(sleep.waits) == pytest.approx(2.0)
+
+
+def test_a_rename_error_that_isnt_a_lock_is_not_retried(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sleep = RecordingSleep()
+    store = damaged_store(tmp_path, sleep)
+
+    def denied(src: str | Path, dst: str | Path) -> None:
+        raise PermissionError(13, "Access is denied")
+
+    monkeypatch.setattr(history.os, "replace", denied)
+    with pytest.raises(ScmpError) as error_info:
+        store.add(entry())
+    assert error_info.value.kind is ErrorKind.disk
+    assert sleep.waits == []
+
+
+def test_a_rename_error_without_an_os_message_still_explains_itself(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = damaged_store(tmp_path, RecordingSleep())
+
+    def odd_failure(src: str | Path, dst: str | Path) -> None:
+        raise OSError("the backup name is taken")
+
+    monkeypatch.setattr(history.os, "replace", odd_failure)
+    with pytest.raises(ScmpError) as error_info:
+        store.add(entry())
+    assert error_info.value.detail == (
+        "history.db is damaged and couldn't be moved aside: the backup name is taken"
+    )
+
+
+def test_a_folder_error_without_an_os_message_still_explains_itself(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def odd_failure(self: Path, *args: object, **kwargs: object) -> None:
+        raise OSError("the drive went away")
+
+    monkeypatch.setattr(Path, "mkdir", odd_failure)
+    with pytest.raises(ScmpError) as error_info:
+        History(tmp_path / "new" / "history.db").recent()
+    assert error_info.value.detail == "can't create the data folder: the drive went away"
