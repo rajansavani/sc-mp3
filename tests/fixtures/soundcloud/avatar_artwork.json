@@ -1,0 +1,350 @@
+{
+  "url": "https://soundcloud.com/garyvee/sideways-prod-mad-real",
+  "recorded": "2026-10-19",
+  "yt_dlp": "2026.08.19",
+  "hand_built": null,
+  "info": {
+    "uploader": "garyvee",
+    "uploader_id": "2366352",
+    "uploader_url": "https://soundcloud.com/garyvee",
+    "timestamp": 1488152409,
+    "title": "Sideways (Prod. Mad Real)",
+    "track": "Sideways (Prod. Mad Real)",
+    "description": "",
+    "duration": 206.988,
+    "webpage_url": "https://soundcloud.com/garyvee/sideways-prod-mad-real",
+    "license": "all-rights-reserved",
+    "view_count": 25805,
+    "like_count": 207,
+    "comment_count": 0,
+    "repost_count": 10,
+    "modified_timestamp": 1488293034,
+    "artists": [
+      "MadReal"
+    ],
+    "id": "309699954",
+    "thumbnails": [
+      {
+        "id": "mini",
+        "url": "https://i1.sndcdn.com/avatars-000298106657-ogrgmg-mini.jpg",
+        "width": 16,
+        "height": 16,
+        "resolution": "16x16"
+      },
+      {
+        "id": "tiny",
+        "url": "https://i1.sndcdn.com/avatars-000298106657-ogrgmg-tiny.jpg",
+        "width": 18,
+        "height": 18,
+        "resolution": "18x18"
+      },
+      {
+        "id": "small",
+        "url": "https://i1.sndcdn.com/avatars-000298106657-ogrgmg-small.jpg",
+        "width": 32,
+        "height": 32,
+        "resolution": "32x32"
+      },
+      {
+        "id": "badge",
+        "url": "https://i1.sndcdn.com/avatars-000298106657-ogrgmg-badge.jpg",
+        "width": 47,
+        "height": 47,
+        "resolution": "47x47"
+      },
+      {
+        "id": "t67x67",
+        "url": "https://i1.sndcdn.com/avatars-000298106657-ogrgmg-t67x67.jpg",
+        "width": 67,
+        "height": 67,
+        "resolution": "67x67"
+      },
+      {
+        "id": "large",
+        "url": "https://i1.sndcdn.com/avatars-000298106657-ogrgmg-large.jpg",
+        "width": 100,
+        "height": 100,
+        "resolution": "100x100"
+      },
+      {
+        "id": "t300x300",
+        "url": "https://i1.sndcdn.com/avatars-000298106657-ogrgmg-t300x300.jpg",
+        "width": 300,
+        "height": 300,
+        "resolution": "300x300"
+      },
+      {
+        "id": "crop",
+        "url": "https://i1.sndcdn.com/avatars-000298106657-ogrgmg-crop.jpg",
+        "width": 400,
+        "height": 400,
+        "resolution": "400x400"
+      },
+      {
+        "id": "t500x500",
+        "url": "https://i1.sndcdn.com/avatars-000298106657-ogrgmg-t500x500.jpg",
+        "width": 500,
+        "height": 500,
+        "resolution": "500x500"
+      },
+      {
+        "id": "original",
+        "url": "https://i1.sndcdn.com/avatars-000298106657-ogrgmg-original.jpg",
+        "preference": 10
+      }
+    ],
+    "formats": [
+      {
+        "format_id": "hls_aac_96k",
+        "url": "https://playback.media-streaming.soundcloud.cloud/2J4HFe1jjmlX/aac_96k/7989f79e-e525-4799-9d3f-7879b3ad7770/playlist.m3u8?expires=1792381386",
+        "ext": "m4a",
+        "acodec": "mp4a.40.2",
+        "vcodec": "none",
+        "abr": 96,
+        "protocol": "m3u8_native",
+        "container": "m4a_dash",
+        "quality": -1,
+        "format_note": null,
+        "preference": null,
+        "audio_ext": "m4a",
+        "video_ext": "none",
+        "vbr": 0,
+        "tbr": 96,
+        "resolution": "audio only",
+        "aspect_ratio": null,
+        "filesize_approx": 2483856,
+        "http_headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-us,en;q=0.5",
+          "Sec-Fetch-Mode": "navigate"
+        },
+        "format": "hls_aac_96k - audio only"
+      },
+      {
+        "format_id": "hls_aac_160k",
+        "url": "https://playback.media-streaming.soundcloud.cloud/2J4HFe1jjmlX/aac_160k/b8ddf8a2-1d68-4df5-bb8b-dcad1bae3198/playlist.m3u8?expires=1792381385",
+        "ext": "m4a",
+        "acodec": "mp4a.40.2",
+        "vcodec": "none",
+        "abr": 160,
+        "protocol": "m3u8_native",
+        "container": "m4a_dash",
+        "quality": 0,
+        "format_note": null,
+        "preference": null,
+        "audio_ext": "m4a",
+        "video_ext": "none",
+        "vbr": 0,
+        "tbr": 160,
+        "resolution": "audio only",
+        "aspect_ratio": null,
+        "filesize_approx": 4139760,
+        "http_headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-us,en;q=0.5",
+          "Sec-Fetch-Mode": "navigate"
+        },
+        "format": "hls_aac_160k - audio only"
+      }
+    ],
+    "original_url": "https://soundcloud.com/garyvee/sideways-prod-mad-real",
+    "webpage_url_basename": "sideways-prod-mad-real",
+    "webpage_url_domain": "soundcloud.com",
+    "extractor": "soundcloud",
+    "extractor_key": "Soundcloud",
+    "playlist": null,
+    "playlist_index": null,
+    "thumbnail": "https://i1.sndcdn.com/avatars-000298106657-ogrgmg-original.jpg",
+    "display_id": "309699954",
+    "fulltitle": "Sideways (Prod. Mad Real)",
+    "duration_string": "3:26",
+    "upload_date": "20170226",
+    "modified_date": "20170228",
+    "release_year": null,
+    "artist": "MadReal",
+    "requested_subtitles": null,
+    "_has_drm": null,
+    "epoch": 1792373979,
+    "format_id": "hls_aac_160k",
+    "url": "https://playback.media-streaming.soundcloud.cloud/2J4HFe1jjmlX/aac_160k/b8ddf8a2-1d68-4df5-bb8b-dcad1bae3198/playlist.m3u8?expires=1792381385",
+    "ext": "m4a",
+    "acodec": "mp4a.40.2",
+    "vcodec": "none",
+    "abr": 160,
+    "protocol": "m3u8_native",
+    "container": "m4a_dash",
+    "quality": 0,
+    "format_note": null,
+    "preference": null,
+    "audio_ext": "m4a",
+    "video_ext": "none",
+    "vbr": 0,
+    "tbr": 160,
+    "resolution": "audio only",
+    "aspect_ratio": null,
+    "filesize_approx": 4139760,
+    "http_headers": {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-us,en;q=0.5",
+      "Sec-Fetch-Mode": "navigate"
+    },
+    "format": "hls_aac_160k - audio only",
+    "_type": "video",
+    "_version": {
+      "version": "2026.08.19",
+      "current_git_head": null,
+      "release_git_head": "594bd50c2c78ac432f81600d309fdc4e0a92d82c",
+      "repository": "yt-dlp/yt-dlp"
+    }
+  },
+  "info_error": null,
+  "api": {
+    "artwork_url": null,
+    "caption": null,
+    "commentable": true,
+    "comment_count": 0,
+    "created_at": "2017-02-26T23:40:09Z",
+    "description": "",
+    "downloadable": false,
+    "download_count": 0,
+    "duration": 206988,
+    "full_duration": 207012,
+    "embeddable_by": "all",
+    "genre": "",
+    "has_downloads_left": false,
+    "id": 309699954,
+    "kind": "track",
+    "label_name": null,
+    "last_modified": "2017-02-28T14:43:54Z",
+    "license": "all-rights-reserved",
+    "likes_count": 207,
+    "permalink": "sideways-prod-mad-real",
+    "permalink_url": "https://soundcloud.com/garyvee/sideways-prod-mad-real",
+    "playback_count": 25805,
+    "public": true,
+    "publisher_metadata": {
+      "id": 309699954,
+      "urn": "soundcloud:tracks:309699954",
+      "artist": "MadReal",
+      "album_title": "myFlashStore"
+    },
+    "purchase_title": null,
+    "purchase_url": null,
+    "release_date": null,
+    "reposts_count": 10,
+    "sharing": "public",
+    "state": "finished",
+    "streamable": true,
+    "tag_list": "",
+    "title": "Sideways (Prod. Mad Real)",
+    "uri": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A309699954",
+    "urn": "soundcloud:tracks:309699954",
+    "user_id": 2366352,
+    "visuals": null,
+    "waveform_url": "https://wave.sndcdn.com/2J4HFe1jjmlX_m.json",
+    "display_date": "2017-02-26T23:40:09Z",
+    "media": {
+      "transcodings": [
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:309699954/b8ddf8a2-1d68-4df5-bb8b-dcad1bae3198/stream/hls",
+          "preset": "aac_160k",
+          "duration": 206988,
+          "snipped": false,
+          "format": {
+            "protocol": "hls",
+            "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+          },
+          "quality": "sq",
+          "is_legacy_transcoding": false
+        },
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:309699954/7989f79e-e525-4799-9d3f-7879b3ad7770/stream/hls",
+          "preset": "aac_96k",
+          "duration": 206988,
+          "snipped": false,
+          "format": {
+            "protocol": "hls",
+            "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+          },
+          "quality": "lq",
+          "is_legacy_transcoding": false
+        },
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:309699954/16154683-3c68-4791-aa30-5e84a9f80a17/stream/hls",
+          "preset": "abr_sq",
+          "duration": 206988,
+          "snipped": false,
+          "format": {
+            "protocol": "hls",
+            "mime_type": "audio/mpegurl"
+          },
+          "quality": "sq",
+          "is_legacy_transcoding": false
+        }
+      ]
+    },
+    "station_urn": "soundcloud:system-playlists:track-stations:309699954",
+    "station_permalink": "track-stations:309699954",
+    "monetization_model": "BLACKBOX",
+    "policy": "MONETIZE",
+    "user": {
+      "avatar_url": "https://i1.sndcdn.com/avatars-000298106657-ogrgmg-large.jpg",
+      "comments_count": 0,
+      "created_at": null,
+      "creator_subscriptions": [
+        {
+          "product": {
+            "id": "creator-pro-unlimited"
+          }
+        }
+      ],
+      "creator_subscription": {
+        "product": {
+          "id": "creator-pro-unlimited"
+        }
+      },
+      "description": "Family 1st! but after that, Businessman. Just a dude that Loves the Hustle, People & the @NYJets. CEO of @vaynermedia. Tasted wine for years at @winelibrary",
+      "followers_count": 764581,
+      "followings_count": 2,
+      "groups_count": 0,
+      "id": 2366352,
+      "kind": "user",
+      "last_modified": "2019-11-11T20:47:12Z",
+      "likes_count": 0,
+      "playlist_likes_count": 4,
+      "permalink": "garyvee",
+      "permalink_url": "https://soundcloud.com/garyvee",
+      "playlist_count": 11,
+      "reposts_count": null,
+      "track_count": 1592,
+      "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A2366352",
+      "urn": "soundcloud:users:2366352",
+      "username": "garyvee",
+      "verified": false,
+      "visuals": {
+        "urn": "soundcloud:users:2366352",
+        "enabled": true,
+        "visuals": [
+          {
+            "urn": "soundcloud:visuals:24953738",
+            "entry_time": 0,
+            "visual_url": "https://i1.sndcdn.com/visuals-000002366352-pjqVQD-original.jpg"
+          }
+        ],
+        "tracking": null
+      },
+      "badges": {
+        "pro": false,
+        "creator_mid_tier": false,
+        "pro_unlimited": true,
+        "verified": false
+      },
+      "station_urn": "soundcloud:system-playlists:artist-stations:2366352",
+      "station_permalink": "artist-stations:2366352"
+    }
+  },
+  "api_error": null
+}

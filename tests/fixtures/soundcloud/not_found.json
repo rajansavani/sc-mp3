@@ -1,0 +1,17 @@
+{
+  "url": "https://soundcloud.com/scmp3-test-missing/no-such-track-0000",
+  "recorded": "2026-10-19",
+  "yt_dlp": "2026.08.19",
+  "hand_built": null,
+  "info": null,
+  "info_error": {
+    "type": "HTTPError",
+    "message": "ERROR: [soundcloud] scmp3-test-missing/no-such-track-0000: Unable to download JSON metadata: HTTP Error 404: Not Found (caused by <HTTPError 404: Not Found>)",
+    "status": 404
+  },
+  "api": null,
+  "api_error": {
+    "kind": "unavailable",
+    "status": 404
+  }
+}

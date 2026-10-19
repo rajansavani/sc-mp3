@@ -1,0 +1,352 @@
+{
+  "url": "https://soundcloud.com/taylorswiftofficial/look-what-you-made-me-do",
+  "recorded": "2026-10-19",
+  "yt_dlp": "2026.08.19",
+  "hand_built": null,
+  "info": {
+    "uploader": "Taylor Swift",
+    "uploader_id": "207963889",
+    "uploader_url": "https://soundcloud.com/taylorswiftofficial",
+    "timestamp": 1503632406,
+    "title": "Look What You Made Me Do",
+    "track": "Look What You Made Me Do",
+    "duration": 30.0,
+    "webpage_url": "https://soundcloud.com/taylorswiftofficial/look-what-you-made-me-do",
+    "license": "all-rights-reserved",
+    "view_count": 1187823,
+    "like_count": 39324,
+    "comment_count": 461,
+    "repost_count": 1029,
+    "release_timestamp": 1510876800,
+    "modified_timestamp": 1783143589,
+    "genres": [
+      "Pop"
+    ],
+    "artists": [
+      "Taylor Swift"
+    ],
+    "id": "339400425",
+    "thumbnails": [
+      {
+        "id": "mini",
+        "url": "https://i1.sndcdn.com/artworks-kjYVnsdGzHIQ-0-mini.jpg",
+        "width": 16,
+        "height": 16,
+        "resolution": "16x16"
+      },
+      {
+        "id": "tiny",
+        "url": "https://i1.sndcdn.com/artworks-kjYVnsdGzHIQ-0-tiny.jpg",
+        "width": 20,
+        "height": 20,
+        "resolution": "20x20"
+      },
+      {
+        "id": "small",
+        "url": "https://i1.sndcdn.com/artworks-kjYVnsdGzHIQ-0-small.jpg",
+        "width": 32,
+        "height": 32,
+        "resolution": "32x32"
+      },
+      {
+        "id": "badge",
+        "url": "https://i1.sndcdn.com/artworks-kjYVnsdGzHIQ-0-badge.jpg",
+        "width": 47,
+        "height": 47,
+        "resolution": "47x47"
+      },
+      {
+        "id": "t67x67",
+        "url": "https://i1.sndcdn.com/artworks-kjYVnsdGzHIQ-0-t67x67.jpg",
+        "width": 67,
+        "height": 67,
+        "resolution": "67x67"
+      },
+      {
+        "id": "large",
+        "url": "https://i1.sndcdn.com/artworks-kjYVnsdGzHIQ-0-large.jpg",
+        "width": 100,
+        "height": 100,
+        "resolution": "100x100"
+      },
+      {
+        "id": "t300x300",
+        "url": "https://i1.sndcdn.com/artworks-kjYVnsdGzHIQ-0-t300x300.jpg",
+        "width": 300,
+        "height": 300,
+        "resolution": "300x300"
+      },
+      {
+        "id": "crop",
+        "url": "https://i1.sndcdn.com/artworks-kjYVnsdGzHIQ-0-crop.jpg",
+        "width": 400,
+        "height": 400,
+        "resolution": "400x400"
+      },
+      {
+        "id": "t500x500",
+        "url": "https://i1.sndcdn.com/artworks-kjYVnsdGzHIQ-0-t500x500.jpg",
+        "width": 500,
+        "height": 500,
+        "resolution": "500x500"
+      },
+      {
+        "id": "original",
+        "url": "https://i1.sndcdn.com/artworks-kjYVnsdGzHIQ-0-original.jpg",
+        "preference": 10
+      }
+    ],
+    "formats": [
+      {
+        "format_id": "hls_mp3_0_1_preview",
+        "url": "https://cf-hls-media.sndcdn.com/playlist/0/30/MBl4QrB0x5c6.128.mp3/playlist.m3u8",
+        "ext": "mp3",
+        "acodec": "mp3",
+        "vcodec": "none",
+        "abr": 128,
+        "protocol": "m3u8_native",
+        "container": null,
+        "quality": -1,
+        "format_note": null,
+        "preference": -10,
+        "audio_ext": "mp3",
+        "video_ext": "none",
+        "vbr": 0,
+        "tbr": 128,
+        "resolution": "audio only",
+        "aspect_ratio": null,
+        "filesize_approx": 480000,
+        "http_headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-us,en;q=0.5",
+          "Sec-Fetch-Mode": "navigate"
+        },
+        "format": "hls_mp3_0_1_preview - audio only"
+      },
+      {
+        "format_id": "http_mp3_0_1_preview",
+        "url": "https://cf-preview-media.sndcdn.com/preview/0/30/MBl4QrB0x5c6.128.mp3",
+        "ext": "mp3",
+        "acodec": "mp3",
+        "vcodec": "none",
+        "abr": 128,
+        "protocol": "http",
+        "container": null,
+        "quality": -1,
+        "format_note": null,
+        "preference": -10,
+        "audio_ext": "mp3",
+        "video_ext": "none",
+        "vbr": 0,
+        "tbr": 128,
+        "resolution": "audio only",
+        "aspect_ratio": null,
+        "filesize_approx": 480000,
+        "http_headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-us,en;q=0.5",
+          "Sec-Fetch-Mode": "navigate"
+        },
+        "format": "http_mp3_0_1_preview - audio only"
+      }
+    ],
+    "original_url": "https://soundcloud.com/taylorswiftofficial/look-what-you-made-me-do",
+    "webpage_url_basename": "look-what-you-made-me-do",
+    "webpage_url_domain": "soundcloud.com",
+    "extractor": "soundcloud",
+    "extractor_key": "Soundcloud",
+    "playlist": null,
+    "playlist_index": null,
+    "thumbnail": "https://i1.sndcdn.com/artworks-kjYVnsdGzHIQ-0-original.jpg",
+    "display_id": "339400425",
+    "fulltitle": "Look What You Made Me Do",
+    "duration_string": "30",
+    "upload_date": "20170825",
+    "release_date": "20171117",
+    "modified_date": "20260704",
+    "release_year": 2017,
+    "artist": "Taylor Swift",
+    "genre": "Pop",
+    "requested_subtitles": null,
+    "_has_drm": null,
+    "epoch": 1792373977,
+    "format_id": "http_mp3_0_1_preview",
+    "url": "https://cf-preview-media.sndcdn.com/preview/0/30/MBl4QrB0x5c6.128.mp3",
+    "ext": "mp3",
+    "acodec": "mp3",
+    "vcodec": "none",
+    "abr": 128,
+    "protocol": "http",
+    "container": null,
+    "quality": -1,
+    "format_note": null,
+    "preference": -10,
+    "audio_ext": "mp3",
+    "video_ext": "none",
+    "vbr": 0,
+    "tbr": 128,
+    "resolution": "audio only",
+    "aspect_ratio": null,
+    "filesize_approx": 480000,
+    "http_headers": {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-us,en;q=0.5",
+      "Sec-Fetch-Mode": "navigate"
+    },
+    "format": "http_mp3_0_1_preview - audio only",
+    "_type": "video",
+    "_version": {
+      "version": "2026.08.19",
+      "current_git_head": null,
+      "release_git_head": "594bd50c2c78ac432f81600d309fdc4e0a92d82c",
+      "repository": "yt-dlp/yt-dlp"
+    }
+  },
+  "info_error": null,
+  "api": {
+    "artwork_url": "https://i1.sndcdn.com/artworks-kjYVnsdGzHIQ-0-large.jpg",
+    "caption": null,
+    "commentable": true,
+    "comment_count": 461,
+    "created_at": "2017-08-25T03:40:06Z",
+    "description": null,
+    "downloadable": false,
+    "download_count": 0,
+    "duration": 30000,
+    "full_duration": 211905,
+    "embeddable_by": "all",
+    "genre": "Pop",
+    "has_downloads_left": false,
+    "id": 339400425,
+    "kind": "track",
+    "label_name": "Taylor Swift",
+    "last_modified": "2026-07-04T05:39:49Z",
+    "license": "all-rights-reserved",
+    "likes_count": 39324,
+    "permalink": "look-what-you-made-me-do",
+    "permalink_url": "https://soundcloud.com/taylorswiftofficial/look-what-you-made-me-do",
+    "playback_count": 1187823,
+    "public": true,
+    "publisher_metadata": {
+      "id": 339400425,
+      "urn": "soundcloud:tracks:339400425",
+      "artist": "Taylor Swift",
+      "album_title": "reputation",
+      "contains_music": true,
+      "upc_or_ean": "00843930033140",
+      "isrc": "USCJY1750000",
+      "explicit": false,
+      "p_line": "℗ 2017 Taylor Swift",
+      "p_line_for_display": "℗ 2017 Taylor Swift",
+      "c_line": "© 2017 Taylor Swift",
+      "c_line_for_display": "© 2017 Taylor Swift",
+      "release_title": "Look What You Made Me Do"
+    },
+    "purchase_title": null,
+    "purchase_url": null,
+    "release_date": "2017-11-17T00:00:00Z",
+    "reposts_count": 1029,
+    "sharing": "public",
+    "state": "finished",
+    "streamable": true,
+    "tag_list": "",
+    "title": "Look What You Made Me Do",
+    "uri": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A339400425",
+    "urn": "soundcloud:tracks:339400425",
+    "user_id": 207963889,
+    "visuals": null,
+    "waveform_url": "https://wave.sndcdn.com/MBl4QrB0x5c6_m.json",
+    "display_date": "2017-11-17T00:00:00Z",
+    "media": {
+      "transcodings": [
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:339400425/3c3b1bb2-1432-4252-bcfb-0009e70f52ef/preview/hls",
+          "preset": "mp3_0_1",
+          "duration": 30000,
+          "snipped": true,
+          "format": {
+            "protocol": "hls",
+            "mime_type": "audio/mpeg"
+          },
+          "quality": "sq",
+          "is_legacy_transcoding": true
+        },
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:339400425/3c3b1bb2-1432-4252-bcfb-0009e70f52ef/preview/progressive",
+          "preset": "mp3_0_1",
+          "duration": 30000,
+          "snipped": true,
+          "format": {
+            "protocol": "progressive",
+            "mime_type": "audio/mpeg"
+          },
+          "quality": "sq",
+          "is_legacy_transcoding": true
+        }
+      ]
+    },
+    "station_urn": "soundcloud:system-playlists:track-stations:339400425",
+    "station_permalink": "track-stations:339400425",
+    "monetization_model": "SUB_HIGH_TIER",
+    "policy": "SNIP",
+    "user": {
+      "avatar_url": "https://i1.sndcdn.com/avatars-sjNcX6AFcRz63FAD-piyajw-large.jpg",
+      "comments_count": 0,
+      "created_at": null,
+      "creator_subscriptions": [
+        {
+          "product": {
+            "id": "creator-pro-unlimited"
+          }
+        }
+      ],
+      "creator_subscription": {
+        "product": {
+          "id": "creator-pro-unlimited"
+        }
+      },
+      "description": "All’s fair in love and poetry... New album THE TORTURED POETS DEPARTMENT. Out April 19 🤍",
+      "followers_count": 1199328,
+      "followings_count": 2,
+      "groups_count": 0,
+      "id": 207963889,
+      "kind": "user",
+      "last_modified": "2026-09-25T07:53:15Z",
+      "likes_count": 0,
+      "playlist_likes_count": 0,
+      "permalink": "taylorswiftofficial",
+      "permalink_url": "https://soundcloud.com/taylorswiftofficial",
+      "playlist_count": 130,
+      "reposts_count": null,
+      "track_count": 731,
+      "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A207963889",
+      "urn": "soundcloud:users:207963889",
+      "username": "Taylor Swift",
+      "verified": true,
+      "visuals": {
+        "urn": "soundcloud:users:207963889",
+        "enabled": true,
+        "visuals": [
+          {
+            "urn": "soundcloud:visuals:275387067",
+            "entry_time": 0,
+            "visual_url": "https://i1.sndcdn.com/visuals-000207963889-iflcrM-original.jpg"
+          }
+        ],
+        "tracking": null
+      },
+      "badges": {
+        "pro": false,
+        "creator_mid_tier": false,
+        "pro_unlimited": true,
+        "verified": true
+      },
+      "station_urn": "soundcloud:system-playlists:artist-stations:207963889",
+      "station_permalink": "artist-stations:207963889"
+    }
+  },
+  "api_error": null
+}

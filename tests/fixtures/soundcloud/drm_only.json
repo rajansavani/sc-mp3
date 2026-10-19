@@ -1,0 +1,192 @@
+{
+  "url": "https://soundcloud.com/ashburyheightsofficial/traffic-tcp-demo-2008-1",
+  "recorded": "2026-10-19",
+  "yt_dlp": "2026.08.19",
+  "hand_built": null,
+  "info": null,
+  "info_error": {
+    "type": "ExtractorError",
+    "message": "ERROR: [soundcloud] 296372062: This video is DRM protected",
+    "status": null
+  },
+  "api": {
+    "artwork_url": "https://i1.sndcdn.com/artworks-klY5iFNNxzXO-0-large.jpg",
+    "caption": null,
+    "commentable": true,
+    "comment_count": 0,
+    "created_at": "2016-12-05T18:02:42Z",
+    "description": null,
+    "downloadable": false,
+    "download_count": 0,
+    "duration": 224086,
+    "full_duration": 224078,
+    "embeddable_by": "all",
+    "genre": "Pop",
+    "has_downloads_left": false,
+    "id": 296372062,
+    "kind": "track",
+    "label_name": "Out of Line Music",
+    "last_modified": "2022-05-09T17:11:00Z",
+    "license": "all-rights-reserved",
+    "likes_count": 25,
+    "permalink": "traffic-tcp-demo-2008-1",
+    "permalink_url": "https://soundcloud.com/ashburyheightsofficial/traffic-tcp-demo-2008-1",
+    "playback_count": 965,
+    "public": true,
+    "publisher_metadata": {
+      "id": 296372062,
+      "urn": "soundcloud:tracks:296372062",
+      "artist": "Ashbury Heights",
+      "album_title": "Take Cair Paramour Alternatives",
+      "contains_music": true,
+      "upc_or_ean": "4260158834179",
+      "isrc": "DEBZ71000253",
+      "explicit": false,
+      "p_line": "2012 Out Of Line Music",
+      "p_line_for_display": "℗ 2012 Out Of Line Music",
+      "c_line": "2012 Out Of Line Music",
+      "c_line_for_display": "© 2012 Out Of Line Music",
+      "release_title": "Traffic (TCP Demo 2008)"
+    },
+    "purchase_title": null,
+    "purchase_url": null,
+    "release_date": "2012-07-20T00:00:00Z",
+    "reposts_count": 0,
+    "sharing": "public",
+    "state": "finished",
+    "streamable": true,
+    "tag_list": "",
+    "title": "Traffic (TCP Demo 2008)",
+    "uri": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A296372062",
+    "urn": "soundcloud:tracks:296372062",
+    "user_id": 257467911,
+    "visuals": null,
+    "waveform_url": "https://wave.sndcdn.com/yQmuh52E3UAy_m.json",
+    "display_date": "2012-07-20T00:00:00Z",
+    "media": {
+      "transcodings": [
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:296372062/0b78c3ad-9802-4b0a-af91-23c5f424ae0e/stream/cbc-encrypted-hls",
+          "preset": "aac_160k",
+          "duration": 224086,
+          "snipped": false,
+          "format": {
+            "protocol": "cbc-encrypted-hls",
+            "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+          },
+          "quality": "sq",
+          "is_legacy_transcoding": false
+        },
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:296372062/0b78c3ad-9802-4b0a-af91-23c5f424ae0e/stream/ctr-encrypted-hls",
+          "preset": "aac_160k",
+          "duration": 224086,
+          "snipped": false,
+          "format": {
+            "protocol": "ctr-encrypted-hls",
+            "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+          },
+          "quality": "sq",
+          "is_legacy_transcoding": false
+        },
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:296372062/96d066f4-c328-4e82-af60-1c26d6dacccb/stream/cbc-encrypted-hls",
+          "preset": "aac_96k",
+          "duration": 224086,
+          "snipped": false,
+          "format": {
+            "protocol": "cbc-encrypted-hls",
+            "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+          },
+          "quality": "lq",
+          "is_legacy_transcoding": false
+        },
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:296372062/96d066f4-c328-4e82-af60-1c26d6dacccb/stream/ctr-encrypted-hls",
+          "preset": "aac_96k",
+          "duration": 224086,
+          "snipped": false,
+          "format": {
+            "protocol": "ctr-encrypted-hls",
+            "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+          },
+          "quality": "lq",
+          "is_legacy_transcoding": false
+        },
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:296372062/1f6b3756-7fb3-425d-9317-202b5de800ac/stream/cbc-encrypted-hls",
+          "preset": "abr_sq",
+          "duration": 224086,
+          "snipped": false,
+          "format": {
+            "protocol": "cbc-encrypted-hls",
+            "mime_type": "audio/mpegurl"
+          },
+          "quality": "sq",
+          "is_legacy_transcoding": false
+        },
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:296372062/1f6b3756-7fb3-425d-9317-202b5de800ac/stream/ctr-encrypted-hls",
+          "preset": "abr_sq",
+          "duration": 224086,
+          "snipped": false,
+          "format": {
+            "protocol": "ctr-encrypted-hls",
+            "mime_type": "audio/mpegurl"
+          },
+          "quality": "sq",
+          "is_legacy_transcoding": false
+        }
+      ]
+    },
+    "station_urn": "soundcloud:system-playlists:track-stations:296372062",
+    "station_permalink": "track-stations:296372062",
+    "monetization_model": "AD_SUPPORTED",
+    "policy": "MONETIZE",
+    "user": {
+      "avatar_url": "https://a1.sndcdn.com/images/default_avatar_large.png",
+      "comments_count": 0,
+      "created_at": null,
+      "creator_subscriptions": [
+        {
+          "product": {
+            "id": "free"
+          }
+        }
+      ],
+      "creator_subscription": {
+        "product": {
+          "id": "free"
+        }
+      },
+      "description": null,
+      "followers_count": 1570,
+      "followings_count": 0,
+      "groups_count": 0,
+      "id": 257467911,
+      "kind": "user",
+      "last_modified": "2016-09-26T19:23:35Z",
+      "likes_count": 0,
+      "playlist_likes_count": 0,
+      "permalink": "ashburyheightsofficial",
+      "permalink_url": "https://soundcloud.com/ashburyheightsofficial",
+      "playlist_count": 7,
+      "reposts_count": null,
+      "track_count": 99,
+      "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A257467911",
+      "urn": "soundcloud:users:257467911",
+      "username": "Ashbury Heights",
+      "verified": false,
+      "visuals": null,
+      "badges": {
+        "pro": false,
+        "creator_mid_tier": false,
+        "pro_unlimited": false,
+        "verified": false
+      },
+      "station_urn": "soundcloud:system-playlists:artist-stations:257467911",
+      "station_permalink": "artist-stations:257467911"
+    }
+  },
+  "api_error": null
+}

@@ -1,0 +1,380 @@
+{
+  "url": "https://soundcloud.com/the80m/the-following",
+  "recorded": "2026-10-19",
+  "yt_dlp": "2026.08.19",
+  "hand_built": "From aac_typical.json. Added a download format with ext mp3, a lossy original as a signed-in account would get it, and selected it as yt-dlp does.",
+  "info": {
+    "uploader": "80M",
+    "uploader_id": "312384765",
+    "uploader_url": "https://soundcloud.com/the80m",
+    "timestamp": 1506120436,
+    "title": "The Following",
+    "track": "The Following",
+    "description": "",
+    "duration": 397.175,
+    "webpage_url": "https://soundcloud.com/the80m/the-following",
+    "license": "all-rights-reserved",
+    "view_count": 2620,
+    "like_count": 96,
+    "comment_count": 12,
+    "repost_count": 9,
+    "release_timestamp": 1506384000,
+    "modified_timestamp": 1647390150,
+    "genres": [
+      "Dance & EDM"
+    ],
+    "tags": [
+      "80M",
+      "EDM",
+      "Dance",
+      "Music"
+    ],
+    "artists": [
+      "80M"
+    ],
+    "id": "343609555",
+    "thumbnails": [
+      {
+        "id": "mini",
+        "url": "https://i1.sndcdn.com/artworks-000243916348-ktoo7d-mini.jpg",
+        "width": 16,
+        "height": 16,
+        "resolution": "16x16"
+      },
+      {
+        "id": "tiny",
+        "url": "https://i1.sndcdn.com/artworks-000243916348-ktoo7d-tiny.jpg",
+        "width": 20,
+        "height": 20,
+        "resolution": "20x20"
+      },
+      {
+        "id": "small",
+        "url": "https://i1.sndcdn.com/artworks-000243916348-ktoo7d-small.jpg",
+        "width": 32,
+        "height": 32,
+        "resolution": "32x32"
+      },
+      {
+        "id": "badge",
+        "url": "https://i1.sndcdn.com/artworks-000243916348-ktoo7d-badge.jpg",
+        "width": 47,
+        "height": 47,
+        "resolution": "47x47"
+      },
+      {
+        "id": "t67x67",
+        "url": "https://i1.sndcdn.com/artworks-000243916348-ktoo7d-t67x67.jpg",
+        "width": 67,
+        "height": 67,
+        "resolution": "67x67"
+      },
+      {
+        "id": "large",
+        "url": "https://i1.sndcdn.com/artworks-000243916348-ktoo7d-large.jpg",
+        "width": 100,
+        "height": 100,
+        "resolution": "100x100"
+      },
+      {
+        "id": "t300x300",
+        "url": "https://i1.sndcdn.com/artworks-000243916348-ktoo7d-t300x300.jpg",
+        "width": 300,
+        "height": 300,
+        "resolution": "300x300"
+      },
+      {
+        "id": "crop",
+        "url": "https://i1.sndcdn.com/artworks-000243916348-ktoo7d-crop.jpg",
+        "width": 400,
+        "height": 400,
+        "resolution": "400x400"
+      },
+      {
+        "id": "t500x500",
+        "url": "https://i1.sndcdn.com/artworks-000243916348-ktoo7d-t500x500.jpg",
+        "width": 500,
+        "height": 500,
+        "resolution": "500x500"
+      },
+      {
+        "id": "original",
+        "url": "https://i1.sndcdn.com/artworks-000243916348-ktoo7d-original.jpg",
+        "preference": 10
+      }
+    ],
+    "formats": [
+      {
+        "format_id": "hls_aac_96k",
+        "url": "https://playback.media-streaming.soundcloud.cloud/BYeg6iJhZee8/aac_96k/45c5285f-2127-4db0-a530-195e2806a2f2/playlist.m3u8?expires=1792381573",
+        "ext": "m4a",
+        "acodec": "mp4a.40.2",
+        "vcodec": "none",
+        "abr": 96,
+        "protocol": "m3u8_native",
+        "container": "m4a_dash",
+        "quality": -1,
+        "format_note": null,
+        "preference": null,
+        "audio_ext": "m4a",
+        "video_ext": "none",
+        "vbr": 0,
+        "tbr": 96,
+        "resolution": "audio only",
+        "aspect_ratio": null,
+        "filesize_approx": 4766100,
+        "http_headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-us,en;q=0.5",
+          "Sec-Fetch-Mode": "navigate"
+        },
+        "format": "hls_aac_96k - audio only"
+      },
+      {
+        "format_id": "hls_aac_160k",
+        "url": "https://playback.media-streaming.soundcloud.cloud/BYeg6iJhZee8/aac_160k/d3b1d913-bca3-4cb5-98a8-1eee2c83eee8/playlist.m3u8?expires=1792381573",
+        "ext": "m4a",
+        "acodec": "mp4a.40.2",
+        "vcodec": "none",
+        "abr": 160,
+        "protocol": "m3u8_native",
+        "container": "m4a_dash",
+        "quality": 0,
+        "format_note": null,
+        "preference": null,
+        "audio_ext": "m4a",
+        "video_ext": "none",
+        "vbr": 0,
+        "tbr": 160,
+        "resolution": "audio only",
+        "aspect_ratio": null,
+        "filesize_approx": 7943500,
+        "http_headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-us,en;q=0.5",
+          "Sec-Fetch-Mode": "navigate"
+        },
+        "format": "hls_aac_160k - audio only"
+      },
+      {
+        "format_id": "download",
+        "ext": "mp3",
+        "filesize": 6354800,
+        "url": "https://cf-media.sndcdn.com/hand-built/343609555-original.mp3",
+        "quality": 10,
+        "format_note": "Original",
+        "vcodec": "none",
+        "protocol": "https",
+        "audio_ext": "mp3",
+        "video_ext": "none",
+        "vbr": 0,
+        "resolution": "audio only",
+        "aspect_ratio": null,
+        "http_headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-us,en;q=0.5",
+          "Sec-Fetch-Mode": "navigate"
+        },
+        "format": "download - audio only (Original)"
+      }
+    ],
+    "original_url": "https://soundcloud.com/the80m/the-following",
+    "webpage_url_basename": "the-following",
+    "webpage_url_domain": "soundcloud.com",
+    "extractor": "soundcloud",
+    "extractor_key": "Soundcloud",
+    "playlist": null,
+    "playlist_index": null,
+    "thumbnail": "https://i1.sndcdn.com/artworks-000243916348-ktoo7d-original.jpg",
+    "display_id": "343609555",
+    "fulltitle": "The Following",
+    "duration_string": "6:37",
+    "upload_date": "20170922",
+    "release_date": "20170926",
+    "modified_date": "20220316",
+    "release_year": 2017,
+    "artist": "80M",
+    "genre": "Dance & EDM",
+    "requested_subtitles": null,
+    "_has_drm": null,
+    "epoch": 1792373976,
+    "_type": "video",
+    "_version": {
+      "version": "2026.08.19",
+      "current_git_head": null,
+      "release_git_head": "594bd50c2c78ac432f81600d309fdc4e0a92d82c",
+      "repository": "yt-dlp/yt-dlp"
+    },
+    "format_id": "download",
+    "url": "https://cf-media.sndcdn.com/hand-built/343609555-original.mp3",
+    "ext": "mp3",
+    "vcodec": "none",
+    "protocol": "https",
+    "quality": 10,
+    "format_note": "Original",
+    "audio_ext": "mp3",
+    "video_ext": "none",
+    "vbr": 0,
+    "resolution": "audio only",
+    "aspect_ratio": null,
+    "filesize": 6354800,
+    "http_headers": {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-us,en;q=0.5",
+      "Sec-Fetch-Mode": "navigate"
+    },
+    "format": "download - audio only (Original)"
+  },
+  "info_error": null,
+  "api": {
+    "artwork_url": "https://i1.sndcdn.com/artworks-000243916348-ktoo7d-large.jpg",
+    "caption": null,
+    "commentable": true,
+    "comment_count": 12,
+    "created_at": "2017-09-22T22:47:16Z",
+    "description": "",
+    "downloadable": true,
+    "download_count": 4633,
+    "duration": 397175,
+    "full_duration": 397228,
+    "embeddable_by": "all",
+    "genre": "Dance & EDM",
+    "has_downloads_left": true,
+    "id": 343609555,
+    "kind": "track",
+    "label_name": null,
+    "last_modified": "2022-03-16T00:22:30Z",
+    "license": "all-rights-reserved",
+    "likes_count": 96,
+    "permalink": "the-following",
+    "permalink_url": "https://soundcloud.com/the80m/the-following",
+    "playback_count": 2620,
+    "public": true,
+    "publisher_metadata": {
+      "id": 343609555,
+      "urn": "soundcloud:tracks:343609555",
+      "artist": "80M",
+      "contains_music": true,
+      "isrc": "QZH5E1912919"
+    },
+    "purchase_title": null,
+    "purchase_url": null,
+    "release_date": "2017-09-26T00:00:00Z",
+    "reposts_count": 9,
+    "sharing": "public",
+    "state": "finished",
+    "streamable": true,
+    "tag_list": "80M EDM Dance Music",
+    "title": "The Following",
+    "uri": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A343609555",
+    "urn": "soundcloud:tracks:343609555",
+    "user_id": 312384765,
+    "visuals": null,
+    "waveform_url": "https://wave.sndcdn.com/BYeg6iJhZee8_m.json",
+    "display_date": "2017-09-29T05:08:18Z",
+    "media": {
+      "transcodings": [
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:343609555/d3b1d913-bca3-4cb5-98a8-1eee2c83eee8/stream/hls",
+          "preset": "aac_160k",
+          "duration": 397175,
+          "snipped": false,
+          "format": {
+            "protocol": "hls",
+            "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+          },
+          "quality": "sq",
+          "is_legacy_transcoding": false
+        },
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:343609555/45c5285f-2127-4db0-a530-195e2806a2f2/stream/hls",
+          "preset": "aac_96k",
+          "duration": 397175,
+          "snipped": false,
+          "format": {
+            "protocol": "hls",
+            "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+          },
+          "quality": "lq",
+          "is_legacy_transcoding": false
+        },
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:343609555/0271ba8f-e8ff-4e6d-bb1d-92ae94a26323/stream/hls",
+          "preset": "abr_sq",
+          "duration": 397175,
+          "snipped": false,
+          "format": {
+            "protocol": "hls",
+            "mime_type": "audio/mpegurl"
+          },
+          "quality": "sq",
+          "is_legacy_transcoding": false
+        }
+      ]
+    },
+    "station_urn": "soundcloud:system-playlists:track-stations:343609555",
+    "station_permalink": "track-stations:343609555",
+    "monetization_model": "AD_SUPPORTED",
+    "policy": "MONETIZE",
+    "user": {
+      "avatar_url": "https://i1.sndcdn.com/avatars-zWd4TyidS0aU1ev2-kk5INw-large.jpg",
+      "comments_count": 0,
+      "created_at": null,
+      "creator_subscriptions": [
+        {
+          "product": {
+            "id": "creator-pro-unlimited"
+          }
+        }
+      ],
+      "creator_subscription": {
+        "product": {
+          "id": "creator-pro-unlimited"
+        }
+      },
+      "description": "Always changing.",
+      "followers_count": 1396,
+      "followings_count": 306,
+      "groups_count": 0,
+      "id": 312384765,
+      "kind": "user",
+      "last_modified": "2026-09-14T21:59:08Z",
+      "likes_count": 465,
+      "playlist_likes_count": 69,
+      "permalink": "the80m",
+      "permalink_url": "https://soundcloud.com/the80m",
+      "playlist_count": 16,
+      "reposts_count": null,
+      "track_count": 42,
+      "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A312384765",
+      "urn": "soundcloud:users:312384765",
+      "username": "80M",
+      "verified": false,
+      "visuals": {
+        "urn": "soundcloud:users:312384765",
+        "enabled": true,
+        "visuals": [
+          {
+            "urn": "soundcloud:visuals:277074894",
+            "entry_time": 0,
+            "visual_url": "https://i1.sndcdn.com/visuals-000312384765-hXeQfa-original.jpg"
+          }
+        ],
+        "tracking": null
+      },
+      "badges": {
+        "pro": false,
+        "creator_mid_tier": false,
+        "pro_unlimited": true,
+        "verified": false
+      },
+      "station_urn": "soundcloud:system-playlists:artist-stations:312384765",
+      "station_permalink": "artist-stations:312384765"
+    }
+  },
+  "api_error": null
+}

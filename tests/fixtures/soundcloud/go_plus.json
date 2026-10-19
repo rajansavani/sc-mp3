@@ -1,0 +1,479 @@
+{
+  "url": "https://soundcloud.com/warnerrecords/michael-buble-crazy-love",
+  "recorded": "2026-10-19",
+  "yt_dlp": "2026.08.19",
+  "hand_built": "From publisher.json. Added hls_aac_256k (Premium, quality 5) and the legacy hls_mp3_0_0 and http_mp3_0_0 streams, as a Go+ account sees them in yt-dlp #17651, and matching aac_256k (quality hq) and mp3_0_0 transcodings to the api answer.",
+  "info": {
+    "uploader": "Warner Records",
+    "uploader_id": "453920",
+    "uploader_url": "https://soundcloud.com/warnerrecords",
+    "timestamp": 1339461734,
+    "title": "Michael Buble - Crazy Love",
+    "track": "Michael Buble - Crazy Love",
+    "description": "",
+    "duration": 211.339,
+    "webpage_url": "https://soundcloud.com/warnerrecords/michael-buble-crazy-love",
+    "license": "all-rights-reserved",
+    "view_count": 2173729,
+    "like_count": 25124,
+    "comment_count": 124,
+    "repost_count": 2369,
+    "modified_timestamp": 1605124834,
+    "tags": [
+      "michael",
+      "buble",
+      "crazy",
+      "love",
+      "warner",
+      "bros",
+      "records",
+      "brothers",
+      "wbr"
+    ],
+    "artists": [
+      "Michael Bubl?"
+    ],
+    "id": "49397330",
+    "thumbnails": [
+      {
+        "id": "mini",
+        "url": "https://i1.sndcdn.com/artworks-000024895783-wleudp-mini.jpg",
+        "width": 16,
+        "height": 16,
+        "resolution": "16x16"
+      },
+      {
+        "id": "tiny",
+        "url": "https://i1.sndcdn.com/artworks-000024895783-wleudp-tiny.jpg",
+        "width": 20,
+        "height": 20,
+        "resolution": "20x20"
+      },
+      {
+        "id": "small",
+        "url": "https://i1.sndcdn.com/artworks-000024895783-wleudp-small.jpg",
+        "width": 32,
+        "height": 32,
+        "resolution": "32x32"
+      },
+      {
+        "id": "badge",
+        "url": "https://i1.sndcdn.com/artworks-000024895783-wleudp-badge.jpg",
+        "width": 47,
+        "height": 47,
+        "resolution": "47x47"
+      },
+      {
+        "id": "t67x67",
+        "url": "https://i1.sndcdn.com/artworks-000024895783-wleudp-t67x67.jpg",
+        "width": 67,
+        "height": 67,
+        "resolution": "67x67"
+      },
+      {
+        "id": "large",
+        "url": "https://i1.sndcdn.com/artworks-000024895783-wleudp-large.jpg",
+        "width": 100,
+        "height": 100,
+        "resolution": "100x100"
+      },
+      {
+        "id": "t300x300",
+        "url": "https://i1.sndcdn.com/artworks-000024895783-wleudp-t300x300.jpg",
+        "width": 300,
+        "height": 300,
+        "resolution": "300x300"
+      },
+      {
+        "id": "crop",
+        "url": "https://i1.sndcdn.com/artworks-000024895783-wleudp-crop.jpg",
+        "width": 400,
+        "height": 400,
+        "resolution": "400x400"
+      },
+      {
+        "id": "t500x500",
+        "url": "https://i1.sndcdn.com/artworks-000024895783-wleudp-t500x500.jpg",
+        "width": 500,
+        "height": 500,
+        "resolution": "500x500"
+      },
+      {
+        "id": "original",
+        "url": "https://i1.sndcdn.com/artworks-000024895783-wleudp-original.png",
+        "preference": 10
+      }
+    ],
+    "formats": [
+      {
+        "format_id": "hls_mp3_0_0",
+        "url": "https://cf-hls-media.sndcdn.com/playlist/DPFkEttyRCfw.128.mp3/playlist.m3u8",
+        "ext": "mp3",
+        "acodec": "mp3",
+        "vcodec": "none",
+        "abr": 128,
+        "container": null,
+        "quality": -1,
+        "format_note": null,
+        "preference": null,
+        "audio_ext": "mp3",
+        "video_ext": "none",
+        "vbr": 0,
+        "tbr": 128,
+        "resolution": "audio only",
+        "aspect_ratio": null,
+        "http_headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-us,en;q=0.5",
+          "Sec-Fetch-Mode": "navigate"
+        },
+        "protocol": "m3u8_native",
+        "format": "hls_mp3_0_0 - audio only"
+      },
+      {
+        "format_id": "http_mp3_0_0",
+        "url": "https://cf-media.sndcdn.com/DPFkEttyRCfw.128.mp3",
+        "ext": "mp3",
+        "acodec": "mp3",
+        "vcodec": "none",
+        "abr": 128,
+        "container": null,
+        "quality": -1,
+        "format_note": null,
+        "preference": null,
+        "audio_ext": "mp3",
+        "video_ext": "none",
+        "vbr": 0,
+        "tbr": 128,
+        "resolution": "audio only",
+        "aspect_ratio": null,
+        "http_headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-us,en;q=0.5",
+          "Sec-Fetch-Mode": "navigate"
+        },
+        "protocol": "http",
+        "format": "http_mp3_0_0 - audio only"
+      },
+      {
+        "format_id": "hls_aac_96k",
+        "url": "https://playback.media-streaming.soundcloud.cloud/DPFkEttyRCfw/aac_96k/980f168e-1184-421b-82cc-c1d6b8e66968/playlist.m3u8?expires=1792381391",
+        "ext": "m4a",
+        "acodec": "mp4a.40.2",
+        "vcodec": "none",
+        "abr": 96,
+        "protocol": "m3u8_native",
+        "container": "m4a_dash",
+        "quality": -1,
+        "format_note": null,
+        "preference": null,
+        "audio_ext": "m4a",
+        "video_ext": "none",
+        "vbr": 0,
+        "tbr": 96,
+        "resolution": "audio only",
+        "aspect_ratio": null,
+        "filesize_approx": 2536068,
+        "http_headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-us,en;q=0.5",
+          "Sec-Fetch-Mode": "navigate"
+        },
+        "format": "hls_aac_96k - audio only"
+      },
+      {
+        "format_id": "hls_aac_160k",
+        "url": "https://playback.media-streaming.soundcloud.cloud/DPFkEttyRCfw/aac_160k/f37483f0-13d6-4a71-bdcf-8efa1e7b4471/playlist.m3u8?expires=1792381391",
+        "ext": "m4a",
+        "acodec": "mp4a.40.2",
+        "vcodec": "none",
+        "abr": 160,
+        "protocol": "m3u8_native",
+        "container": "m4a_dash",
+        "quality": 0,
+        "format_note": null,
+        "preference": null,
+        "audio_ext": "m4a",
+        "video_ext": "none",
+        "vbr": 0,
+        "tbr": 160,
+        "resolution": "audio only",
+        "aspect_ratio": null,
+        "filesize_approx": 4226780,
+        "http_headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-us,en;q=0.5",
+          "Sec-Fetch-Mode": "navigate"
+        },
+        "format": "hls_aac_160k - audio only"
+      },
+      {
+        "format_id": "hls_aac_256k",
+        "url": "https://playback.media-streaming.soundcloud.cloud/DPFkEttyRCfw/aac_256k/f37483f0-13d6-4a71-bdcf-8efa1e7b4471/playlist.m3u8",
+        "ext": "m4a",
+        "acodec": "mp4a.40.2",
+        "vcodec": "none",
+        "abr": 256,
+        "protocol": "m3u8_native",
+        "container": "m4a_dash",
+        "quality": 5,
+        "format_note": "Premium",
+        "preference": null,
+        "audio_ext": "m4a",
+        "video_ext": "none",
+        "vbr": 0,
+        "tbr": 256,
+        "resolution": "audio only",
+        "aspect_ratio": null,
+        "filesize_approx": 6762848,
+        "http_headers": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-us,en;q=0.5",
+          "Sec-Fetch-Mode": "navigate"
+        },
+        "format": "hls_aac_256k - audio only (Premium)"
+      }
+    ],
+    "original_url": "https://soundcloud.com/warnerrecords/michael-buble-crazy-love",
+    "webpage_url_basename": "michael-buble-crazy-love",
+    "webpage_url_domain": "soundcloud.com",
+    "extractor": "soundcloud",
+    "extractor_key": "Soundcloud",
+    "playlist": null,
+    "playlist_index": null,
+    "thumbnail": "https://i1.sndcdn.com/artworks-000024895783-wleudp-original.png",
+    "display_id": "49397330",
+    "fulltitle": "Michael Buble - Crazy Love",
+    "duration_string": "3:31",
+    "upload_date": "20120612",
+    "modified_date": "20201111",
+    "release_year": null,
+    "artist": "Michael Bubl?",
+    "requested_subtitles": null,
+    "_has_drm": null,
+    "epoch": 1792373980,
+    "_type": "video",
+    "_version": {
+      "version": "2026.08.19",
+      "current_git_head": null,
+      "release_git_head": "594bd50c2c78ac432f81600d309fdc4e0a92d82c",
+      "repository": "yt-dlp/yt-dlp"
+    },
+    "format_id": "hls_aac_256k",
+    "url": "https://playback.media-streaming.soundcloud.cloud/DPFkEttyRCfw/aac_256k/f37483f0-13d6-4a71-bdcf-8efa1e7b4471/playlist.m3u8",
+    "ext": "m4a",
+    "acodec": "mp4a.40.2",
+    "vcodec": "none",
+    "abr": 256,
+    "protocol": "m3u8_native",
+    "container": "m4a_dash",
+    "quality": 5,
+    "format_note": "Premium",
+    "preference": null,
+    "audio_ext": "m4a",
+    "video_ext": "none",
+    "vbr": 0,
+    "tbr": 256,
+    "resolution": "audio only",
+    "aspect_ratio": null,
+    "filesize_approx": 6762848,
+    "http_headers": {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      "Accept-Language": "en-us,en;q=0.5",
+      "Sec-Fetch-Mode": "navigate"
+    },
+    "format": "hls_aac_256k - audio only (Premium)"
+  },
+  "info_error": null,
+  "api": {
+    "artwork_url": "https://i1.sndcdn.com/artworks-000024895783-wleudp-large.jpg",
+    "caption": null,
+    "commentable": true,
+    "comment_count": 124,
+    "created_at": "2012-06-12T00:42:14Z",
+    "description": "",
+    "downloadable": false,
+    "download_count": 0,
+    "duration": 211339,
+    "full_duration": 211462,
+    "embeddable_by": "all",
+    "genre": "",
+    "has_downloads_left": false,
+    "id": 49397330,
+    "kind": "track",
+    "label_name": "Warner Bros Records",
+    "last_modified": "2020-11-11T20:00:34Z",
+    "license": "all-rights-reserved",
+    "likes_count": 25124,
+    "permalink": "michael-buble-crazy-love",
+    "permalink_url": "https://soundcloud.com/warnerrecords/michael-buble-crazy-love",
+    "playback_count": 2173729,
+    "public": true,
+    "publisher_metadata": {
+      "id": 49397330,
+      "urn": "soundcloud:tracks:49397330",
+      "artist": "Michael Bubl?",
+      "album_title": "Crazy Love",
+      "contains_music": true,
+      "publisher": "CALEDONIA SOUL MUSIC / WARNER/CHAPPELL MUSIC, INC.",
+      "isrc": "USRE10901473"
+    },
+    "purchase_title": "itunes",
+    "purchase_url": "http://smarturl.it/crazylovesc?IQparams=IQid%3Au1&IQid=Buble_CrazyLoveTunesSingle_soundcloudplaylist",
+    "release_date": null,
+    "reposts_count": 2369,
+    "sharing": "public",
+    "state": "finished",
+    "streamable": true,
+    "tag_list": "michael buble crazy love warner bros records brothers wbr",
+    "title": "Michael Buble - Crazy Love",
+    "uri": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A49397330",
+    "urn": "soundcloud:tracks:49397330",
+    "user_id": 453920,
+    "visuals": null,
+    "waveform_url": "https://wave.sndcdn.com/DPFkEttyRCfw_m.json",
+    "display_date": "2012-06-12T00:42:14Z",
+    "media": {
+      "transcodings": [
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:49397330/hand-built-aac-256k/stream/hls",
+          "preset": "aac_256k",
+          "duration": 211339,
+          "snipped": false,
+          "format": {
+            "protocol": "hls",
+            "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+          },
+          "quality": "hq",
+          "is_legacy_transcoding": false
+        },
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:49397330/f37483f0-13d6-4a71-bdcf-8efa1e7b4471/stream/hls",
+          "preset": "aac_160k",
+          "duration": 211339,
+          "snipped": false,
+          "format": {
+            "protocol": "hls",
+            "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+          },
+          "quality": "sq",
+          "is_legacy_transcoding": false
+        },
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:49397330/980f168e-1184-421b-82cc-c1d6b8e66968/stream/hls",
+          "preset": "aac_96k",
+          "duration": 211339,
+          "snipped": false,
+          "format": {
+            "protocol": "hls",
+            "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+          },
+          "quality": "lq",
+          "is_legacy_transcoding": false
+        },
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:49397330/272a54b9-47ac-431a-9bde-02ab441b8981/stream/hls",
+          "preset": "abr_sq",
+          "duration": 211339,
+          "snipped": false,
+          "format": {
+            "protocol": "hls",
+            "mime_type": "audio/mpegurl"
+          },
+          "quality": "sq",
+          "is_legacy_transcoding": false
+        },
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:49397330/hand-built-mp3/stream/hls",
+          "preset": "mp3_0_0",
+          "duration": 211339,
+          "snipped": false,
+          "format": {
+            "protocol": "hls",
+            "mime_type": "audio/mpeg"
+          },
+          "quality": "sq",
+          "is_legacy_transcoding": true
+        },
+        {
+          "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:49397330/hand-built-mp3/stream/progressive",
+          "preset": "mp3_0_0",
+          "duration": 211339,
+          "snipped": false,
+          "format": {
+            "protocol": "progressive",
+            "mime_type": "audio/mpeg"
+          },
+          "quality": "sq",
+          "is_legacy_transcoding": true
+        }
+      ]
+    },
+    "station_urn": "soundcloud:system-playlists:track-stations:49397330",
+    "station_permalink": "track-stations:49397330",
+    "monetization_model": "AD_SUPPORTED",
+    "policy": "MONETIZE",
+    "user": {
+      "avatar_url": "https://i1.sndcdn.com/avatars-000633717873-5c9zl8-large.jpg",
+      "comments_count": 0,
+      "created_at": null,
+      "creator_subscriptions": [
+        {
+          "product": {
+            "id": "free"
+          }
+        }
+      ],
+      "creator_subscription": {
+        "product": {
+          "id": "free"
+        }
+      },
+      "description": "We are a record label of iconic, culture-shaping music and entertainment.\n\nBuilt on irreverent ideas, creative risks, and life-changing hits.\n\nCreated as a home for artists – established and emerging, mainstream and maverick, legends and legends-to-be.\n\nRun by a fearless team of music obsessives.  \n\n#WeAreWarnerRecords:\n\nBorn in the California sun, at home everywhere on Earth.",
+      "followers_count": 113056,
+      "followings_count": 107,
+      "groups_count": 0,
+      "id": 453920,
+      "kind": "user",
+      "last_modified": "2025-06-09T00:00:01Z",
+      "likes_count": 191,
+      "playlist_likes_count": 16,
+      "permalink": "warnerrecords",
+      "permalink_url": "https://soundcloud.com/warnerrecords",
+      "playlist_count": 18,
+      "reposts_count": null,
+      "track_count": 343,
+      "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A453920",
+      "urn": "soundcloud:users:453920",
+      "username": "Warner Records",
+      "verified": true,
+      "visuals": {
+        "urn": "soundcloud:users:453920",
+        "enabled": true,
+        "visuals": [
+          {
+            "urn": "soundcloud:visuals:70958899",
+            "entry_time": 0,
+            "visual_url": "https://i1.sndcdn.com/visuals-000000453920-7UBkPE-original.jpg"
+          }
+        ],
+        "tracking": null
+      },
+      "badges": {
+        "pro": false,
+        "creator_mid_tier": false,
+        "pro_unlimited": false,
+        "verified": true
+      },
+      "station_urn": "soundcloud:system-playlists:artist-stations:453920",
+      "station_permalink": "artist-stations:453920"
+    }
+  },
+  "api_error": null
+}
