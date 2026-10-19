@@ -8,7 +8,7 @@ import os
 import re
 import sys
 import unicodedata
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Self
@@ -39,6 +39,8 @@ DEFAULT_FILENAME_TEMPLATE = "{artist} - {title}"
 STYLE_FILENAME_TEMPLATES: dict[TitleStyle, str] = {"all_in_title": "{title}"}
 ALBUM_FOLDER_TEMPLATE = "{album_artist} - {album}"
 TRACK_PREFIX = "{track:02} "
+# A bracketed part of a title, such as the artists a title style adds: " (feat. Lou V)".
+BRACKETED_PART = re.compile(r"\s*(?:\([^()]*\)|\[[^\[\]]*\])")
 
 # The temp names placing.py makes. They live here, since the path limit keeps room for them.
 PARTIAL_SUFFIX = ".partial"
@@ -200,27 +202,82 @@ def _token_value(match: re.Match[str], tags: Tags) -> str:
     return str(value)
 
 
+def style_filename_template(style: TitleStyle) -> str:
+    """The file name template a title style uses when the settings have none of their own."""
+    return STYLE_FILENAME_TEMPLATES.get(style, DEFAULT_FILENAME_TEMPLATE)
+
+
 def filename_template(settings: Settings, style: TitleStyle | None = None) -> str:
     """The template from the settings, or the title style's default when none is set."""
     if settings.filename_template and settings.filename_template.strip():
         return settings.filename_template
-    style = style or settings.title_style
-    return STYLE_FILENAME_TEMPLATES.get(style, DEFAULT_FILENAME_TEMPLATE)
+    return style_filename_template(style or settings.title_style)
+
+
+def _comparable(text: str) -> str:
+    return " ".join(text.split()).casefold()
+
+
+def _forms(text: str) -> set[str]:
+    """The text as it is and without each of its bracketed parts in turn, ready to compare."""
+    forms = {_comparable(text)}
+    for match in BRACKETED_PART.finditer(text):
+        forms.add(_comparable(text[: match.start()] + text[match.end() :]))
+    return forms
+
+
+def is_album_track(
+    tags: Tags,
+    *,
+    in_album_set: bool = False,
+    album_from_singles_setting: bool = False,
+    source_titles: Sequence[str] = (),
+) -> bool:
+    """Whether a track is part of a real album, rather than a single with an album tag.
+
+    A track from a set in album mode is one. A track whose album came from the album-for-singles
+    setting isn't, whatever its title looks like. Any other album, from the source or typed by
+    hand, is a single's when a form of it matches a form of the title, the base title or the
+    source's raw title, which `source_titles` holds. A form is the text, or the text without one
+    bracketed part, such as "(feat. Lou V)" or "[FREE DL]".
+    """
+    if not _comparable(tags.album):
+        return False
+    if in_album_set:
+        return True
+    if album_from_singles_setting:
+        return False
+    title_forms = set().union(*(_forms(title) for title in [tags.title, *source_titles]))
+    return _forms(tags.album).isdisjoint(title_forms)
 
 
 def plan_destination(
-    library_dir: Path, tags: Tags, settings: Settings, ext: str, *, style: TitleStyle | None = None
+    library_dir: Path,
+    tags: Tags,
+    settings: Settings,
+    ext: str,
+    *,
+    style: TitleStyle | None = None,
+    in_album_set: bool = False,
+    album_from_singles_setting: bool = False,
+    source_titles: Sequence[str] = (),
 ) -> Path:
     """Where a file with these tags goes, before checking whether the name is taken.
 
-    `style` is the track's own title style, when it differs from the setting. On Windows the name
-    is shortened to keep the path within MAX_PATH, and a library folder too deep for any name
-    raises ScmpError(disk).
+    `style` is the track's own title style, when it differs from the setting. The other keywords
+    say where the album came from, for `is_album_track`. On Windows the name is shortened to keep
+    the path within MAX_PATH, and a library folder too deep for any name raises ScmpError(disk).
     """
     folder = library_dir
     template = filename_template(settings, style)
-    # A track with no album has no album folder to go in, so it stays at the top.
-    if settings.album_subfolders and tags.album.strip():
+    album_track = is_album_track(
+        tags,
+        in_album_set=in_album_set,
+        album_from_singles_setting=album_from_singles_setting,
+        source_titles=source_titles,
+    )
+    # Album subfolders are for albums only, so singles stay at the top of the library.
+    if settings.album_subfolders and album_track:
         folder = library_dir / render_filename(ALBUM_FOLDER_TEMPLATE, tags)
         template = _with_track_prefix(template)
     # Callers may pass "mp3" or ".mp3".

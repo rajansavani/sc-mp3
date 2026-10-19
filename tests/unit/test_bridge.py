@@ -50,7 +50,7 @@ CALLS: dict[type, set[str]] = {
 
 ALL_CALLS = sorted(name for names in CALLS.values() for name in names)
 # Calls that are built, so they no longer answer not_implemented. Each has its own test file.
-BUILT = {"install_youtube_support"}
+BUILT = {"install_youtube_support", "update_settings", "preview_render"}
 STUBS = [name for name in ALL_CALLS if name not in BUILT]
 
 SNAKE_CASE = re.compile(r"[a-z][a-z0-9]*(?:_[a-z0-9]+)*")

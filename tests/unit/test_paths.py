@@ -214,6 +214,72 @@ def test_a_failed_atomic_write_keeps_the_old_file_and_cleans_up(
     assert [entry.name for entry in tmp_path.iterdir()] == ["queue.json"]
 
 
+def names_from(monkeypatch: pytest.MonkeyPatch, *tokens: str) -> None:
+    """Make the temp file names' random parts these, in order."""
+    queue = iter(tokens)
+    monkeypatch.setattr(paths.secrets, "token_hex", lambda size: next(queue))
+
+
+def test_a_temp_file_is_new_open_and_named_with_the_prefix(tmp_path: Path) -> None:
+    handle, temp = paths.create_temp_file(tmp_path, ".queue.json.", ".tmp")
+    os.write(handle, b"a\nb")
+    os.close(handle)
+    assert temp.parent == tmp_path
+    assert temp.name.startswith(".queue.json.") and temp.name.endswith(".tmp")
+    # Binary, so Windows doesn't turn the newline into two bytes.
+    assert temp.read_bytes() == b"a\nb"
+
+
+def test_a_taken_temp_name_is_tried_again_with_another(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "x-taken").write_bytes(b"")
+    names_from(monkeypatch, "taken", "free")
+    handle, temp = paths.create_temp_file(tmp_path, "x-")
+    os.close(handle)
+    assert temp.name == "x-free"
+
+
+def test_temp_names_give_up_after_a_few_taken_ones(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "x-taken").write_bytes(b"")
+    names_from(monkeypatch, *["taken"] * paths.TEMP_NAME_TRIES)
+    with pytest.raises(FileExistsError):
+        paths.create_temp_file(tmp_path, "x-")
+
+
+def test_a_folder_that_refuses_new_files_fails_at_once_without_another_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[str] = []
+
+    def refuse(path: str | Path, flags: int, mode: int = 0o777) -> int:
+        calls.append(str(path))
+        raise PermissionError(13, "Access is denied")
+
+    monkeypatch.setattr(paths.os, "open", refuse)
+    with pytest.raises(PermissionError):
+        paths.create_temp_file(tmp_path, "x-")
+    assert len(calls) == 1
+
+
+def test_an_atomic_write_to_a_folder_that_refuses_new_files_is_a_disk_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "queue.json"
+    target.write_text("old", encoding="utf-8")
+
+    def refuse(path: str | Path, flags: int, mode: int = 0o777) -> int:
+        raise PermissionError(13, "Access is denied")
+
+    monkeypatch.setattr(paths.os, "open", refuse)
+    with pytest.raises(ScmpError) as error_info:
+        paths.write_text_atomically(target, "new")
+    assert error_info.value.kind is ErrorKind.disk
+    assert target.read_text(encoding="utf-8") == "old"
+
+
 def test_backup_path_adds_the_time_and_a_counter_when_taken(tmp_path: Path) -> None:
     when = datetime(2026, 10, 18, 15, 30, 0)
     original = tmp_path / "history.db"

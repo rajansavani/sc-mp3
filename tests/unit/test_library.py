@@ -17,7 +17,8 @@ from scmp3.core.library import (
     resolve_collision,
     sanitize,
 )
-from scmp3.core.models import CollisionPolicy, Settings, Tags, TitleStyle
+from scmp3.core.models import CollisionPolicy, Settings, SourceInfo, Tags, TitleStyle
+from scmp3.core.suggest import render, suggest
 
 SAMPLE = Tags(
     title="Midnight Drive (feat. Lou V)",
@@ -456,6 +457,123 @@ def test_a_track_with_no_album_stays_at_the_top_of_the_library(tmp_path: Path) -
     tags = dataclasses.replace(SAMPLE, album=" ")
     destination = plan_destination(tmp_path, tags, Settings(album_subfolders=True), "mp3")
     assert destination == tmp_path / f"{SAMPLE_NAME}.mp3"
+
+
+@pytest.mark.parametrize(
+    ("title", "album"),
+    [
+        ("Midnight Drive", "Midnight Drive"),
+        ("Midnight Drive (feat. Lou V)", "Midnight Drive"),
+        ("Midnight Drive (Kaia, Lou V)", "Midnight Drive"),
+        ("Midnight Drive [ft. Lou V]", "Midnight Drive"),
+        ("Midnight Drive (feat. Lou V) (VIP Mix)", "Midnight Drive (VIP Mix)"),
+        ("Midnight Drive [prod. Hazy] (feat. Lou V)", "Midnight Drive [prod. Hazy]"),
+        ("midnight  drive", "Midnight Drive"),
+        # The source's album keeps what the cleanup took out of the title.
+        ("Midnight Drive", "Midnight Drive (feat. Lou V)"),
+        ("Midnight Drive", "Midnight Drive [FREE DL]"),
+    ],
+)
+def test_a_single_stays_at_the_top_with_album_subfolders_on(
+    tmp_path: Path, title: str, album: str
+) -> None:
+    tags = dataclasses.replace(SAMPLE, title=title, album=album, track_no=None)
+    destination = plan_destination(tmp_path, tags, Settings(album_subfolders=True), "mp3")
+    assert destination.parent == tmp_path
+
+
+@pytest.mark.parametrize(
+    "title", ["Midnight Drive ft. Lou V", "Kaia, Lou V - Midnight Drive", "Late Night Edit"]
+)
+def test_an_album_from_the_singles_setting_means_a_single_whatever_the_title(
+    tmp_path: Path, title: str
+) -> None:
+    tags = dataclasses.replace(SAMPLE, title=title, album="Midnight Drive", track_no=None)
+    settings = Settings(album_subfolders=True)
+    destination = plan_destination(tmp_path, tags, settings, "mp3", album_from_singles_setting=True)
+    assert destination.parent == tmp_path
+
+
+def test_the_base_and_raw_titles_count_as_the_tracks_own(tmp_path: Path) -> None:
+    # A custom template that adds the artists without brackets, with the album from the source.
+    tags = dataclasses.replace(
+        SAMPLE, title="Kaia, Lou V - Midnight Drive", album="Midnight Drive [FREE DL]"
+    )
+    settings = Settings(album_subfolders=True)
+    titles = ("Midnight Drive", "Midnight Drive (feat. Lou V) [FREE DL]")
+    destination = plan_destination(tmp_path, tags, settings, "mp3", source_titles=titles)
+    assert destination.parent == tmp_path
+
+
+def test_an_album_named_after_none_of_the_titles_gets_its_folder(tmp_path: Path) -> None:
+    titles = ("Midnight Drive", "Midnight Drive (feat. Lou V)")
+    settings = Settings(album_subfolders=True)
+    destination = plan_destination(tmp_path, SAMPLE, settings, "mp3", source_titles=titles)
+    assert destination == tmp_path / "Kaia - Night Shift" / f"03 {SAMPLE_NAME}.mp3"
+
+
+def test_a_title_track_from_an_album_set_goes_in_the_albums_folder(tmp_path: Path) -> None:
+    tags = dataclasses.replace(SAMPLE, title="Lantern", album="Lantern", track_no=1)
+    settings = Settings(album_subfolders=True)
+    destination = plan_destination(tmp_path, tags, settings, "mp3", in_album_set=True)
+    assert destination == tmp_path / "Kaia - Lantern" / "01 Kaia - Lantern.mp3"
+    # Without the set, nothing tells it apart from a single, and a single stays at the top.
+    assert plan_destination(tmp_path, tags, settings, "mp3").parent == tmp_path
+
+
+def test_a_set_in_album_mode_wins_over_the_singles_setting() -> None:
+    assert library.is_album_track(SAMPLE, in_album_set=True, album_from_singles_setting=True)
+
+
+def test_a_track_with_no_album_isnt_an_album_track_even_from_a_set() -> None:
+    tags = dataclasses.replace(SAMPLE, album="")
+    assert not library.is_album_track(tags, in_album_set=True)
+
+
+def test_album_subfolders_off_keeps_album_tracks_at_the_top(tmp_path: Path) -> None:
+    destination = plan_destination(tmp_path, SAMPLE, Settings(), "mp3", in_album_set=True)
+    assert destination == tmp_path / f"{SAMPLE_NAME}.mp3"
+
+
+@pytest.mark.parametrize(
+    ("raw_title", "album", "template"),
+    [
+        ("Midnight Drive (feat. Lou V)", "Midnight Drive (feat. Lou V)", None),
+        ("Midnight Drive [FREE DL]", "Midnight Drive [FREE DL]", None),
+        ("Midnight Drive (feat. Lou V)", None, "{title} ft. {featured}{version}"),
+        ("Midnight Drive (feat. Lou V)", None, "{artists} - {title}{version}"),
+    ],
+)
+def test_singles_stay_at_the_top_through_suggest_and_render(
+    tmp_path: Path, raw_title: str, album: str | None, template: str | None
+) -> None:
+    style: TitleStyle = "custom" if template else "artist_field"
+    settings = Settings(
+        album_subfolders=True,
+        library_dir=tmp_path,
+        title_style=style,
+        custom_title_template=template or "{title}{version}",
+    )
+    source = SourceInfo(
+        kind="soundcloud",
+        id="soundcloud:tracks:1",
+        url="https://soundcloud.com/kaia/midnight-drive",
+        title=raw_title,
+        uploader="Kaia",
+        album=album,
+    )
+    suggestion = suggest(source, settings)
+    tags = render(suggestion, None, {}, settings)
+    # What a caller passes: where the album came from, and the titles before the style.
+    destination = plan_destination(
+        tmp_path,
+        tags,
+        settings,
+        "mp3",
+        album_from_singles_setting=suggestion.album is None,
+        source_titles=(suggestion.base_title, source.title),
+    )
+    assert destination.parent == tmp_path
 
 
 def test_the_album_folder_name_is_sanitized(tmp_path: Path) -> None:

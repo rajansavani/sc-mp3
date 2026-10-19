@@ -1,1 +1,333 @@
-/* First-run setup. A placeholder for now, styled by .placeholder in app.css. */
+/* First-run setup. The header comes from Settings.css, and the folder field and the buttons
+   from settings-fields.css. */
+
+.first-run-main {
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-height: 0;
+  padding: 40px 20px;
+  overflow-y: auto;
+}
+
+.first-run-column {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 760px;
+}
+
+/* The step bar */
+
+.first-run-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.first-run-step {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.first-run-step-bar {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-2);
+}
+
+.first-run-step[data-reached] .first-run-step-bar {
+  background: var(--accent);
+}
+
+.first-run-step-label {
+  color: var(--text-3);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.first-run-step[aria-current="step"] .first-run-step-label {
+  color: var(--text-1);
+}
+
+/* The card that holds the current step */
+
+.first-run-card {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 32px 36px;
+  border: 1px solid var(--line-1);
+  border-radius: 16px;
+  background: var(--surface-1);
+}
+
+.first-run-heading-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.first-run-step-number {
+  color: var(--text-3);
+  font-size: var(--text-section-label);
+  font-weight: 600;
+  letter-spacing: var(--tracking-section-label);
+  text-transform: uppercase;
+}
+
+.first-run-heading {
+  font-size: var(--text-page-title);
+  font-weight: 700;
+  letter-spacing: var(--tracking-page-title);
+}
+
+.first-run-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.first-run-body-tight {
+  gap: var(--gap-fields);
+}
+
+.first-run-intro {
+  max-width: 62ch;
+  color: var(--text-2);
+}
+
+/* The design gives the folder button a little more room here than in Settings. */
+.first-run .settings-folder-picker .settings-button {
+  padding: 0 18px;
+}
+
+.first-run-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+
+.first-run-tip {
+  color: var(--text-2);
+  font-size: var(--text-small);
+}
+
+/* Step 2: the title style cards */
+
+.first-run-sample {
+  padding: 12px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-control);
+  background: var(--settings-panel);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+}
+
+.first-run-styles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+  gap: 12px;
+}
+
+.first-run-style {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-card);
+  background: var(--settings-panel);
+  text-align: left;
+}
+
+.first-run-style[aria-checked="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--settings-panel));
+}
+
+.first-run-style-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 600;
+}
+
+/* --text-3 keeps the empty dot at 3:1 or more against the card. */
+.first-run-style-dot {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--text-3);
+  border-radius: var(--radius-chip);
+}
+
+.first-run-style[aria-checked="true"] .first-run-style-dot {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.first-run-style-part {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* --text-2, since --text-3 falls under 4.5:1 on the selected card's tint. */
+.first-run-style-label {
+  color: var(--text-2);
+  font-size: var(--text-caption);
+}
+
+.first-run-style-title {
+  font-weight: 600;
+}
+
+/* Step 3: what signing in gets you */
+
+.first-run-table {
+  overflow-x: auto;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-primary);
+}
+
+.first-run-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.first-run-table thead tr {
+  background: var(--settings-panel);
+}
+
+.first-run-table th,
+.first-run-table td {
+  text-align: left;
+}
+
+.first-run-table thead th {
+  padding: 10px 14px;
+  color: var(--text-2);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.first-run-table tbody tr {
+  border-top: 1px solid var(--line-1);
+}
+
+.first-run-table tbody th {
+  padding: 12px 14px;
+  font-weight: 500;
+}
+
+.first-run-table td {
+  padding: 12px 14px;
+  color: var(--text-2);
+}
+
+/* The Go+ column stands out, as the plan with the most. */
+.first-run-table td:last-child {
+  color: var(--text-1);
+}
+
+.first-run-icon-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.first-run-icon {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: var(--icon-stroke);
+  stroke-linecap: round;
+}
+
+/* Step 4: the steps in Spotify */
+
+.first-run-numbered {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.first-run-numbered-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-primary);
+  background: var(--settings-panel);
+}
+
+.first-run-badge {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line-3);
+  border-radius: var(--radius-chip);
+  background: var(--settings-raised);
+  font-size: var(--text-small);
+  font-weight: 700;
+}
+
+.first-run-numbered-text {
+  padding-top: 3px;
+}
+
+/* Back and the button that goes on */
+
+.first-run-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line-1);
+}
+
+.first-run-back,
+.first-run-next {
+  height: var(--height-primary);
+  border-radius: var(--radius-primary);
+}
+
+.first-run-back {
+  padding: 0 20px;
+  border: 1px solid var(--line-3);
+  background: transparent;
+  font-weight: 600;
+}
+
+.first-run-next {
+  padding: 0 22px;
+  border: 0;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--text-body);
+  font-weight: 700;
+}
+
+.first-run-next[aria-disabled="true"] {
+  cursor: progress;
+}

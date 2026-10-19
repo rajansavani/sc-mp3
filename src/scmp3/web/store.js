@@ -139,8 +139,7 @@ export function closeDialog() {
   update({ dialog: null });
 }
 
-// Hides first-run setup for this session only, until the real setup can save that it's done.
-// TODO(T-024): Remove this once finishing setup saves first_run_done.
-export function skipFirstRun() {
-  update({ first_run: false });
+// The settings update_settings saved. first_run follows first_run_done, as in snapshot().
+export function setSettings(settings) {
+  update({ settings, first_run: !settings.first_run_done });
 }

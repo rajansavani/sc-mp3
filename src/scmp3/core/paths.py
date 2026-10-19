@@ -6,9 +6,9 @@ The getters only build paths. Code that writes a file creates its folder first.
 import logging
 import os
 import platform
+import secrets
 import shutil
 import sys
-import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -21,6 +21,11 @@ APP_NAME = "sc-mp3"
 # Tests set this to put every folder below under one root.
 HOME_ENV = "SCMP3_HOME"
 FFMPEG_ENV = "SCMP3_FFMPEG"
+
+# How many random names a new temp file tries. Only a name that's taken is worth another try.
+TEMP_NAME_TRIES = 5
+# Binary on Windows, so line endings are written as given, as tempfile.mkstemp does.
+TEMP_FILE_FLAGS = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
 
 # src/scmp3/core/paths.py sits three levels below the repo root in a dev checkout.
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -130,6 +135,27 @@ def platform_tag() -> str | None:
     return f"{os_name}-{arch}"
 
 
+def _temp_name(folder: Path, prefix: str, suffix: str) -> Path:
+    return folder / f"{prefix}{secrets.token_hex(8)}{suffix}"
+
+
+def create_temp_file(folder: Path, prefix: str, suffix: str = "") -> tuple[int, Path]:
+    """Create a new file with a random name in `folder`. Returns its open handle and its path.
+
+    Any error but a taken name raises at once. On Windows, tempfile.mkstemp takes a folder that
+    refuses new files for a taken name, and tries again up to 2,147,483,647 times.
+    """
+    for _ in range(TEMP_NAME_TRIES - 1):
+        temp = _temp_name(folder, prefix, suffix)
+        try:
+            return os.open(temp, TEMP_FILE_FLAGS, 0o600), temp
+        except FileExistsError:
+            continue
+    # The last try lets FileExistsError through.
+    temp = _temp_name(folder, prefix, suffix)
+    return os.open(temp, TEMP_FILE_FLAGS, 0o600), temp
+
+
 def write_text_atomically(path: Path, text: str) -> None:
     """Write UTF-8 text to a temp file next to `path`, then swap it in with os.replace.
 
@@ -137,12 +163,9 @@ def write_text_atomically(path: Path, text: str) -> None:
     """
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        handle, temp_name = tempfile.mkstemp(
-            dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
-        )
+        handle, temp = create_temp_file(path.parent, f".{path.name}.", ".tmp")
     except OSError as error:
         raise ScmpError(ErrorKind.disk, f"can't write {path.name}: {error.strerror}") from error
-    temp = Path(temp_name)
     try:
         with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as file:
             file.write(text)
