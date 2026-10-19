@@ -6,6 +6,7 @@ import sys
 import threading
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from scmp3.core import paths
 from scmp3.core.errors import ErrorKind, ScmpError
@@ -82,6 +83,23 @@ def redact(text: str) -> str:
     for pattern, replacement in TOKEN_PATTERNS:
         text = pattern.sub(replacement, text)
     return text
+
+
+def safe_url(url: str) -> str:
+    """A URL's host, port and path, for logs and error details.
+
+    The query can hold ids and share tokens, so it's left out, and so are any user name and
+    password.
+    """
+    parts = urlsplit(url)
+    host = parts.hostname or ""
+    try:
+        port = parts.port
+    except ValueError:
+        port = None
+    if port is not None:
+        host = f"{host}:{port}"
+    return f"{host}{parts.path}"
 
 
 class RedactFilter(logging.Filter):

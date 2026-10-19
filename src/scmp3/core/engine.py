@@ -11,11 +11,10 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlsplit
 
 from scmp3.core import paths
 from scmp3.core.errors import ErrorKind, ScmpError
-from scmp3.core.log import register_secret
+from scmp3.core.log import register_secret, safe_url
 
 if TYPE_CHECKING:
     from yt_dlp import YoutubeDL
@@ -124,7 +123,7 @@ def api_get_json(
     load_yt_dlp()
     from yt_dlp.networking.exceptions import HTTPError, RequestError, TransportError
 
-    where = _where(url)
+    where = safe_url(url)
     request_headers = {"Accept": "application/json", **(headers or {})}
     try:
         body = _fetch(ydl, url, request_headers)
@@ -170,9 +169,3 @@ def _fetch(ydl: YoutubeDL, url: str, headers: dict[str, str]) -> bytes:
     request = Request(url, headers=headers, extensions={"impersonate": ImpersonateTarget("chrome")})
     with ydl.urlopen(request) as response:
         return response.read()
-
-
-def _where(url: str) -> str:
-    """A URL's host and path, without the query, which can hold ids and share tokens."""
-    parts = urlsplit(url)
-    return f"{parts.netloc}{parts.path}"

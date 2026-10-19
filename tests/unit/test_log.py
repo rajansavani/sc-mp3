@@ -320,3 +320,22 @@ def test_an_unwritable_log_folder_is_a_disk_error(
     with pytest.raises(ScmpError) as error_info:
         setup_logging()
     assert error_info.value.kind is ErrorKind.disk
+
+
+@pytest.mark.parametrize(
+    ("url", "safe"),
+    [
+        (
+            "https://api-v2.soundcloud.com/resolve?url=x&client_id=y",
+            "api-v2.soundcloud.com/resolve",
+        ),
+        ("https://me:hunter22@img.example.com/a.jpg", "img.example.com/a.jpg"),
+        ("http://me@img.example.com:8080/a.jpg#part", "img.example.com:8080/a.jpg"),
+        # A port that isn't a number is dropped rather than raising.
+        ("https://img.example.com:abc/a.jpg", "img.example.com/a.jpg"),
+        ("not a link", "not a link"),
+    ],
+    ids=["query", "user and password", "user, port and fragment", "bad port", "not a link"],
+)
+def test_safe_url_keeps_only_the_host_port_and_path(url: str, safe: str) -> None:
+    assert log.safe_url(url) == safe

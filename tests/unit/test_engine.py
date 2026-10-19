@@ -198,6 +198,20 @@ def test_the_error_detail_leaves_out_the_query() -> None:
     assert error.detail == "HTTP 404 from api-v2.soundcloud.com/resolve"
 
 
+@pytest.mark.parametrize(
+    ("url", "where"),
+    [
+        ("https://me:hunter22@api-v2.soundcloud.com/me", "api-v2.soundcloud.com/me"),
+        ("https://me@api-v2.soundcloud.com:8443/me", "api-v2.soundcloud.com:8443/me"),
+        # A port that isn't a number is dropped rather than failing the error itself.
+        ("https://api-v2.soundcloud.com:abc/me", "api-v2.soundcloud.com/me"),
+    ],
+)
+def test_the_error_detail_leaves_out_a_user_name_and_password(url: str, where: str) -> None:
+    error = api_error(FakeYdl(http_error(404)), url)
+    assert error.detail == f"HTTP 404 from {where}"
+
+
 def test_a_network_failure_is_offline() -> None:
     error = api_error(FakeYdl(TransportError(msg="Could not resolve host")))
     assert error.kind is ErrorKind.offline
