@@ -212,7 +212,11 @@ class TokenStore:
         except FileNotFoundError:
             return None
         except OSError as error:
-            log.warning("Can't read %s, so the keyring is tried: %s", FILE_NAME, error.strerror)
+            log.warning(
+                "Can't read %s, so the keyring is tried: %s",
+                FILE_NAME,
+                error.strerror or type(error).__name__,
+            )
             return None
         saved = _saved_from_json(text)
         if saved is None:
@@ -232,7 +236,7 @@ class TokenStore:
             # Set again, so the file stays private even if the helper above ever changes.
             os.chmod(self._file, FILE_MODE)
         except OSError as error:
-            detail = f"can't make {FILE_NAME} private: {error.strerror}"
+            detail = f"can't make {FILE_NAME} private: {error.strerror or type(error).__name__}"
             raise ScmpError(ErrorKind.disk, detail) from error
 
     def _remove_old_file(self) -> None:
@@ -267,7 +271,8 @@ class TokenStore:
             self._file.unlink(missing_ok=True)
         except OSError as error:
             raise ScmpError(
-                ErrorKind.disk, f"can't delete {FILE_NAME}: {error.strerror}"
+                ErrorKind.disk,
+                f"can't delete {FILE_NAME}: {error.strerror or type(error).__name__}",
             ) from error
 
 

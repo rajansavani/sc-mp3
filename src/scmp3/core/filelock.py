@@ -117,7 +117,9 @@ class FileLock:
             # Append mode creates the file without emptying it, since another process may hold it.
             return open(self._path, "a+b")
         except OSError as error:
-            raise LockUnavailable(f"can't open {self._path.name}: {error.strerror}") from error
+            raise LockUnavailable(
+                f"can't open {self._path.name}: {error.strerror or type(error).__name__}"
+            ) from error
 
     def __enter__(self) -> Self:
         self.acquire()
@@ -139,4 +141,6 @@ def _try_lock_or_close(handle: BinaryIO) -> bool:
     except OSError as error:
         handle.close()
         # flock gives ENOLCK, for example, on an NFS home folder with no lock service.
-        raise LockUnavailable(f"file locks don't work here: {error.strerror}") from error
+        raise LockUnavailable(
+            f"file locks don't work here: {error.strerror or type(error).__name__}"
+        ) from error

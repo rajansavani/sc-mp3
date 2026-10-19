@@ -255,7 +255,10 @@ def probe_writing(folder: Path) -> None:
         probe.unlink()
     except OSError as error:
         # The folder still counts as unusable, and the file stays rather than being tried again.
-        log.warning("The library folder check couldn't remove its own file: %s", error.strerror)
+        log.warning(
+            "The library folder check couldn't remove its own file: %s",
+            error.strerror or type(error).__name__,
+        )
         raise
 
 
@@ -290,7 +293,9 @@ def library_dir_problem(value: str, probe: Probe | None = None) -> Problem | Non
 
 
 def _folder_failure(reason: str, folder: Path, error: OSError) -> Problem:
-    log.info("The library folder can't be used (%s): %s", reason, error.strerror)
+    log.info(
+        "The library folder can't be used (%s): %s", reason, error.strerror or type(error).__name__
+    )
     log.debug("The library folder was %s", folder)
     return {"reason": reason, "folder": str(folder)}
 

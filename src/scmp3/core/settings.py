@@ -151,7 +151,7 @@ class SettingsStore:
         log.warning(
             "settings.json couldn't be opened (%s), so the defaults are in use until a restart"
             " and changes won't be saved",
-            error.strerror,
+            error.strerror or error,
         )
         log.debug("Reading %s failed", self.path, exc_info=error)
 

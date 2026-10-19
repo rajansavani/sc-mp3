@@ -148,7 +148,9 @@ def setup_logging(console: bool = False, level: int = logging.INFO) -> Path:
             log_file, maxBytes=MAX_BYTES, backupCount=FILE_COUNT - 1, encoding="utf-8"
         )
     except OSError as error:
-        raise ScmpError(ErrorKind.disk, f"can't open the log file: {error.strerror}") from error
+        raise ScmpError(
+            ErrorKind.disk, f"can't open the log file: {error.strerror or error}"
+        ) from error
 
     file_handler.set_name(FILE_HANDLER)
     handlers: list[logging.Handler] = [file_handler]

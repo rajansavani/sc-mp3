@@ -165,7 +165,9 @@ def write_text_atomically(path: Path, text: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         handle, temp = create_temp_file(path.parent, f".{path.name}.", ".tmp")
     except OSError as error:
-        raise ScmpError(ErrorKind.disk, f"can't write {path.name}: {error.strerror}") from error
+        raise ScmpError(
+            ErrorKind.disk, f"can't write {path.name}: {error.strerror or error}"
+        ) from error
     try:
         with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as file:
             file.write(text)
@@ -173,7 +175,9 @@ def write_text_atomically(path: Path, text: str) -> None:
             os.fsync(file.fileno())
         os.replace(temp, path)
     except OSError as error:
-        raise ScmpError(ErrorKind.disk, f"can't write {path.name}: {error.strerror}") from error
+        raise ScmpError(
+            ErrorKind.disk, f"can't write {path.name}: {error.strerror or error}"
+        ) from error
     finally:
         # After a successful replace the temp name is gone, so this only cleans up failures.
         temp.unlink(missing_ok=True)

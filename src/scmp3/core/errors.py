@@ -1,6 +1,13 @@
-"""Error kinds and the exceptions core raises. The user-facing text lives in `app/messages.py`."""
+"""Error kinds and the exceptions core raises.
+
+The app's wording for each kind is in `web/strings`, and the command line's is in `cli_output.py`.
+"""
 
 from enum import StrEnum
+from typing import Literal
+
+# Which folder a disk error was about: the library, or sc-mp3's own data, cache and staging.
+ErrorPlace = Literal["library", "data"]
 
 
 class ErrorKind(StrEnum):
@@ -27,14 +34,20 @@ class ErrorKind(StrEnum):
 
 
 class ScmpError(Exception):
-    """A failure of a known kind, with an optional detail for the logs."""
+    """A failure of a known kind, with an optional detail for the logs.
 
-    def __init__(self, kind: ErrorKind | str, detail: str | None = None) -> None:
+    `where` says which folder a disk error was about. None counts as the library.
+    """
+
+    def __init__(
+        self, kind: ErrorKind | str, detail: str | None = None, *, where: ErrorPlace | None = None
+    ) -> None:
         # Converting here rejects a misspelled kind at the point it's raised.
         kind = ErrorKind(kind)
         super().__init__(kind, detail)
         self.kind = kind
         self.detail = detail
+        self.where = where
 
     def __str__(self) -> str:
         if self.detail:

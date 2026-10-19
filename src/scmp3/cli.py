@@ -1,11 +1,16 @@
-"""Command-line interface: `scmp3 get` and `scmp3 retag`."""
+"""Command-line interface: `scmp3 <command>`, with each command in the `COMMANDS` table.
+
+`cli_get` runs `scmp3 get`. What the commands print is in `cli_output`, and the terminal review
+is in `cli_review`.
+"""
 
 import argparse
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-NOT_IMPLEMENTED = "Not implemented yet."
+from scmp3.cli_get import add_get_arguments, run_get
+from scmp3.cli_output import EXIT_ERROR, NOT_IMPLEMENTED
 
 
 @dataclass(frozen=True)
@@ -20,12 +25,7 @@ class Command:
 def not_implemented(args: argparse.Namespace) -> int:
     """Stand in for a command that a later ticket builds."""
     print(NOT_IMPLEMENTED, file=sys.stderr)
-    return 1
-
-
-def add_get_arguments(parser: argparse.ArgumentParser) -> None:
-    """Add the arguments for `scmp3 get`."""
-    parser.add_argument("urls", nargs="+", metavar="url", help="a SoundCloud or YouTube link")
+    return EXIT_ERROR
 
 
 def add_retag_arguments(parser: argparse.ArgumentParser) -> None:
@@ -36,9 +36,9 @@ def add_retag_arguments(parser: argparse.ArgumentParser) -> None:
 # Every CLI command by name; the parser and the top-level help are both built from this.
 COMMANDS: dict[str, Command] = {
     "get": Command(
-        help="save SoundCloud or YouTube links as tagged MP3 files",
+        help="save SoundCloud links as tagged MP3 files",
         add_arguments=add_get_arguments,
-        run=not_implemented,
+        run=run_get,
     ),
     "retag": Command(
         help="review and fix the tags on files you already have",
