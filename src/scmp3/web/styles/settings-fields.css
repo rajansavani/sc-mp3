@@ -1,19 +1,7 @@
-/* The fields and controls that the options menu and first-run setup share. Their colors are
-   set on .settings and .first-run in Settings.css. */
+/* The layouts the options menu and first-run setup share. The fields, buttons, switches and
+   the segmented control themselves are in controls.css. */
 
-/* Fields */
-
-.settings-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.settings-label {
-  color: var(--text-2);
-  font-size: var(--text-small);
-}
+/* Grids, and the extras some fields have */
 
 .settings-grid {
   display: grid;
@@ -25,44 +13,8 @@
   grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
 }
 
-.settings-input,
-.settings-select,
-.settings-textarea {
-  min-width: 0;
-  border: 1px solid var(--line-4);
-  border-radius: var(--radius-control);
-  background: var(--surface-2);
-  font-size: 14px;
-}
-
-.settings-input {
-  height: var(--height-control);
-  padding: 0 14px;
-}
-
-.settings-select {
-  height: var(--height-control);
-  padding: 0 12px;
-}
-
-.settings-textarea {
-  padding: 10px 14px;
-  resize: vertical;
-}
-
 .settings-mono {
   font-family: var(--font-mono);
-}
-
-.settings-input[aria-invalid="true"],
-.settings-select[aria-invalid="true"],
-.settings-textarea[aria-invalid="true"] {
-  border-color: var(--settings-field-error-line);
-}
-
-.settings-field-error {
-  color: var(--settings-danger);
-  font-size: var(--text-caption);
 }
 
 .settings-hint {
@@ -81,56 +33,8 @@
   gap: 8px;
 }
 
-.settings-folder-picker .settings-input {
+.settings-folder-picker .text-field {
   flex: 1 1 320px;
-}
-
-/* Buttons */
-
-.settings-button,
-.settings-button-quiet {
-  height: var(--height-control);
-  padding: 0 16px;
-  border: 1px solid var(--line-3);
-  border-radius: var(--radius-control);
-  font-weight: 600;
-}
-
-.settings-button {
-  background: var(--settings-raised);
-}
-
-.settings-button-quiet {
-  background: transparent;
-}
-
-/* Title style: a radio group that looks like a segmented control */
-
-.settings-segmented {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius-segmented);
-  background: var(--settings-panel);
-}
-
-.settings-segment {
-  flex: 1 1 auto;
-  min-height: var(--height-segment);
-  padding: 0 12px;
-  border: 0;
-  border-radius: var(--radius-segment);
-  background: transparent;
-  color: var(--text-2);
-  font-size: var(--text-small);
-  font-weight: 600;
-}
-
-.settings-segment[aria-checked="true"] {
-  background: var(--line-3);
-  color: var(--text-1);
 }
 
 /* Rows with a switch or a small select on the right */
@@ -150,35 +54,7 @@
   gap: 2px;
 }
 
-.settings-row .settings-select {
+.settings-row .text-field {
   width: 96px;
 }
 
-.settings-switch {
-  display: flex;
-  flex: 0 0 auto;
-  justify-content: flex-start;
-  width: 48px;
-  height: 28px;
-  padding: 3px;
-  border: 1px solid var(--line-4);
-  border-radius: var(--radius-chip);
-  background: var(--settings-raised);
-}
-
-.settings-switch-knob {
-  width: 20px;
-  height: 20px;
-  border-radius: var(--radius-chip);
-  background: var(--text-2);
-}
-
-.settings-switch[aria-checked="true"] {
-  justify-content: flex-end;
-  border-color: var(--accent);
-  background: var(--accent);
-}
-
-.settings-switch[aria-checked="true"] .settings-switch-knob {
-  background: var(--on-accent);
-}

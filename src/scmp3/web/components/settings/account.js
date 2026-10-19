@@ -14,7 +14,7 @@ export function AccountSection() {
         <span class="settings-card-title">${text.account.notSignedIn}</span>
         <span class="settings-hint">${text.account.notBuilt}</span>
       </span>
-      <button type="button" class="settings-button-quiet" onClick=${() => openDialog("sign_in")}>
+      <button type="button" class="control-button is-ghost" onClick=${() => openDialog("sign_in")}>
         ${text.account.signIn}
       </button>
     </div>

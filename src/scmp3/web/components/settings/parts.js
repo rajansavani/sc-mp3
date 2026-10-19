@@ -2,6 +2,7 @@
 import { html } from "htm/preact";
 
 import { strings } from "../../strings/index.js";
+import { Icon } from "../icons.js";
 
 export function Logo() {
   return html`
@@ -16,21 +17,12 @@ export function Logo() {
 export function SaveBanner({ message, onDismiss }) {
   if (!message) return null;
   return html`
-    <div class="settings-banner" role="alert">
-      <span class="settings-banner-message">
-        <svg
-          class="settings-banner-icon"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 7v6M12 16.5h.01" />
-        </svg>
+    <div class="banner settings-banner" data-tone="danger" role="alert">
+      <span class="banner-message">
+        <${Icon} name="error" size=${20} className="tone-icon" />
         <span>${message}</span>
       </span>
-      <button type="button" class="settings-banner-button" onClick=${onDismiss}>
+      <button type="button" class="control-button is-small" onClick=${onDismiss}>
         ${strings.shell.dismiss}
       </button>
     </div>

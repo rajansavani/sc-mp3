@@ -1,4 +1,4 @@
-/* The top bar. A placeholder until the full design is built. */
+/* The top bar, and the clipboard offer under it. */
 
 .top-bar {
   display: flex;
@@ -49,13 +49,63 @@
   font-size: 14px;
 }
 
+/* Something that can be dropped is over the top bar. */
+.top-bar-input[data-drop-over="true"] {
+  border-color: var(--accent);
+  background: var(--chip-on-bg);
+}
+
+.top-bar-add {
+  padding: 0 18px;
+  background: var(--surface-4);
+}
+
 .top-bar-actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.top-bar-actions .button {
-  background: transparent;
+.top-bar-account {
+  padding: 0 14px;
   font-weight: 500;
+}
+
+.clipboard-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 10px 24px;
+  background: var(--dialog-bg);
+  border-bottom: 1px solid var(--line-1);
+}
+
+.clipboard-offer-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  min-width: 0;
+}
+
+.clipboard-offer-title {
+  font-weight: 600;
+}
+
+.clipboard-offer-link {
+  overflow-wrap: anywhere;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+}
+
+.clipboard-offer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.clipboard-offer-actions .is-primary {
+  padding: 0 16px;
 }

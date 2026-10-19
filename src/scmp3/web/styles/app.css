@@ -1,4 +1,5 @@
-/* The shell's layout: the top bar over the queue and the editor, full-window views, and dialogs. */
+/* The shell's layout: the top bar over the queue and the editor, and full-window views. The dialog
+   frame is in controls.css. */
 
 #app {
   height: 100%;
@@ -62,23 +63,4 @@
   border-radius: var(--radius-control);
   background: var(--surface-2);
   font-weight: 600;
-}
-
-.dialog {
-  width: min(560px, calc(100vw - 48px));
-  padding: var(--pad-card);
-  border: 1px solid var(--line-1);
-  border-radius: var(--radius-card);
-  background: var(--surface-1);
-  color: var(--text-1);
-}
-
-.dialog::backdrop {
-  background: rgb(0 0 0 / 60%);
-}
-
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: var(--gap-sections);
 }

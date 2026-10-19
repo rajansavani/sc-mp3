@@ -1,6 +1,6 @@
 // The shell: the main layout with its slots, the full-window views, the dialog layer and toasts.
 import { html, render } from "htm/preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 import { api, onEvent } from "./api.js";
 import { FirstRun } from "./components/FirstRun.js";
@@ -13,7 +13,6 @@ import { Toasts } from "./components/Toasts.js";
 import { TopBar } from "./components/TopBar.js";
 import { TrackEditor } from "./components/TrackEditor.js";
 import {
-  addToast,
   applyEvent,
   closeDialog,
   loadSnapshot,
@@ -146,19 +145,74 @@ function App() {
   `;
 }
 
+// Copies the diagnostics for a bug report, and says whether that worked.
+async function copyDiagnostics() {
+  try {
+    const result = await api.diagnostics();
+    if (result?.error) return false;
+    await navigator.clipboard.writeText(result.text);
+    return true;
+  } catch (error) {
+    console.error("The diagnostics couldn't be copied", error);
+    return false;
+  }
+}
+
+// What the window shows when it couldn't start, so it's never left blank.
+function StartFailed() {
+  const text = strings.shell;
+  const [copied, setCopied] = useState(null);
+  const outcome = copied ? text.diagnosticsCopied : text.diagnosticsNotCopied;
+  const copy = async () => setCopied(await copyDiagnostics());
+  return html`
+    <div class="app-view">
+      <div class="placeholder" role="alert">
+        <h1 class="placeholder-title">${text.startFailedTitle}</h1>
+        <p>${text.startFailed}</p>
+        <button class="button" type="button" onClick=${copy}>
+          ${text.copyDiagnostics}
+        </button>
+        ${copied !== null && html`<p>${outcome}</p>`}
+      </div>
+    </div>
+  `;
+}
+
+// The snapshot, or null when there's none. api answers a call that failed in Python with
+// {error}, and in --dev-ui the mock's own import can fail.
+async function firstSnapshot() {
+  try {
+    const snapshot = await api.snapshot();
+    if (!snapshot?.error) return snapshot;
+    console.error("The snapshot call failed", snapshot.error);
+  } catch (error) {
+    console.error("Loading the snapshot failed", error);
+  }
+  return null;
+}
+
+// Applies the snapshot, and says whether that worked.
+function showSnapshot(snapshot) {
+  try {
+    loadSnapshot(snapshot);
+    return true;
+  } catch (error) {
+    console.error("Showing the snapshot failed", error);
+    return false;
+  }
+}
+
 async function start() {
   for (const [type, listener] of Object.entries(WINDOW_LISTENERS)) {
     window.addEventListener(type, listener);
   }
   // Subscribe before asking for the snapshot, so no event in between is missed.
   onEvent(applyEvent);
-  render(html`<${App} />`, document.getElementById("app"));
-  try {
-    loadSnapshot(await api.snapshot());
-  } catch (error) {
-    console.error("Loading the snapshot failed", error);
-    addToast("error", strings.shell.startFailed);
-  }
+  const root = document.getElementById("app");
+  render(html`<${App} />`, root);
+  const snapshot = await firstSnapshot();
+  if (snapshot && showSnapshot(snapshot)) return;
+  render(html`<${StartFailed} />`, root);
 }
 
 start();

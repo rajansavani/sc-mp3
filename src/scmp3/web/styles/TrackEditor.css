@@ -1,1 +1,288 @@
-/* The track editor. A placeholder for now, styled by .placeholder in app.css. */
+/* The track editor: its header, fields, cleanups, output strip, actions and other states. */
+
+.track-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-sections);
+}
+
+.editor-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 16px;
+}
+
+.editor-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.editor-title {
+  font-size: var(--text-page-title);
+  font-weight: 700;
+  letter-spacing: var(--tracking-page-title);
+}
+
+.editor-waiting {
+  color: var(--text-2);
+  font-size: var(--text-small);
+}
+
+.editor-link {
+  overflow-wrap: anywhere;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+
+/* The editable part of the review, locked once saving starts. */
+.editor-lock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-sections);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.editor-lock:disabled .text-field {
+  color: var(--text-2);
+}
+
+.editor-lock:disabled button {
+  cursor: default;
+}
+
+.editor-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+}
+
+.editor-fields {
+  display: flex;
+  flex: 1 1 340px;
+  flex-direction: column;
+  gap: var(--gap-fields);
+  min-width: 0;
+}
+
+.field-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+  color: var(--text-2);
+  font-size: var(--text-small);
+}
+
+.field-input.is-title {
+  height: var(--height-title-field);
+  padding: 0 14px;
+  font-size: var(--text-title-field);
+  font-weight: 600;
+}
+
+.field-input.is-artist {
+  height: var(--height-artist-field);
+  padding: 0 14px;
+  font-size: var(--text-artist-field);
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: var(--gap-field-grid);
+}
+
+.field-grid[hidden] {
+  display: none;
+}
+
+.more-fields {
+  align-self: flex-start;
+  font-size: var(--text-small);
+}
+
+.style-switch {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.style-switch legend {
+  margin: 0 0 6px;
+  padding: 0;
+  color: var(--text-2);
+  font-size: var(--text-small);
+}
+
+.cleanups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: var(--pad-card);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-card);
+  background: var(--surface-3);
+}
+
+.cleanups-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+
+.cleanups-title {
+  font-size: var(--text-section-title);
+  font-weight: 600;
+}
+
+.cleanups-hint,
+.cleanups-none {
+  color: var(--text-3);
+  font-size: var(--text-caption);
+}
+
+.cleanups-original {
+  overflow-wrap: anywhere;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-chips);
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--height-control);
+  padding: 0 16px 0 12px;
+  border: 1px dashed var(--line-dashed);
+  border-radius: var(--radius-chip);
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--text-small);
+  font-weight: 500;
+  text-align: left;
+}
+
+.chip[aria-pressed="true"] {
+  border: 1px solid var(--accent);
+  background: var(--chip-on-bg);
+  color: var(--chip-on-text);
+}
+
+.output {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 20px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-card);
+}
+
+.output-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+}
+
+.output-label {
+  color: var(--text-3);
+  font-size: var(--text-section-label);
+  font-weight: 600;
+  letter-spacing: var(--tracking-section-label);
+  text-transform: uppercase;
+}
+
+.output-file {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.output-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 28px;
+  color: var(--text-2);
+  font-size: var(--text-small);
+}
+
+.output-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px 14px;
+}
+
+.save-button .key {
+  font-family: var(--font-mono);
+}
+
+.actions-waiting {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.actions-progress-text {
+  color: var(--text-2);
+  font-size: var(--text-small);
+}
+
+/* Disabled but explained: Save was pressed and waits for the download. */
+.saves-later {
+  gap: 10px;
+  border: 1px solid var(--accent);
+  background: var(--chip-on-bg);
+  color: var(--chip-on-text);
+  font-size: var(--text-body);
+  font-weight: 700;
+}
+
+.saving-button {
+  border: 0;
+  background: var(--line-3);
+  color: var(--text-2);
+  font-size: var(--text-body);
+  font-weight: 700;
+}
+
+.saved-message {
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.saved-message .tone-icon {
+  margin: 0;
+}
+
+.banner-hint {
+  color: var(--text-2);
+  font-size: var(--text-small);
+}

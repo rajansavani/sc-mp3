@@ -16,7 +16,7 @@ export function SpotifyHelpSection() {
       </span>
       <button
         type="button"
-        class="settings-button-quiet"
+        class="control-button is-ghost"
         onClick=${() => openDialog("spotify_help")}
       >
         ${text.spotifyHelp.open}

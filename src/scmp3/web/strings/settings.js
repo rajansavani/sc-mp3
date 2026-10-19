@@ -63,7 +63,7 @@ export default {
     cover_max_size: { 300: "300 px", 640: "640 px", 1000: "1000 px", 1400: "1400 px" },
     comment_mode: {
       source_url: "The source link",
-      description: "The source’s description",
+      description: "The source's description",
       none: "Nothing",
     },
     concurrent_downloads: { 1: "1", 2: "2", 3: "3", 4: "4" },
@@ -176,7 +176,7 @@ export default {
     benefits: [
       { what: "Stream quality", values: ["AAC 160 kbps", "AAC 160 kbps", "AAC 256 kbps"] },
       {
-        what: "The artist’s original file, when they allow downloads",
+        what: "The artist's original file, when they allow downloads",
         values: ["No", "Yes", "Yes"],
       },
       { what: "Go+ only tracks", values: ["30-second preview", "30-second preview", "Full track"] },

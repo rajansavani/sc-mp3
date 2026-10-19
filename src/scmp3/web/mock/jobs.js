@@ -1,12 +1,27 @@
-// The queue's mock calls, starting from the sample queue in the design.
-import { makeJob, makeSource, makeSuggestion, SAMPLE_HISTORY, sampleQueue } from "./sample-queue.js";
-
-// How long each simulated step takes, such as fetching info or saving.
-const STEP_MS = 700;
+// The queue's mock calls. The queue itself, and how it moves, is in queue-sim.js.
+// ?mock&states adds a job for each warning and error kind.
+import { addCover, measureCover } from "./covers.js";
+import { refusedFields } from "./field-checks.js";
+import {
+  emit,
+  fetchInfoLater,
+  findJob,
+  jobs,
+  publish,
+  retryJob,
+  startSaving,
+  stopDownload,
+} from "./queue-sim.js";
+import { forTheUi } from "./review.js";
+import { horizon, PALETTES } from "./sample-art.js";
+import { makeJob, SAMPLE_HISTORY } from "./sample-queue.js";
 
 const LINK = /^https?:\/\/(?:[\w-]+\.)*(?:soundcloud\.com|youtube\.com|youtu\.be)\//i;
 const SET_LINK = /soundcloud\.com\/[^/]+\/sets\//i;
 const AUDIO_FILE = /\.(?:mp3|m4a)$/i;
+// Text that starts like a path, or names an audio file, such as "My Song.mp3".
+const LOCAL_PATH = /^(?:[a-z]:[\\/]|~?[\\/]|\.{1,2}[\\/])|\.(?:mp3|m4a)$/i;
+const ARTWORK_KINDS = ["source", "url", "file", "data_url"];
 
 // Links the mock turns down, with the reason code the bridge sends. strings/main.js has the text.
 const REJECTIONS = [
@@ -14,27 +29,8 @@ const REJECTIONS = [
   { pattern: /^https?:\/\/(?:www\.)?soundcloud\.com\/[^/?#]+\/?$/i, reason: "SOUNDCLOUD_NOT_TRACK" },
 ];
 
-// Copied on the way out, like everything that crosses the real bridge.
-function emit(event) {
-  window.scmp3.emit(JSON.parse(JSON.stringify(event)));
-}
-
-const jobs = sampleQueue();
-
-function findJob(jobId) {
-  for (const job of jobs) {
-    if (job.id === jobId) return job;
-    const child = job.children.find((candidate) => candidate.id === jobId);
-    if (child) return child;
-  }
-  return null;
-}
-
-// Events carry whole queue items, so a set's track goes out as its whole set.
-function publish(job) {
-  const owner = jobs.find((top) => top === job || top.children.includes(job));
-  if (owner) emit({ type: "job", job: owner });
-}
+// The made-up cover of the image the picker "chose".
+const PICKED_COVER = horizon(PALETTES.dusk, 1400);
 
 function editJob(jobId, edit) {
   const job = findJob(jobId);
@@ -44,87 +40,54 @@ function editJob(jobId, edit) {
   return {};
 }
 
-function later(steps, change) {
-  setTimeout(change, steps * STEP_MS);
-}
-
 function inputKind(input) {
   if (!LINK.test(input)) return AUDIO_FILE.test(input) ? "retag" : null;
   return SET_LINK.test(input) ? "set" : "track";
 }
 
-function rejectionReason(input) {
+// Why an input isn't added, as the bridge says it, or null. A queued link names its job.
+function rejectionOf(input) {
+  const queued = jobs.find((job) => job.input === input);
+  if (queued) return { reason: "ALREADY_IN_QUEUE", job_id: queued.id };
   const rejection = REJECTIONS.find((candidate) => candidate.pattern.test(input));
-  if (rejection) return rejection.reason;
-  return inputKind(input) ? null : "NOT_SUPPORTED";
+  if (rejection) return { reason: rejection.reason };
+  return inputKind(input) ? null : { reason: "NOT_SUPPORTED" };
 }
 
+// Like parse_inputs: a line that looks like a path stays whole, and other lines split into words.
 function splitInputs(textOrPaths) {
-  const items = Array.isArray(textOrPaths) ? textOrPaths : textOrPaths.split(/\s+/);
+  const lines = Array.isArray(textOrPaths) ? textOrPaths : textOrPaths.split(/\r?\n/);
+  const items = lines.flatMap((line) => {
+    return LOCAL_PATH.test(line.trim()) ? [line] : line.split(/\s+/);
+  });
   return [...new Set(items.map((item) => item.trim()).filter(Boolean))];
 }
 
-// The last part of the link or path stands in for the title a source would give.
-function titleFromInput(input) {
-  const last = input.split(/[/\\?=]/).filter(Boolean).at(-1) ?? input;
-  return last.replace(AUDIO_FILE, "").replaceAll("-", " ");
-}
-
-function sourceKind(job) {
-  if (job.kind === "retag") return "file";
-  return /youtu/i.test(job.input) ? "youtube" : "soundcloud";
-}
-
-function resolve(job) {
-  const title = titleFromInput(job.input);
-  job.state = "needs_review";
-  job.source = makeSource({
-    kind: sourceKind(job),
-    id: `mock:${job.id}`,
-    url: job.input,
-    title,
-    uploader: "Sample Artist",
-  });
-  job.suggestion = makeSuggestion({ base_title: title, main_artists: ["Sample Artist"], album: title });
-}
-
-function fetchInfoLater(job) {
-  later(1, () => {
-    job.state = "resolving";
-    publish(job);
-  });
-  later(3, () => {
-    resolve(job);
-    publish(job);
-  });
-}
-
-function fileName(job) {
-  const title = job.overrides.title ?? job.suggestion?.base_title ?? job.input;
-  const artist = job.overrides.artist ?? job.suggestion?.main_artists.join(", ");
-  return artist ? `${artist} - ${title}.mp3` : `${title}.mp3`;
-}
-
-function finishSaving(job) {
-  job.state = "saved";
-  job.progress = null;
-  job.output_path = `~/Music/sc-mp3/${fileName(job)}`;
-  for (const child of job.children) {
-    if (child.included) child.state = "saved";
+// A new image goes in with the centered square. The same image with a new crop only crops.
+// Images added by hand get their preview once it's scaled down, and the job goes out again.
+function newArtwork(job, artwork, crop) {
+  if (artwork.kind === "data_url") {
+    addCover(job.id, artwork.value, () => publish(job));
+    return { kind: "file", value: "pasted-cover.png", crop };
   }
+  const value = artwork.kind === "source" ? null : (artwork.value ?? null);
+  const unchanged = artwork.kind === job.artwork.kind && value === job.artwork.value;
+  if (artwork.kind === "file" && !unchanged) addCover(job.id, PICKED_COVER, () => publish(job));
+  if (artwork.kind === "url") measureCover(value, () => publish(job));
+  return { kind: artwork.kind, value, crop };
 }
 
 export function snapshotPart() {
-  return { jobs };
+  return { jobs: jobs.map(forTheUi) };
 }
 
 export function add_inputs(text_or_paths) {
   const added = [];
   const rejected = [];
   for (const input of splitInputs(text_or_paths)) {
-    const reason = rejectionReason(input);
-    if (reason) {
-      rejected.push({ input, reason });
+    const rejection = rejectionOf(input);
+    if (rejection) {
+      rejected.push({ input, ...rejection });
       continue;
     }
     const job = makeJob({ kind: inputKind(input), input });
@@ -136,7 +99,10 @@ export function add_inputs(text_or_paths) {
   return { added, rejected };
 }
 
+// A refused patch changes nothing, and an accepted value is kept exactly as sent.
 export function update_fields(job_id, patch) {
+  const fields = refusedFields(patch);
+  if (Object.keys(fields).length > 0) return { error: "invalid_fields", fields };
   return editJob(job_id, (job) => Object.assign(job.overrides, patch));
 }
 
@@ -160,30 +126,32 @@ export function set_style(job_id, style_id) {
 }
 
 export function set_artwork(job_id, artwork, crop = null) {
+  if (!ARTWORK_KINDS.includes(artwork?.kind)) return { error: "invalid_artwork" };
+  if (artwork.kind === "url" && !/^https:\/\//i.test(artwork.value ?? "")) {
+    return { error: "invalid_artwork" };
+  }
   return editJob(job_id, (job) => {
-    // The real bridge saves a pasted image to a file first.
-    const value = artwork.kind === "data_url" ? "pasted-cover.png" : artwork.value;
-    const kind = artwork.kind === "data_url" ? "file" : artwork.kind;
-    job.artwork = { kind, value, crop };
+    job.artwork = newArtwork(job, artwork, crop);
   });
+}
+
+function canSave(job) {
+  return job.state === "needs_review" || (job.state === "error" && job.error?.kind === "duplicate");
 }
 
 export function save(job_ids) {
   for (const jobId of job_ids) {
     const job = findJob(jobId);
-    if (!job || job.state !== "needs_review") continue;
-    job.state = "saving";
+    if (!job || !canSave(job)) continue;
+    startSaving(job);
     publish(job);
-    later(1, () => {
-      finishSaving(job);
-      publish(job);
-    });
   }
   return {};
 }
 
 export function skip(job_id) {
   return editJob(job_id, (job) => {
+    stopDownload(job);
     job.state = "skipped";
     job.staged_audio = null;
   });
@@ -191,22 +159,23 @@ export function skip(job_id) {
 
 export function retry(job_id) {
   return editJob(job_id, (job) => {
-    job.state = "queued";
-    job.error = null;
-    fetchInfoLater(job);
+    if (job.state === "error") retryJob(job);
   });
 }
 
+// A save waiting for its audio goes back to review, and the download carries on. Otherwise the
+// download stops.
 export function cancel(job_id) {
   return editJob(job_id, (job) => {
-    job.progress = null;
-    job.state = job.state === "saving" ? "needs_review" : "skipped";
+    if (job.state === "saving") job.state = "needs_review";
+    else stopDownload(job);
   });
 }
 
 export function remove(job_id) {
   const index = jobs.findIndex((job) => job.id === job_id);
   if (index === -1) return { error: "unknown_job" };
+  stopDownload(jobs[index]);
   jobs.splice(index, 1);
   emit({ type: "job_removed", job_id });
   return {};

@@ -113,7 +113,7 @@ export function Settings() {
           <${Logo} />
           <span class="settings-brand-name">${text.title}</span>
         </div>
-        <button type="button" class="settings-button-quiet" onClick=${closeView}>
+        <button type="button" class="control-button is-ghost" onClick=${closeView}>
           ${text.backToQueue}
         </button>
       </header>

@@ -34,6 +34,21 @@
   --ok: #7FD8A6; /* saved */
   --ok-surface: #16241C;
   --ok-line: #2E5A41;
+  --warn-surface: #2A2213; /* duplicate, small or avatar cover, offline, preview only, bot check */
+  --warn-line: #5A4823;
+  --danger: #F08A7E; /* error icons and field error text */
+  --danger-surface: #2A1715; /* copy-protected, engine outdated, folder not writable */
+  --danger-line: #5C2A24;
+  --field-error-line: #C2574B; /* an input whose value is invalid */
+
+  /* Dialogs and raised controls (T-020) */
+  --scrim: rgba(10, 9, 8, 0.72); /* behind dialogs */
+  --dialog-bg: #1A1917; /* dialogs, neutral banners, the segmented control track */
+  --surface-4: #24221F; /* the Add button, empty thumbnails */
+  --shadow-dialog: 0 24px 64px rgba(0, 0, 0, 0.5);
+  --radius-dialog: 16px;
+  --pad-dialog: 28px 32px;
+  --pad-banner: 14px 18px;
 
   /* Type */
   --font-ui: "Instrument Sans", "Segoe UI", system-ui, sans-serif;

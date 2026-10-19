@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../../api.js";
 import { reportError } from "../../store.js";
 import { strings } from "../../strings/index.js";
+import { folderLabel } from "../paths.js";
 
 const text = strings.settings;
 
@@ -72,32 +73,9 @@ export function useRadioGroup(values, checked, pick) {
 
 // Asks for a folder. Resolves to its path, or null when the dialog was cancelled or failed.
 async function pickFolder() {
-  let result;
-  try {
-    result = await api.pick_folder();
-  } catch (error) {
-    console.error("The folder picker failed", error);
-    return null;
-  }
+  const result = await api.pick_folder();
   if (reportError(result)) return null;
   return result.path || null;
-}
-
-// How many leading parts of a path are the home folder: ~, C:\Users\<name>, /Users/<name> or
-// /home/<name>. None when the path is somewhere else.
-function homeLength(parts) {
-  if (parts[0] === "~") return 1;
-  if (/^[A-Za-z]:$/.test(parts[0]) && parts[1]?.toLowerCase() === "users") return 3;
-  if (parts[0] === "Users" || parts[0] === "home") return 2;
-  return 0;
-}
-
-// A folder in the home folder reads from there, as "Music › sc-mp3". Others show in full.
-export function folderLabel(path) {
-  const parts = path.split(/[\\/]+/).filter(Boolean);
-  const start = homeLength(parts);
-  if (start === 0 || start >= parts.length) return path;
-  return parts.slice(start).join(" › ");
 }
 
 // The ids of a field's error and hint, and of a line elsewhere that describes it too, for
@@ -111,7 +89,7 @@ function describedBy(id, error, hint, also = null) {
 function FieldNotes({ id, error, hint }) {
   return html`
     ${error &&
-    html`<span id=${`${id}-error`} class="settings-field-error">${problemText(error)}</span>`}
+    html`<span id=${`${id}-error`} class="field-error">${problemText(error)}</span>`}
     ${hint && html`<span id=${`${id}-hint`} class="settings-hint">${hint}</span>`}
   `;
 }
@@ -127,12 +105,12 @@ export function FolderField({ label, buttonLabel, folder, error, hint, save }) {
   }
 
   return html`
-    <div class="settings-field">
-      <label class="settings-label" for=${id}>${label}</label>
+    <div class="field">
+      <label class="field-label" for=${id}>${label}</label>
       <div class="settings-folder-picker">
         <input
           id=${id}
-          class="settings-input settings-mono"
+          class="text-field settings-mono"
           type="text"
           readonly
           value=${folderLabel(folder)}
@@ -140,7 +118,9 @@ export function FolderField({ label, buttonLabel, folder, error, hint, save }) {
           aria-invalid=${error ? "true" : null}
           aria-describedby=${describedBy(id, error, hint)}
         />
-        <button type="button" class="settings-button" onClick=${pick}>${buttonLabel}</button>
+        <button type="button" class="control-button is-raised" onClick=${pick}>
+          ${buttonLabel}
+        </button>
       </div>
       <${FieldNotes} id=${id} error=${error} hint=${hint} />
     </div>
@@ -189,7 +169,7 @@ export function TextSetting(props) {
 
   const fieldProps = {
     id,
-    class: `${multiline ? "settings-textarea" : "settings-input"}${mono ? " settings-mono" : ""}`,
+    class: mono ? "text-field settings-mono" : "text-field",
     value: draft ?? shown,
     onInput,
     onFocus: () => {
@@ -202,8 +182,8 @@ export function TextSetting(props) {
     ...rest,
   };
   return html`
-    <div class="settings-field">
-      <label class="settings-label" for=${id}>${text.labels[setting]}</label>
+    <div class="field">
+      <label class="field-label" for=${id}>${text.labels[setting]}</label>
       ${multiline
         ? html`<textarea ...${fieldProps} />`
         : html`<input type="text" ...${fieldProps} />`}
@@ -221,7 +201,7 @@ export function SelectSetting({ setting, value, save, error, inline = false }) {
   const select = html`
     <select
       id=${id}
-      class="settings-select"
+      class="text-field"
       value=${String(values.indexOf(value))}
       onChange=${(event) => save({ [setting]: values[Number(event.currentTarget.value)] })}
       aria-invalid=${error ? "true" : null}
@@ -241,8 +221,8 @@ export function SelectSetting({ setting, value, save, error, inline = false }) {
     `;
   }
   return html`
-    <div class="settings-field">
-      <label class="settings-label" for=${id}>${text.labels[setting]}</label>
+    <div class="field">
+      <label class="field-label" for=${id}>${text.labels[setting]}</label>
       ${select}
       <${FieldNotes} id=${id} error=${error} hint=${hint} />
     </div>
@@ -262,13 +242,13 @@ export function SwitchSetting({ setting, checked, save }) {
       <button
         type="button"
         role="switch"
-        class="settings-switch"
+        class="switch"
         aria-checked=${String(checked)}
         aria-labelledby=${`${id}-label`}
         aria-describedby=${hint ? `${id}-hint` : null}
         onClick=${() => save({ [setting]: !checked })}
       >
-        <span class="settings-switch-knob"></span>
+        <span class="switch-knob"></span>
       </button>
     </div>
   `;

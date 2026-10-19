@@ -1,0 +1,153 @@
+/* The editor's other states: nothing queued, info still coming, and a job that failed before
+   review. */
+
+/* The header of a job that can't be reviewed: where it's from, its title and who it's by. */
+.editor-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.editor-source {
+  color: var(--text-3);
+  font-size: var(--text-section-label);
+  font-weight: 600;
+  letter-spacing: var(--tracking-section-label);
+  text-transform: uppercase;
+}
+
+.editor-line {
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.editor-note {
+  color: var(--text-2);
+}
+
+.error-box {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 22px;
+  border: 1px solid var(--tone-line);
+  border-radius: var(--radius-card);
+  background: var(--tone-surface);
+}
+
+.error-box-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.error-box-message .tone-icon {
+  margin-top: 1px;
+}
+
+.error-box-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.error-headline {
+  font-size: var(--text-artist-field);
+  font-weight: 600;
+}
+
+.error-detail {
+  color: var(--text-2);
+}
+
+.error-box-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-left: 34px;
+}
+
+.error-box-actions .control-button:not(.is-primary) {
+  border-color: var(--tone-line);
+  background: transparent;
+}
+
+/* Nothing queued: the editor becomes a drop zone with the ways to start. */
+.editor-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 12px 0;
+}
+
+.empty-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  width: 100%;
+  max-width: 640px;
+  padding: 56px 32px;
+  border: 2px dashed var(--line-3);
+  border-radius: 18px;
+  text-align: center;
+}
+
+.empty-zone[data-drop-over="true"] {
+  border-color: var(--accent);
+  background: var(--chip-on-bg);
+}
+
+.empty-icon {
+  color: var(--text-2);
+}
+
+.empty-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.empty-title {
+  font-size: var(--text-page-title);
+  font-weight: 700;
+  letter-spacing: var(--tracking-page-title);
+  text-wrap: balance;
+}
+
+.empty-body {
+  color: var(--text-2);
+  text-wrap: pretty;
+}
+
+.empty-hints {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 18px;
+  color: var(--text-2);
+  font-size: var(--text-small);
+}
+
+.empty-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.empty-key {
+  padding: 2px 8px;
+  border: 1px solid var(--line-3);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text-1);
+  font-size: var(--text-caption);
+}
+
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}

@@ -104,7 +104,7 @@
 }
 
 /* The design gives the folder button a little more room here than in Settings. */
-.first-run .settings-folder-picker .settings-button {
+.first-run .settings-folder-picker .control-button {
   padding: 0 18px;
 }
 
@@ -126,7 +126,7 @@
   padding: 12px 14px;
   border: 1px solid var(--line-2);
   border-radius: var(--radius-control);
-  background: var(--settings-panel);
+  background: var(--dialog-bg);
   color: var(--text-2);
   font-family: var(--font-mono);
   font-size: var(--text-small);
@@ -147,13 +147,13 @@
   padding: 16px;
   border: 1px solid var(--line-2);
   border-radius: var(--radius-card);
-  background: var(--settings-panel);
+  background: var(--dialog-bg);
   text-align: left;
 }
 
 .first-run-style[aria-checked="true"] {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, var(--settings-panel));
+  background: color-mix(in srgb, var(--accent) 8%, var(--dialog-bg));
 }
 
 .first-run-style-name {
@@ -208,7 +208,7 @@
 }
 
 .first-run-table thead tr {
-  background: var(--settings-panel);
+  background: var(--dialog-bg);
 }
 
 .first-run-table th,
@@ -273,7 +273,7 @@
   padding: 14px 16px;
   border: 1px solid var(--line-1);
   border-radius: var(--radius-primary);
-  background: var(--settings-panel);
+  background: var(--dialog-bg);
 }
 
 .first-run-badge {
@@ -285,7 +285,7 @@
   height: 28px;
   border: 1px solid var(--line-3);
   border-radius: var(--radius-chip);
-  background: var(--settings-raised);
+  background: var(--surface-4);
   font-size: var(--text-small);
   font-weight: 700;
 }

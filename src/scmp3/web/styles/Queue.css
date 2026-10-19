@@ -1,12 +1,50 @@
-/* The queue sidebar. A placeholder until the full design is built. */
+/* The queue sidebar. */
+
+.queue {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 100%;
+  border-radius: var(--radius-card);
+}
+
+/* Something that can be dropped is over the queue. */
+.queue[data-drop-over="true"] {
+  outline: 2px dashed var(--accent);
+  outline-offset: 4px;
+}
+
+.queue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 6px;
+}
 
 .queue-title {
-  padding: 0 8px 6px;
   color: var(--text-2);
   font-size: var(--text-section-label);
   font-weight: 600;
   letter-spacing: var(--tracking-section-label);
   text-transform: uppercase;
+}
+
+.queue-clear {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  font-size: var(--text-caption);
+}
+
+.queue-clear:hover {
+  color: var(--text-1);
+}
+
+.queue-empty {
+  padding: 4px 8px 0;
+  color: var(--text-3);
+  font-size: var(--text-small);
 }
 
 .queue-list {
@@ -20,8 +58,8 @@
 
 .queue-item {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 12px;
   width: 100%;
   padding: 10px;
   border: 1px solid transparent;
@@ -30,17 +68,78 @@
   text-align: left;
 }
 
+.queue-item:hover {
+  background: var(--surface-2);
+}
+
 .queue-item[aria-current="true"] {
   border-color: var(--line-4);
   background: var(--surface-selected);
 }
 
-.queue-item-title {
+.queue-thumb {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
   overflow: hidden;
-  font-size: 14px;
-  font-weight: 600;
+  border-radius: var(--radius-thumb);
+}
+
+.queue-thumb-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* A crop sizes and places the image itself, as on the cover. */
+.queue-thumb-image.is-cropped {
+  inset: auto;
+  max-width: none;
+  object-fit: fill;
+}
+
+.queue-thumb.is-empty {
+  background: var(--surface-4);
+  color: var(--text-3);
+}
+
+.queue-thumb.is-error {
+  background: var(--tone-surface);
+}
+
+.queue-thumb .tone-icon {
+  margin: 0;
+}
+
+.queue-item-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.queue-item-title,
+.queue-item-line {
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.queue-item-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.queue-item-line {
+  color: var(--text-2);
+  font-size: var(--text-caption);
 }
 
 .queue-item-status {
@@ -48,8 +147,18 @@
   font-size: var(--text-caption);
 }
 
-.queue-empty {
-  padding: 0 8px;
-  color: var(--text-3);
-  font-size: var(--text-small);
+.queue-item-status[data-tone="warn"] {
+  color: var(--warn);
+}
+
+.queue-item-status[data-tone="ok"] {
+  color: var(--ok);
+}
+
+.queue-item-status[data-tone="danger"] {
+  color: var(--danger);
+}
+
+.queue-item-progress {
+  margin-top: 4px;
 }

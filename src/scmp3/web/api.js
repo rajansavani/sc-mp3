@@ -58,6 +58,17 @@ async function loadMock() {
 
 const backend = usesMock() ? loadMock() : waitForPywebview();
 
+// A call that raises in Python rejects its promise. It answers {error: "internal"} instead, so
+// every caller gets an answer it can show.
+async function answerOf(call, name, args) {
+  try {
+    return await call(...args);
+  } catch (error) {
+    console.error(`The ${String(name)} call failed`, error);
+    return { error: "internal" };
+  }
+}
+
 // Every call by its Python name, such as api.save([id]), without a list to keep up to date.
 // Calls made before the bridge is ready wait for it.
 export const api = new Proxy(
@@ -71,7 +82,7 @@ export const api = new Proxy(
         if (typeof target[name] !== "function") {
           throw new Error(`The API has no call named ${String(name)}`);
         }
-        return target[name](...args);
+        return answerOf((...callArgs) => target[name](...callArgs), name, args);
       };
     },
   },

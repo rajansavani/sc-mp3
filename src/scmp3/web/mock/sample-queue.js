@@ -1,12 +1,22 @@
 // The sample queue from the design, and builders for jobs in the shape of Job.to_dict() in
 // core/models.py, with the same snake_case keys.
+import { horizon, nightRoad, PALETTES, videoFrame } from "./sample-art.js";
 
 let nextId = 1;
 
-const AAC_160 = {
+export const AAC_160 = {
   format_id: "hls_aac_160k",
   ext: "m4a",
   codec: "aac",
+  bitrate: 160,
+  is_preview: false,
+  is_original: false,
+};
+
+const OPUS_160 = {
+  format_id: "251",
+  ext: "webm",
+  codec: "opus",
   bitrate: 160,
   is_preview: false,
   is_original: false,
@@ -80,8 +90,8 @@ export function makeSuggestion(fields) {
   };
 }
 
-function makeChange(id, kind, span, label) {
-  return { id, kind, span, label, enabled: true };
+export function makeChange(id, kind, span, label, enabled = true) {
+  return { id, kind, span, label, enabled };
 }
 
 function midnightDrive() {
@@ -98,6 +108,7 @@ function midnightDrive() {
       genre: "Hip-hop",
       upload_date: "2026-03-14",
       duration: 221,
+      artwork_url: nightRoad(1000),
     }),
     suggestion: makeSuggestion({
       base_title: "Midnight Drive",
@@ -162,12 +173,13 @@ function lantern() {
       title: "Lantern",
       uploader: "Mara Lune",
       formats: [],
+      artwork_url: horizon(PALETTES.lantern),
       playlist: {
         title: "Lantern",
         owner: "Mara Lune",
         set_type: "album",
         is_album: true,
-        artwork_url: null,
+        artwork_url: horizon(PALETTES.lantern),
         entries,
       },
     }),
@@ -176,12 +188,44 @@ function lantern() {
 }
 
 function staticBloom() {
-  // Still fetching info, so there's no source yet.
+  // Still fetching info, so there's no source yet. The mock fills it in a few seconds later.
   return makeJob({
     id: "static-bloom",
     input: "https://www.youtube.com/watch?v=q3StatBloom",
     state: "resolving",
   });
+}
+
+// What "Static Bloom" turns out to be once its info arrives: a YouTube video with a wide cover.
+export function staticBloomInfo() {
+  return {
+    source: makeSource({
+      kind: "youtube",
+      id: "youtube:q3StatBloom",
+      url: "https://www.youtube.com/watch?v=q3StatBloom",
+      title: "Juno Vale - Static Bloom (Live Session) [Official Video]",
+      uploader: "Juno Vale",
+      upload_date: "2026-05-02",
+      artwork_url: videoFrame(1280, 720),
+      formats: [OPUS_160],
+    }),
+    suggestion: makeSuggestion({
+      base_title: "Static Bloom",
+      version: " (Live Session)",
+      main_artists: ["Juno Vale"],
+      album: "Static Bloom (Live Session)",
+      year: 2026,
+      changes: [
+        makeChange(
+          "artist",
+          "strip_redundant_artist",
+          "Juno Vale",
+          "Removed the artist name “Juno Vale” from the title",
+        ),
+        makeChange("video", "remove_promo", "[Official Video]", "Removed “[Official Video]”"),
+      ],
+    }),
+  };
 }
 
 function nightBus() {
@@ -191,8 +235,18 @@ function nightBus() {
     input: url,
     // Save was pressed before the download finished, so it saves when the download is done.
     state: "saving",
-    source: makeSource({ id: "soundcloud:tracks:4001", url, title: "Night Bus", uploader: "Teo Marr" }),
-    suggestion: makeSuggestion({ base_title: "Night Bus", main_artists: ["Teo Marr"], album: "Night Bus" }),
+    source: makeSource({
+      id: "soundcloud:tracks:4001",
+      url,
+      title: "Night Bus",
+      uploader: "Teo Marr",
+      artwork_url: horizon(PALETTES.nightBus),
+    }),
+    suggestion: makeSuggestion({
+      base_title: "Night Bus",
+      main_artists: ["Teo Marr"],
+      album: "Night Bus",
+    }),
     progress: { pct: 62, speed: 1450000, eta: 4, downloaded: 5400000, total: 8700000 },
   });
 }
@@ -204,8 +258,16 @@ function oldFavorite() {
     kind: "retag",
     input: path,
     state: "saved",
-    source: makeSource({ kind: "file", id: path, url: path, title: "old-favorite.mp3", formats: [] }),
-    suggestion: makeSuggestion({ base_title: "old-favorite", main_artists: [] }),
+    source: makeSource({
+      kind: "file",
+      id: path,
+      url: path,
+      title: "old-favorite.mp3",
+      formats: [],
+      artwork_url: horizon(PALETTES.oldFavorite),
+    }),
+    // The file had no tags, so there's no title to suggest and the queue shows the file name.
+    suggestion: makeSuggestion({ base_title: "", main_artists: [] }),
     output_path: path,
   });
 }

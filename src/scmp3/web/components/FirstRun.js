@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../api.js";
 import { closeView, openDialog, reportError, useStore } from "../store.js";
 import { strings } from "../strings/index.js";
-import { CHOICES, FolderField, folderLabel, useRadioGroup } from "./settings/fields.js";
+import { folderLabel } from "./paths.js";
+import { CHOICES, FolderField, useRadioGroup } from "./settings/fields.js";
 import { Logo, SaveBanner } from "./settings/parts.js";
 import { usePreview, useSettingsSaver } from "./settings/saving.js";
 
@@ -153,7 +154,7 @@ function AccountStep() {
       <div class="first-run-actions">
         <button
           type="button"
-          class="settings-button first-run-icon-button"
+          class="control-button is-raised first-run-icon-button"
           onClick=${() => openDialog("sign_in")}
         >
           <${PersonIcon} />
@@ -166,11 +167,7 @@ function AccountStep() {
 }
 
 async function openSpotify() {
-  try {
-    reportError(await api.open_spotify());
-  } catch (error) {
-    console.error("Opening Spotify failed", error);
-  }
+  reportError(await api.open_spotify());
 }
 
 function SpotifyStep({ settings }) {
@@ -189,7 +186,7 @@ function SpotifyStep({ settings }) {
         )}
       </ol>
       <div class="first-run-actions">
-        <button type="button" class="settings-button" onClick=${openSpotify}>
+        <button type="button" class="control-button is-raised" onClick=${openSpotify}>
           ${text.openSpotify}
         </button>
         <span class="first-run-tip">${text.phoneTip}</span>

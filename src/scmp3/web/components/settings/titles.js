@@ -12,15 +12,15 @@ function StylePicker({ settings, form }) {
   const pick = (style) => form.save({ title_style: style });
   const { groupProps, choiceProps } = useRadioGroup(styles, settings.title_style, pick);
   return html`
-    <div class="settings-field">
-      <span id="settings-style-label" class="settings-label">${text.labels.title_style}</span>
-      <div class="settings-segmented" aria-labelledby="settings-style-label" ...${groupProps}>
+    <div class="field">
+      <span id="settings-style-label" class="field-label">${text.labels.title_style}</span>
+      <div class="segmented" aria-labelledby="settings-style-label" ...${groupProps}>
         ${styles.map(
           (style, index) => html`
             <button
               key=${style}
               type="button"
-              class="settings-segment"
+              class="segment"
               ...${choiceProps(style, index)}
             >
               ${text.choices.title_style[style]}

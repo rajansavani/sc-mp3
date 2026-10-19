@@ -30,14 +30,7 @@ export function useSettingsSaver() {
 }
 
 async function saveNow(patch, setErrors, setBanner) {
-  let result;
-  try {
-    result = await api.update_settings(patch);
-  } catch (error) {
-    console.error("Saving settings failed", patch, error);
-    setBanner(text.saveErrors.internal);
-    return { saved: false, problems: {} };
-  }
+  const result = await api.update_settings(patch);
   const problems = result.fields ?? {};
   if (result.error === "invalid_settings" && Object.keys(problems).length > 0) {
     setErrors((current) => ({ ...current, ...problems }));
@@ -60,12 +53,9 @@ export function usePreview(settings, style = null) {
   useEffect(() => {
     // An answer to an older request may arrive after a newer one, so only the latest counts.
     let latest = true;
-    api.preview_render(null, style).then(
-      (result) => {
-        if (latest) setPreview(result.error ? null : result);
-      },
-      (error) => console.error("The preview couldn't be rendered", error),
-    );
+    api.preview_render(null, style).then((result) => {
+      if (latest) setPreview(result.error ? null : result);
+    });
     return () => {
       latest = false;
     };

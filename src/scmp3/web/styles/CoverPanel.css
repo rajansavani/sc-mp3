@@ -1,13 +1,175 @@
-/* The cover preview. A placeholder until the full design is built. */
+/* The cover preview with its buttons and warnings, and the Replace and Crop dialogs. */
 
 .cover-panel {
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex: 0 0 var(--cover-size);
+  flex-direction: column;
+  gap: 10px;
   width: var(--cover-size);
-  aspect-ratio: 1;
-  border: 1px dashed var(--line-4);
+}
+
+.cover-preview {
+  position: relative;
+  width: var(--cover-size);
+  height: var(--cover-size);
+  overflow: hidden;
   border-radius: var(--radius-cover);
   background: var(--surface-2);
+}
+
+/* An image is being dragged over the cover. */
+.cover-preview[data-drop-over="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-cover);
+  background: var(--chip-on-bg);
+}
+
+.cover-image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* A crop sizes and places the image itself, so it isn't fitted. */
+.cover-image.is-cropped {
+  inset: auto;
+  max-width: none;
+  object-fit: fill;
+}
+
+.cover-missing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  padding: 16px;
+  border: 1px dashed var(--line-4);
+  border-radius: var(--radius-cover);
+  color: var(--text-3);
+  font-size: var(--text-small);
+  text-align: center;
+}
+
+.cover-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.cover-button {
+  flex: 1 1 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.cover-button:disabled {
+  color: var(--text-3);
+}
+
+.cover-caption {
   color: var(--text-3);
   font-size: var(--text-caption);
+}
+
+.replace-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.replace-link {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.replace-link-label {
+  color: var(--text-2);
+  font-size: var(--text-small);
+}
+
+.replace-link-row {
+  display: flex;
+  gap: 8px;
+}
+
+.replace-hint {
+  font-size: var(--text-small);
+}
+
+.crop-stage {
+  position: relative;
+  align-self: center;
+  overflow: hidden;
+  border-radius: var(--radius-cover);
+  touch-action: none;
+}
+
+.crop-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  -webkit-user-drag: none;
+}
+
+.crop-box {
+  position: absolute;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 9999px rgba(10, 9, 8, 0.6);
+  cursor: move;
+}
+
+.crop-box:focus-visible {
+  outline-offset: -6px;
+}
+
+.crop-handle {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--on-accent);
+  border-radius: 4px;
+  background: var(--accent);
+}
+
+.crop-handle[data-corner="top-left"] {
+  top: -2px;
+  left: -2px;
+  cursor: nwse-resize;
+}
+
+.crop-handle[data-corner="top-right"] {
+  top: -2px;
+  right: -2px;
+  cursor: nesw-resize;
+}
+
+.crop-handle[data-corner="bottom-left"] {
+  bottom: -2px;
+  left: -2px;
+  cursor: nesw-resize;
+}
+
+.crop-handle[data-corner="bottom-right"] {
+  right: -2px;
+  bottom: -2px;
+  cursor: nwse-resize;
+}
+
+.crop-size {
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  text-align: center;
+}
+
+.crop-center {
+  margin-right: auto;
 }
