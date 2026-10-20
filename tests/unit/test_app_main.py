@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 
-from scmp3.app import main
+from scmp3.app import instance, main
 from scmp3.app.bridge import Api
 from scmp3.app.context import AppContext
 from scmp3.app.events import EventBus
@@ -301,6 +301,36 @@ def test_the_webview2_message_opens_the_download_page_only_on_yes(
     assert main.WEBVIEW2_DOWNLOAD_URL in text
     assert title == "sc-mp3 needs WebView2"
     assert flags == main.MB_YESNO | main.MB_ICONWARNING
+
+
+def test_the_window_is_handed_over_once_it_exists(api: Api) -> None:
+    toolkit = FakeToolkit()
+    created: list[Any] = []
+    main.open_window(toolkit, api, EventBus(), page=PAGE, on_created=created.append)
+    assert created == [toolkit.window]
+
+
+def test_a_second_copy_exits_without_opening_a_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    held = instance.instance_lock()
+    held.acquire()
+    told: list[bool] = []
+    monkeypatch.setattr(main, "setup_logging", lambda console: None)
+    monkeypatch.setattr(instance, "say_already_open", lambda: told.append(True))
+    monkeypatch.setattr(main, "run_window", lambda: pytest.fail("a window opened"))
+    try:
+        assert main.run() == 1
+    finally:
+        held.release()
+    assert told == [True]
+
+
+def test_the_first_copy_lets_go_of_the_lock_when_it_closes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(main, "setup_logging", lambda console: None)
+    monkeypatch.setattr(main, "run_window", lambda: 0)
+    assert main.run() == 0
+    after = instance.instance_lock()
+    assert instance.another_copy_is_open(after) is False
+    after.release()
 
 
 @pytest.mark.parametrize(

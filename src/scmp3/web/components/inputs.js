@@ -2,36 +2,10 @@
 import { useState } from "preact/hooks";
 
 import { api, usesMock } from "../api.js";
-import { addToast, getState, reportError, selectJob } from "../store.js";
+import { addToast, getState, reportError, reportRejected, selectJob } from "../store.js";
 import { strings } from "../strings/index.js";
 
 const text = strings.main;
-
-// A link that's queued already isn't a mistake: its item gets selected, with a short note.
-function reportAlreadyQueued(items) {
-  if (items[0].job_id) selectJob(items[0].job_id);
-  const one = text.rejectReasons.ALREADY_IN_QUEUE;
-  addToast("info", items.length === 1 ? one : text.alreadyQueuedMany(items.length));
-}
-
-// Shows one toast per reason, so a paste of 50 stray words doesn't bury the window.
-function reportRejected(rejected) {
-  const byReason = new Map();
-  for (const item of rejected) {
-    byReason.set(item.reason, [...(byReason.get(item.reason) ?? []), item]);
-  }
-  const queued = byReason.get("ALREADY_IN_QUEUE");
-  byReason.delete("ALREADY_IN_QUEUE");
-  if (queued) reportAlreadyQueued(queued);
-  for (const [reason, items] of byReason) {
-    const why = text.rejectReasons[reason] ?? text.rejectReasons.NOT_SUPPORTED;
-    // PASTE_TOO_LONG has no input of its own to name.
-    const named = items.filter((item) => item.input);
-    if (named.length === 0) addToast("error", why);
-    else if (named.length === 1) addToast("error", text.notAddedOne(named[0].input, why));
-    else addToast("error", text.notAddedMany(named.length, why));
-  }
-}
 
 // Selects the first new job unless the one on screen still needs review.
 function selectNewJob(added = []) {

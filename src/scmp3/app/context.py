@@ -5,7 +5,10 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from scmp3.app.desktop import Desktop
 from scmp3.app.events import EventBus
+from scmp3.app.jobs import JobManager
+from scmp3.app.settings_watch import WatchedSettingsStore
 from scmp3.core import history, settings
 from scmp3.core.components import Components
 from scmp3.core.history import History
@@ -25,6 +28,14 @@ def bundled_engine_version() -> str | None:
         return None
 
 
+def app_job_manager(context: "AppContext") -> JobManager:
+    """The job manager on the real pipeline, following the settings when they're saved."""
+    manager = JobManager.for_app(context.settings, context.history, context.events)
+    if isinstance(context.settings, WatchedSettingsStore):
+        context.settings.watch(manager.settings_changed)
+    return manager
+
+
 @dataclass(frozen=True)
 class AppContext:
     """What the bridge's mixins use. `main.run()` builds one, and tests build their own."""
@@ -35,12 +46,21 @@ class AppContext:
     engine_version: Callable[[], str | None] = bundled_engine_version
     # Downloaded helpers such as Deno, in the app's components folder.
     components: Components = field(default_factory=Components)
+    # File dialogs, the file manager and opening Spotify.
+    desktop: Desktop = field(default_factory=Desktop)
+    # Builds the job manager from the fields above. Tests pass one with a fake pipeline.
+    make_jobs: Callable[["AppContext"], JobManager] = field(default=app_job_manager, repr=False)
+    jobs: JobManager = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        # Frozen dataclasses set their own fields this way too.
+        object.__setattr__(self, "jobs", self.make_jobs(self))
 
     @classmethod
     def from_app_folders(cls) -> "AppContext":
         """The context the app runs with, on the files in the app's own folders."""
         return cls(
-            settings=SettingsStore(settings.default_path()),
+            settings=WatchedSettingsStore(settings.default_path()),
             history=History(history.default_path()),
             events=EventBus(),
         )

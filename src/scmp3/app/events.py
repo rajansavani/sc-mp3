@@ -37,7 +37,8 @@ def _job_event_key(event: Event) -> str:
     return event["job"]["id"]
 
 
-def _progress_event_key(event: Event) -> str:
+def _job_id_key(event: Event) -> str:
+    """The job an event is about, for events that name it by id."""
     return event["job_id"]
 
 
@@ -59,7 +60,9 @@ class MergeRule:
 MERGE_RULES: dict[str, MergeRule] = {
     # A full job snapshot already holds the job's progress, so waiting progress is stale too.
     "job": MergeRule(key=_job_event_key, replaces=("job", "progress")),
-    "progress": MergeRule(key=_progress_event_key, replaces=("progress",)),
+    "progress": MergeRule(key=_job_id_key, replaces=("progress",)),
+    # The job has left the queue, so nothing waiting for it is worth sending.
+    "job_removed": MergeRule(key=_job_id_key, replaces=("job", "progress")),
     # These carry the whole account or components object, so only the newest one counts.
     "account": MergeRule(key=_single_key, replaces=("account",)),
     "components": MergeRule(key=_single_key, replaces=("components",)),

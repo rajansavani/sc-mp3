@@ -34,6 +34,9 @@ export default {
     PASTE_TOO_LONG:
       "Only the first 2,000 links and files, up to 1,000,000 characters, were read. Add the rest in another paste.",
     ALREADY_IN_QUEUE: "Already in the queue.",
+    SETS_NOT_SUPPORTED: "SoundCloud sets and albums can't be saved yet. Add each track's own link.",
+    YOUTUBE_NOT_SUPPORTED: "YouTube links can't be saved yet.",
+    FILES_NOT_SUPPORTED: "Fixing the tags of files you already have isn't possible yet.",
   },
 
   // The queue.
@@ -286,6 +289,16 @@ export default {
   notAnImage: "That isn't an image. Use a JPEG, PNG or WebP file.",
   imageTooBig: (megabytes) => `This image is over ${megabytes} MB. Use a smaller one.`,
   imageUnreadable: "That image couldn't be read. Try another file.",
+  // Why the last new cover wasn't used, by the cover_problem code Python sends with the job.
+  coverProblems: {
+    unreadable: "That image can't be used as a cover. Use a JPEG, PNG or WebP image under 20 MB.",
+    offline: "You're offline, so the image couldn't be downloaded. Try again once you're back online.",
+    rate_limited: "The image's site asked sc-mp3 to slow down. Try again in a minute.",
+    service_down: "The image's site isn't responding right now. Try again in a few minutes.",
+    unavailable: "That link doesn't lead to an image. Copy the image's own address, or save the image and add the file.",
+    disk: "The image file couldn't be read. Check that it's still there, then try again.",
+    internal: "sc-mp3 hit an unexpected error with that image. Try again, or use another image.",
+  },
   cropTitle: "Crop the cover",
   cropHelp: "Drag the square to move it, or drag a corner to resize it. Arrow keys move it, and + and − resize it.",
   cropArea: "Crop area",

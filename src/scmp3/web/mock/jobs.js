@@ -181,6 +181,11 @@ export function remove(job_id) {
   return {};
 }
 
+// The mock never finds a file name taken, so no job has a question to answer.
+export function answer_collision(job_id, choice) {
+  return findJob(job_id) ? {} : { error: "unknown_job" };
+}
+
 export function set_album_mode(job_id, mode) {
   return editJob(job_id, (job) => {
     job.album_mode = mode;

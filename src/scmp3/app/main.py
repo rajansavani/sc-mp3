@@ -1,6 +1,5 @@
 """Opens the sc-mp3 window, which shows the web UI in web/ through pywebview's built-in server."""
 
-import ctypes
 import html
 import logging
 import mimetypes
@@ -14,9 +13,11 @@ from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import urlsplit, urlunsplit
 
+from scmp3.app import instance
 from scmp3.app.bridge import Api
 from scmp3.app.context import AppContext
 from scmp3.app.events import EventBus
+from scmp3.app.message_box import IDYES, MB_ICONWARNING, MB_YESNO, MessageBox, windows_message_box
 from scmp3.core import paths
 from scmp3.core.log import setup_logging
 
@@ -78,13 +79,6 @@ SERVER_WAIT_SECONDS = 5.0
 SERVER_TRY_SECONDS = 0.1
 SERVER_PAUSE_SECONDS = 0.05
 
-# Windows MessageBox flags, and the answer for its Yes button.
-MB_YESNO = 0x04
-MB_ICONWARNING = 0x30
-IDYES = 6
-
-MessageBox = Callable[[str, str, int], int]
-
 log = logging.getLogger(__name__)
 
 
@@ -112,12 +106,6 @@ class RendererCheck:
     @property
     def rejected(self) -> bool:
         return self.renderer == MSHTML
-
-
-def windows_message_box(text: str, title: str, flags: int) -> int:
-    """Show a native Windows message box and return the button pressed."""
-    # Native, because the web UI is what can't be shown, and a windowed build has no stderr.
-    return ctypes.windll.user32.MessageBoxW(None, text, title, flags)
 
 
 def ask_to_install_webview2(
@@ -277,6 +265,7 @@ def open_window(
     *,
     page: str,
     report_missing_webview2: Callable[[], None] = ask_to_install_webview2,
+    on_created: Callable[[Any], None] | None = None,
 ) -> int:
     """Show the window until it's closed. Returns 1 when the UI couldn't be shown.
 
@@ -299,6 +288,8 @@ def open_window(
         # base.css makes text unselectable itself, since pywebview's inline rule breaks the CSP.
         text_select=True,
     )
+    if on_created is not None:
+        on_created(window)
     renderer = RendererCheck()
     window.events.initialized += renderer.accept
     # Events wait until pywebview has injected its bridge into the UI's page.
@@ -319,6 +310,18 @@ def open_window(
 def run() -> int:
     """Open the main window, wait until it's closed, and return the exit code."""
     setup_logging(console=True)
+    lock = instance.instance_lock()
+    if instance.another_copy_is_open(lock):
+        instance.say_already_open()
+        return 1
+    try:
+        return run_window()
+    finally:
+        lock.release()
+
+
+def run_window() -> int:
+    """Open the window for this copy of the app, and stop its work once the window closes."""
     register_web_types()
     # Imported here, because importing pywebview adds the log handler that's removed next.
     import webview
@@ -326,8 +329,15 @@ def run() -> int:
 
     route_pywebview_logging()
     context = AppContext.from_app_folders()
+    context.jobs.start_up()
     page = page_location(INDEX_PAGE, Path(get_app_root()))
     if is_servable(page):
         # webview.start() reuses the server that's already running.
         start_page_server(webview.http.start_global_server, page)
-    return open_window(webview, Api(context), context.events, page=page)
+    try:
+        api = Api(context)
+        return open_window(
+            webview, api, context.events, page=page, on_created=context.desktop.attach
+        )
+    finally:
+        context.jobs.shut_down()

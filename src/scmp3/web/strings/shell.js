@@ -14,6 +14,11 @@ export default {
   // What each error kind a call returns means. Job errors get their own text later.
   errors: {
     not_implemented: "That part of sc-mp3 isn't built yet.",
+    unknown_job: "That item isn't in the queue anymore.",
+    not_editable: "This item is saving or done, so it can't be changed now.",
+    invalid_artwork: "That cover can't be used. Choose an image file, or a link that starts with https://.",
+    file_missing: "That file isn't there anymore. It may have been moved or deleted.",
+    spotify_missing: "Spotify didn't open. Check that the Spotify app is installed, then try again.",
     internal:
       "sc-mp3 hit an unexpected error. Try again, and if it keeps happening, copy the diagnostics from Settings and include them in a bug report.",
   },

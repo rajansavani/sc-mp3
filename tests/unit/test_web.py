@@ -16,6 +16,7 @@ from scmp3.app.bridge.components import ComponentsApi
 from scmp3.app.bridge.files import FilesApi
 from scmp3.app.bridge.jobs import JobsApi
 from scmp3.app.bridge.settings import SettingsApi
+from scmp3.app.input_reasons import REASON_CODES
 from scmp3.app.main import WEB_DIR
 
 COMPONENTS = [
@@ -213,9 +214,10 @@ def test_every_reason_code_the_mock_returns_has_text() -> None:
         strings.index("rejectReasons: {") : strings.index("},", strings.index("rejectReasons"))
     ]
     texts = set(re.findall(r"^\s+([A-Z_]+):", block, re.MULTILINE))
-    # TODO(T-022): Compare with the constants in core/urls.py and core/inputs.py as well.
     assert codes >= {"NOT_SUPPORTED", "YOUTUBE_PLAYLIST", "SOUNDCLOUD_NOT_TRACK"}
     assert codes <= texts
+    # The codes the real bridge sends: the reason constants in core, by name.
+    assert set(REASON_CODES.values()) <= texts
 
 
 def content_security_policy() -> dict[str, list[str]]:

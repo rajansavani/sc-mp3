@@ -110,6 +110,18 @@ def test_a_replaced_event_moves_behind_older_events_of_its_job() -> None:
     assert [json.loads(text) for text in pending.take()] == [job_event("a", 2)]
 
 
+def test_a_removed_job_drops_its_waiting_job_and_progress_events() -> None:
+    pending = PendingEvents()
+    pending.add(job_event("a", 1))
+    pending.add(progress_event("a", 30))
+    pending.add(job_event("b", 1))
+    pending.add({"type": "job_removed", "job_id": "a"})
+    assert [json.loads(text) for text in pending.take()] == [
+        job_event("b", 1),
+        {"type": "job_removed", "job_id": "a"},
+    ]
+
+
 def test_events_for_different_jobs_are_not_merged() -> None:
     pending = PendingEvents()
     pending.add(job_event("a", 1))
