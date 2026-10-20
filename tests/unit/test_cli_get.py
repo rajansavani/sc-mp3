@@ -26,6 +26,8 @@ from scmp3.core.models import (
     Tags,
     TagSuggestion,
 )
+from scmp3.core.settings import SettingsStore
+from scmp3.core.settings import default_path as default_settings_path
 from scmp3.core.suggest import suggest
 from scmp3.core.urls import UnsupportedInput
 
@@ -172,7 +174,7 @@ def test_yes_saves_with_the_suggested_tags_and_prints_only_the_path(
     assert saved.cover == ArtworkChoice()
     assert saved.settings.library_dir == fake.library
     shown = capsys.readouterr()
-    assert shown.out == f"{fake.library / 'Kaia - Midnight Drive.mp3'}\n"
+    assert shown.out == f"{fake.library / 'Kaia' / 'Kaia - Midnight Drive.mp3'}\n"
     assert f"Fetching {URL}" in shown.err
 
 
@@ -471,7 +473,7 @@ def test_a_redirected_stdout_gets_the_saved_path_in_utf8(
     fake.title = "夜 Drive"
     assert get("--yes", URL, out=fake.library) == cli_output.EXIT_OK
     out.flush()
-    expected = f"{fake.library / 'Kaia - 夜 Drive.mp3'}\n".encode()
+    expected = f"{fake.library / 'Kaia' / 'Kaia - 夜 Drive.mp3'}\n".encode()
     assert out.buffer.getvalue() == expected
 
 
@@ -507,7 +509,7 @@ def test_a_cover_left_out_is_one_warning_line_and_the_file_still_saves(
     assert get("--yes", URL, out=fake.library) == cli_output.EXIT_OK
     shown = capsys.readouterr()
     assert cli_output.COVER_NOT_DOWNLOADED in shown.err
-    assert shown.out == f"{fake.library / 'Kaia - Midnight Drive.mp3'}\n"
+    assert shown.out == f"{fake.library / 'Kaia' / 'Kaia - Midnight Drive.mp3'}\n"
 
 
 def test_a_cover_image_that_cant_be_read_says_so(
@@ -542,6 +544,8 @@ def test_a_disk_error_in_the_library_suggests_another_folder(
 def test_input_that_ends_at_the_taken_name_question_stops_with_an_error(
     fake: FakePipeline, typed: list[str], capsys: pytest.CaptureFixture[str]
 ) -> None:
+    # With artist folders off, the save goes to the top of the library, where the name is taken.
+    SettingsStore(default_settings_path()).update({"artist_folders": False})
     taken = fake.library / "Kaia - Midnight Drive.mp3"
     taken.parent.mkdir(parents=True)
     taken.write_bytes(b"old")

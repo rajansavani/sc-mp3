@@ -69,9 +69,13 @@ export default {
     concurrent_downloads: { 1: "1", 2: "2", 3: "3", 4: "4" },
   },
   switches: {
+    artist_folders: {
+      label: "Put each artist in their own folder",
+      hint: "Only affects tracks you save from now on.",
+    },
     album_subfolders: {
       label: "Put albums in their own folders",
-      hint: "Singles stay in the main folder. Spotify on iPhone works best with one flat folder.",
+      hint: "Singles don't get an album folder.",
     },
     keep_lossless_originals: {
       label: "Also keep lossless originals",

@@ -102,6 +102,33 @@ def test_a_field_name_and_value_set_the_field(review: TrackReview) -> None:
     assert (tags.track_no, tags.track_total) == (3, 12)
 
 
+@pytest.mark.parametrize("answer", ["album artist Mara Lune", "Album Artist  Mara Lune"])
+def test_album_artist_sets_the_album_artist_and_not_the_album(
+    review: TrackReview, answer: str
+) -> None:
+    assert review.answer(answer) is None
+    assert review.overrides == {"album_artist": "Mara Lune"}
+    tags = review.tags()
+    assert (tags.album_artist, tags.album) == ("Mara Lune", "Midnight Drive")
+
+
+def test_a_typed_artist_moves_saves_as_to_their_folder(
+    review: TrackReview, settings: Settings
+) -> None:
+    review.answer("artist Mara Lune")
+    text = review_text(review, staged())
+    assert "  Album artist Mara Lune" in text
+    artist_folder = settings.library_dir / "Mara Lune"
+    assert text.endswith(f"Saves as Mara Lune - Midnight Drive.mp3 in {artist_folder}")
+
+
+def test_album_still_sets_the_album_when_its_value_starts_with_another_word(
+    review: TrackReview,
+) -> None:
+    assert review.answer("album Artistry") is None
+    assert review.overrides == {"album": "Artistry"}
+
+
 def test_a_field_name_alone_clears_the_field(review: TrackReview) -> None:
     review.answer("genre House")
     assert review.answer("genre") is None
@@ -159,18 +186,20 @@ def test_the_review_shows_the_original_the_fields_the_changes_and_the_file(
     text = review_text(review, staged())
     assert "Original title: Midnight Drive (feat. Lou V) [prod. Hazy] FREE DL" in text
     assert "Uploaded by Kaia" in text
-    assert "  Title   Midnight Drive" in text
-    assert "  Artist  Kaia, Lou V" in text
-    assert "  Genre   (empty)" in text
+    assert "  Title        Midnight Drive" in text
+    assert "  Artist       Kaia, Lou V" in text
+    assert "  Album artist Kaia" in text
+    assert "  Genre        (empty)" in text
     assert "1. on   " in text
     assert "Lou V credited as featured artist" in text
     assert "Cover: the track's artwork" in text
     assert "Audio: AAC 160 kbps stream → MP3 320 kbps" in text
-    assert f"Saves as Kaia, Lou V - Midnight Drive.mp3 in {settings.library_dir}" in text
+    artist_folder = settings.library_dir / "Kaia"
+    assert f"Saves as Kaia, Lou V - Midnight Drive.mp3 in {artist_folder}" in text
 
 
 def test_saves_as_follows_a_typed_album_into_its_album_folder(settings: Settings) -> None:
-    subfolders = replace(settings, album_subfolders=True)
+    subfolders = replace(settings, album_subfolders=True, artist_folders=False)
     review = TrackReview(SOURCE, suggest(SOURCE, subfolders), subfolders, None)
     # A single's album comes from the setting, so it stays at the top of the library.
     flat = review_text(review, staged())
@@ -188,7 +217,7 @@ def test_a_change_that_is_off_shows_as_off(review: TrackReview) -> None:
 def test_the_review_uses_the_tracks_title_style(review: TrackReview) -> None:
     review.style = "feat_in_title"
     text = review_text(review, staged())
-    assert "  Title   Midnight Drive (feat. Lou V)" in text
+    assert "  Title        Midnight Drive (feat. Lou V)" in text
     assert "Saves as Kaia - Midnight Drive (feat. Lou V).mp3" in text
 
 

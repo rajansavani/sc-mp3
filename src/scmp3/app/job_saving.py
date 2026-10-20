@@ -10,7 +10,7 @@ from pathlib import Path
 from scmp3.app.job_record import JobRecord
 from scmp3.app.job_steps import Steps
 from scmp3.core import pipeline
-from scmp3.core.library import CollisionChoice
+from scmp3.core.library import CollisionChoice, reuse_folders_by_case
 from scmp3.core.models import ArtworkChoice, CollisionPolicy, Settings, TagSuggestion, TitleStyle
 
 
@@ -70,8 +70,9 @@ def keep_both(path: Path) -> CollisionChoice:
 def save(order: SaveOrder, steps: Steps) -> pipeline.Saved | CollisionQuestion | None:
     """Save the file, or ask first when its name is taken. None means the policy said to skip.
 
-    The name is planned with pipeline.destination, as finalize plans it, so the two agree.
-    Raises ScmpError, or InvalidOverride for hand edits that can't be rendered.
+    The name is planned with pipeline.destination, and folders that differ only by case are
+    reused, as finalize does, so the two agree. That lists folders, which is fine here on the
+    save worker. Raises ScmpError, or InvalidOverride for hand edits that can't be rendered.
     """
     source = order.prepared.source
     tags = pipeline.render_tags(
@@ -86,6 +87,8 @@ def save(order: SaveOrder, steps: Steps) -> pipeline.Saved | CollisionQuestion |
         style=order.style,
         overrides=order.overrides,
     )
+    # So the question is about the file finalize would replace, as in "kaia" planned as "Kaia".
+    planned = reuse_folders_by_case(planned, order.settings.library_dir)
     policy = answered_policy(order, planned)
     if policy == "ask" and planned.exists():
         return CollisionQuestion(planned)

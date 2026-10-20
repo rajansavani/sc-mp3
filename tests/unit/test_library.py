@@ -1,21 +1,20 @@
 """Tests for library filenames, destinations and collisions."""
 
 import dataclasses
-import random
-import unicodedata
+import logging
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from scmp3.core import library
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.library import (
-    RESERVED_NAMES,
     plan_destination,
     render_filename,
     resolve_collision,
-    sanitize,
+    reuse_folders_by_case,
 )
 from scmp3.core.models import CollisionPolicy, Settings, SourceInfo, Tags, TitleStyle
 from scmp3.core.suggest import render, suggest
@@ -32,16 +31,10 @@ SAMPLE = Tags(
 SAMPLE_NAME = "Kaia - Midnight Drive (feat. Lou V)"
 
 # Built with chr() so the exact code points are plain to see.
-NBSP = chr(0xA0)
 COMBINING_ACUTE = chr(0x301)
 E_ACUTE = chr(0xE9)
-# U with diaeresis and macron: one UTF-16 unit composed, three decomposed.
-U_DIAERESIS_MACRON = chr(0x1D6)
 # A CJK character: three UTF-8 bytes.
 NIGHT = chr(0x591C)
-# Mathematical bold A, outside the BMP: four UTF-8 bytes and two UTF-16 units.
-BOLD_A = chr(0x1D400)
-HIGH_SURROGATE = chr(0xD83D)
 
 
 @pytest.fixture(autouse=True)
@@ -50,10 +43,21 @@ def no_path_limit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(library, "MAX_PATH_UNITS", None)
 
 
+def flat(**changes: Any) -> Settings:
+    """Settings with artist folders off, so only the album rule can add a folder."""
+    return Settings(artist_folders=False, **changes)
+
+
 def make_file(path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b"")
     return path
+
+
+def planned_and_reused(library_dir: Path, tags: Tags, settings: Settings) -> Path:
+    """Where a save goes: the planned path, then any folder already there that differs by case."""
+    planned = plan_destination(library_dir, tags, settings, "mp3")
+    return reuse_folders_by_case(planned, library_dir)
 
 
 def pretend_taken(monkeypatch: pytest.MonkeyPatch, *taken: Path) -> None:
@@ -68,279 +72,6 @@ def fail_on_purpose(message: str) -> Callable[..., None]:
         pytest.fail(message)
 
     return stand_in
-
-
-def utf16_units(text: str) -> int:
-    return len(text.encode("utf-16-le")) // 2
-
-
-def assert_within_name_limits(name: str) -> None:
-    assert len(name) <= 150
-    assert len(name.encode("utf-8")) <= 240
-    assert utf16_units(unicodedata.normalize("NFD", name)) <= 240
-
-
-@pytest.mark.parametrize("character", list('\\/:*?"<>|'))
-def test_sanitize_replaces_each_illegal_character_with_a_dash(character: str) -> None:
-    assert sanitize(f"AC{character}DC.mp3") == "AC-DC.mp3"
-
-
-@pytest.mark.parametrize(
-    "character", ["\x00", "\x01", "\t", "\n", "\r", "\x1b", "\x1f", "\x7f", "\x85", "\x9f"]
-)
-def test_sanitize_replaces_control_characters_with_a_dash(character: str) -> None:
-    assert sanitize(f"Night{character}Shift.mp3") == "Night-Shift.mp3"
-
-
-def test_sanitize_removes_half_a_surrogate_pair() -> None:
-    name = sanitize(f"Song {HIGH_SURROGATE}.mp3")
-    assert name == "Song.mp3"
-    assert name.encode("utf-8")
-
-
-@pytest.mark.parametrize(
-    ("name", "expected"),
-    [
-        ("Night   Shift", "Night Shift"),
-        (f"Night{NBSP} Shift", "Night Shift"),
-        ("Drum--Bass", "Drum-Bass"),
-        ("Kaia - - Night Shift", "Kaia - Night Shift"),
-        ("Kaia -- -- Night Shift", "Kaia - Night Shift"),
-    ],
-)
-def test_sanitize_collapses_repeated_spaces_and_dashes(name: str, expected: str) -> None:
-    assert sanitize(name) == expected
-
-
-@pytest.mark.parametrize("device", sorted(RESERVED_NAMES))
-def test_sanitize_adds_an_underscore_to_every_reserved_name(device: str) -> None:
-    assert sanitize(device) == f"{device}_"
-    assert sanitize(f"{device}.mp3") == f"{device}_.mp3"
-
-
-def test_com0_and_lpt0_are_reserved_too() -> None:
-    assert {"COM0", "LPT0"} <= RESERVED_NAMES
-
-
-@pytest.mark.parametrize(
-    ("name", "expected"),
-    [
-        ("con", "con_"),
-        ("Con.mp3", "Con_.mp3"),
-        ("cOm1.m4a", "cOm1_.m4a"),
-        ("lpt9.MP3", "lpt9_.MP3"),
-        ("nul.tar.gz", "nul_.tar.gz"),
-        ("aux .mp3", "aux_.mp3"),
-        ("prn.", "prn_"),
-    ],
-)
-def test_sanitize_matches_reserved_names_in_any_case_and_with_extensions(
-    name: str, expected: str
-) -> None:
-    assert sanitize(name) == expected
-
-
-@pytest.mark.parametrize(
-    "name", ["Con Calma.mp3", "COM10.mp3", "COM00.mp3", "Console.mp3", "Nullify.mp3", "LPT.mp3"]
-)
-def test_sanitize_leaves_names_that_only_look_reserved(name: str) -> None:
-    assert sanitize(name) == name
-
-
-@pytest.mark.parametrize(
-    ("name", "expected"),
-    [
-        ("KAIASO~1.mp3", "KAIASO~1_.mp3"),
-        ("kaiaso~1.MP3", "kaiaso~1_.MP3"),
-        ("NIGHT~12", "NIGHT~12_"),
-        ("AB12F3~5.mp3", "AB12F3~5_.mp3"),
-        ("A~1", "A~1_"),
-        ("~1.m4a", "~1_.m4a"),
-    ],
-)
-def test_sanitize_adds_an_underscore_to_a_windows_short_name(name: str, expected: str) -> None:
-    assert sanitize(name) == expected
-
-
-@pytest.mark.parametrize(
-    "name",
-    [
-        "KAIASOME~1.mp3",
-        "NIGHTS~12",
-        "Kaia ~1.mp3",
-        "Kaia~X.mp3",
-        "AB~1X.mp3",
-        "Kai~1.X.mp3",
-        "Kaia-1.mp3",
-    ],
-)
-def test_sanitize_leaves_names_that_cant_be_short_names(name: str) -> None:
-    assert sanitize(name) == name
-
-
-@pytest.mark.parametrize(
-    ("name", "expected"),
-    [
-        ("Wait...", "Wait"),
-        ("Wait . . .", "Wait"),
-        ("Night Shift  ", "Night Shift"),
-        ("Wait....mp3", "Wait.mp3"),
-        ("Song.mp3 ", "Song.mp3"),
-        ("Song.mp3.", "Song.mp3"),
-    ],
-)
-def test_sanitize_strips_trailing_dots_and_spaces(name: str, expected: str) -> None:
-    assert sanitize(name) == expected
-
-
-@pytest.mark.parametrize(
-    ("name", "expected"),
-    [
-        (".hidden.mp3", "hidden.mp3"),
-        ("...And You Will Know Us.mp3", "And You Will Know Us.mp3"),
-        ("  - Night Shift.mp3", "Night Shift.mp3"),
-        ("What?.mp3", "What.mp3"),
-    ],
-)
-def test_sanitize_strips_leading_dots_and_dangling_dashes(name: str, expected: str) -> None:
-    assert sanitize(name) == expected
-
-
-@pytest.mark.parametrize(
-    ("name", "expected"),
-    [("Song -.mp3 ", "Song.mp3"), ("What?.mp3?", "What.mp3"), ("-CON|.mp3<", "CON_.mp3")],
-)
-def test_junk_after_the_extension_doesnt_hide_it(name: str, expected: str) -> None:
-    assert sanitize(name) == expected
-
-
-@pytest.mark.parametrize(
-    ("name", "expected"),
-    [("", "Untitled"), ("???", "Untitled"), ("...", "Untitled"), (" - ", "Untitled")],
-)
-def test_sanitize_names_an_empty_result_untitled(name: str, expected: str) -> None:
-    assert sanitize(name) == expected
-    assert sanitize(f"{name}.mp3") == f"{expected}.mp3"
-
-
-def test_sanitize_caps_the_whole_name_at_150_characters_and_keeps_the_extension() -> None:
-    assert sanitize("a" * 200 + ".mp3") == "a" * 146 + ".mp3"
-    assert sanitize("b" * 200) == "b" * 150
-
-
-def test_sanitize_leaves_a_name_of_exactly_150_characters_whole() -> None:
-    name = "a" * 146 + ".m4a"
-    assert sanitize(name) == name
-
-
-def test_sanitize_caps_the_name_at_240_utf8_bytes() -> None:
-    assert sanitize(NIGHT * 100 + ".mp3") == NIGHT * 78 + ".mp3"
-
-
-def test_sanitize_caps_characters_outside_the_bmp_by_bytes_and_keeps_them_whole() -> None:
-    name = sanitize(BOLD_A * 130 + ".mp3")
-    assert name == BOLD_A * 59 + ".mp3"
-    assert_within_name_limits(name)
-
-
-def test_sanitize_caps_the_name_at_240_utf16_units_counted_decomposed() -> None:
-    # 100 of these are 204 UTF-8 bytes, but 304 UTF-16 units once decomposed, as HFS+ stores them.
-    name = sanitize(U_DIAERESIS_MACRON * 100 + ".mp3")
-    assert name == U_DIAERESIS_MACRON * 78 + ".mp3"
-    assert_within_name_limits(name)
-
-
-def test_the_cap_never_parts_a_character_from_its_combining_mark() -> None:
-    # q has no precomposed acute form, so NFC keeps the mark as its own code point.
-    assert sanitize("a" * 145 + "q" + COMBINING_ACUTE + ".mp3") == "a" * 145 + ".mp3"
-
-
-def test_sanitize_trims_a_space_the_cap_lands_on() -> None:
-    assert sanitize("a" * 145 + " bcd.mp3") == "a" * 145 + ".mp3"
-
-
-def test_sanitize_keeps_a_reserved_name_within_the_cap() -> None:
-    assert sanitize("CON." + "a" * 142 + ".mp3") == "CON_." + "a" * 141 + ".mp3"
-
-
-def test_sanitize_normalizes_to_nfc() -> None:
-    decomposed = f"Beyonce{COMBINING_ACUTE} - Halo.mp3"
-    assert sanitize(decomposed) == f"Beyonc{E_ACUTE} - Halo.mp3"
-
-
-def test_sanitize_counts_characters_after_nfc_for_the_cap() -> None:
-    # Decomposed, this is 200 code points; composed, it fits the 150-character cap.
-    assert sanitize(f"e{COMBINING_ACUTE}" * 100 + ".mp3") == E_ACUTE * 100 + ".mp3"
-
-
-@pytest.mark.parametrize(
-    "name", ["Kaia - Midnight Drive (feat. Lou V).mp3", "Sälen 夜 - Ünïcödé.m4a", "AC-DC"]
-)
-def test_sanitize_leaves_a_clean_name_alone(name: str) -> None:
-    assert sanitize(name) == name
-
-
-@pytest.mark.parametrize(
-    "name",
-    [
-        "AC/DC: Live?? .mp3",
-        "con.mp3",
-        "  ...x - - y...",
-        "a" * 160 + " .mp3",
-        "",
-        "Song -.mp3 ",
-        "What?.mp3?",
-        "-CON|.mp3<",
-    ],
-)
-def test_sanitizing_twice_changes_nothing_more(name: str) -> None:
-    once = sanitize(name)
-    assert sanitize(once) == once
-
-
-FUZZ_PIECES = [
-    *'aZ09 .-_~()[]{}\\/:*?"<>|',
-    *("\x00", "\t", NBSP, COMBINING_ACUTE, E_ACUTE, NIGHT, BOLD_A, HIGH_SURROGATE),
-    *("CON", "com1", "KAIASO~1", ".mp3", ".m4a", "{title}", "{track:02}", "{year}"),
-]
-
-
-def random_texts(count: int, seed: int) -> list[str]:
-    generator = random.Random(seed)
-    return [
-        "".join(generator.choices(FUZZ_PIECES, k=generator.randint(0, 60))) for _ in range(count)
-    ]
-
-
-def assert_follows_the_name_rules(name: str) -> None:
-    assert not library.ILLEGAL_CHARACTERS.search(name)
-    assert not any(ord(char) in library.SURROGATES for char in name)
-    assert unicodedata.is_normalized("NFC", name)
-    assert name[0] not in " .-"
-    assert name[-1] not in " ."
-    assert name.partition(".")[0].rstrip(" ").upper() not in RESERVED_NAMES
-    assert_within_name_limits(name)
-
-
-def stem_of(name: str) -> str:
-    match = library.EXTENSION.search(name)
-    if match is None:
-        return name
-    return name[: match.start()]
-
-
-def test_random_names_always_come_out_safe_and_stable() -> None:
-    for text in random_texts(5000, seed=16):
-        name = sanitize(text)
-        assert_follows_the_name_rules(name)
-        stem = stem_of(name)
-        assert not (len(stem) <= 8 and library.SHORT_NAME.fullmatch(stem))
-        assert sanitize(name) == name, repr(text)
-
-
-def test_random_templates_always_render_safe_names() -> None:
-    for template in random_texts(5000, seed=61):
-        assert_follows_the_name_rules(render_filename(template, SAMPLE))
 
 
 def test_render_filename_fills_the_default_template() -> None:
@@ -386,8 +117,9 @@ def test_render_filename_doesnt_fill_in_braces_inside_values() -> None:
     assert render_filename("{artist} - {title}", tags) == "Kaia - {artist}"
 
 
-def test_plan_destination_uses_artist_dash_title_by_default(tmp_path: Path) -> None:
-    assert plan_destination(tmp_path, SAMPLE, Settings(), "mp3") == tmp_path / f"{SAMPLE_NAME}.mp3"
+def test_by_default_a_track_is_artist_dash_title_in_its_artists_folder(tmp_path: Path) -> None:
+    destination = plan_destination(tmp_path, SAMPLE, Settings(), "mp3")
+    assert destination == tmp_path / "Kaia" / f"{SAMPLE_NAME}.mp3"
 
 
 @pytest.mark.parametrize("style", ["artist_field", "feat_in_title", "custom"])
@@ -436,14 +168,14 @@ def test_plan_destination_caps_the_whole_name_with_its_extension(tmp_path: Path)
 
 
 def test_album_subfolders_add_an_album_folder_and_a_track_number(tmp_path: Path) -> None:
-    settings = Settings(album_subfolders=True)
+    settings = flat(album_subfolders=True)
     destination = plan_destination(tmp_path, SAMPLE, settings, "mp3")
     assert destination == tmp_path / "Kaia - Night Shift" / f"03 {SAMPLE_NAME}.mp3"
 
 
 def test_album_subfolders_leave_out_a_missing_track_number(tmp_path: Path) -> None:
     tags = dataclasses.replace(SAMPLE, track_no=None)
-    destination = plan_destination(tmp_path, tags, Settings(album_subfolders=True), "mp3")
+    destination = plan_destination(tmp_path, tags, flat(album_subfolders=True), "mp3")
     assert destination == tmp_path / "Kaia - Night Shift" / f"{SAMPLE_NAME}.mp3"
 
 
@@ -455,7 +187,7 @@ def test_album_subfolders_dont_repeat_a_track_number_the_template_has(tmp_path: 
 
 def test_a_track_with_no_album_stays_at_the_top_of_the_library(tmp_path: Path) -> None:
     tags = dataclasses.replace(SAMPLE, album=" ")
-    destination = plan_destination(tmp_path, tags, Settings(album_subfolders=True), "mp3")
+    destination = plan_destination(tmp_path, tags, flat(album_subfolders=True), "mp3")
     assert destination == tmp_path / f"{SAMPLE_NAME}.mp3"
 
 
@@ -478,7 +210,7 @@ def test_a_single_stays_at_the_top_with_album_subfolders_on(
     tmp_path: Path, title: str, album: str
 ) -> None:
     tags = dataclasses.replace(SAMPLE, title=title, album=album, track_no=None)
-    destination = plan_destination(tmp_path, tags, Settings(album_subfolders=True), "mp3")
+    destination = plan_destination(tmp_path, tags, flat(album_subfolders=True), "mp3")
     assert destination.parent == tmp_path
 
 
@@ -489,7 +221,7 @@ def test_an_album_from_the_singles_setting_means_a_single_whatever_the_title(
     tmp_path: Path, title: str
 ) -> None:
     tags = dataclasses.replace(SAMPLE, title=title, album="Midnight Drive", track_no=None)
-    settings = Settings(album_subfolders=True)
+    settings = flat(album_subfolders=True)
     destination = plan_destination(tmp_path, tags, settings, "mp3", album_from_singles_setting=True)
     assert destination.parent == tmp_path
 
@@ -499,7 +231,7 @@ def test_the_base_and_raw_titles_count_as_the_tracks_own(tmp_path: Path) -> None
     tags = dataclasses.replace(
         SAMPLE, title="Kaia, Lou V - Midnight Drive", album="Midnight Drive [FREE DL]"
     )
-    settings = Settings(album_subfolders=True)
+    settings = flat(album_subfolders=True)
     titles = ("Midnight Drive", "Midnight Drive (feat. Lou V) [FREE DL]")
     destination = plan_destination(tmp_path, tags, settings, "mp3", source_titles=titles)
     assert destination.parent == tmp_path
@@ -507,14 +239,14 @@ def test_the_base_and_raw_titles_count_as_the_tracks_own(tmp_path: Path) -> None
 
 def test_an_album_named_after_none_of_the_titles_gets_its_folder(tmp_path: Path) -> None:
     titles = ("Midnight Drive", "Midnight Drive (feat. Lou V)")
-    settings = Settings(album_subfolders=True)
+    settings = flat(album_subfolders=True)
     destination = plan_destination(tmp_path, SAMPLE, settings, "mp3", source_titles=titles)
     assert destination == tmp_path / "Kaia - Night Shift" / f"03 {SAMPLE_NAME}.mp3"
 
 
 def test_a_title_track_from_an_album_set_goes_in_the_albums_folder(tmp_path: Path) -> None:
     tags = dataclasses.replace(SAMPLE, title="Lantern", album="Lantern", track_no=1)
-    settings = Settings(album_subfolders=True)
+    settings = flat(album_subfolders=True)
     destination = plan_destination(tmp_path, tags, settings, "mp3", in_album_set=True)
     assert destination == tmp_path / "Kaia - Lantern" / "01 Kaia - Lantern.mp3"
     # Without the set, nothing tells it apart from a single, and a single stays at the top.
@@ -531,7 +263,7 @@ def test_a_track_with_no_album_isnt_an_album_track_even_from_a_set() -> None:
 
 
 def test_album_subfolders_off_keeps_album_tracks_at_the_top(tmp_path: Path) -> None:
-    destination = plan_destination(tmp_path, SAMPLE, Settings(), "mp3", in_album_set=True)
+    destination = plan_destination(tmp_path, SAMPLE, flat(), "mp3", in_album_set=True)
     assert destination == tmp_path / f"{SAMPLE_NAME}.mp3"
 
 
@@ -548,7 +280,7 @@ def test_singles_stay_at_the_top_through_suggest_and_render(
     tmp_path: Path, raw_title: str, album: str | None, template: str | None
 ) -> None:
     style: TitleStyle = "custom" if template else "artist_field"
-    settings = Settings(
+    settings = flat(
         album_subfolders=True,
         library_dir=tmp_path,
         title_style=style,
@@ -578,7 +310,7 @@ def test_singles_stay_at_the_top_through_suggest_and_render(
 
 def test_the_album_folder_name_is_sanitized(tmp_path: Path) -> None:
     tags = dataclasses.replace(SAMPLE, album="Night/Shift: Vol. 2...", album_artist="")
-    destination = plan_destination(tmp_path, tags, Settings(album_subfolders=True), "mp3")
+    destination = plan_destination(tmp_path, tags, flat(album_subfolders=True), "mp3")
     assert destination.parent == tmp_path / "Night-Shift- Vol. 2"
 
 
@@ -586,9 +318,175 @@ def test_a_title_shaped_like_a_short_name_cant_reach_another_file(tmp_path: Path
     # On NTFS with short names on, KAIASO~1.mp3 is another name for this file.
     make_file(tmp_path / "Kaia Something Long.mp3")
     tags = dataclasses.replace(SAMPLE, title="KAIASO~1")
-    destination = plan_destination(tmp_path, tags, Settings(title_style="all_in_title"), "mp3")
+    destination = plan_destination(tmp_path, tags, flat(title_style="all_in_title"), "mp3")
     assert destination.name == "KAIASO~1_.mp3"
     assert resolve_collision(destination, "skip") == destination
+
+
+def test_tracks_by_several_artists_go_in_a_folder_each(tmp_path: Path) -> None:
+    saved = []
+    for artist, title in [("Kaia", "Night Shift"), ("Lou V", "Tides"), ("Kaia", "Lantern")]:
+        tags = dataclasses.replace(SAMPLE, title=title, artist=artist, album_artist=artist)
+        saved.append(make_file(plan_destination(tmp_path, tags, Settings(), "mp3")))
+    assert [path.relative_to(tmp_path).as_posix() for path in saved] == [
+        "Kaia/Kaia - Night Shift.mp3",
+        "Lou V/Lou V - Tides.mp3",
+        "Kaia/Kaia - Lantern.mp3",
+    ]
+
+
+def test_a_single_by_two_artists_goes_in_its_first_main_artists_folder(tmp_path: Path) -> None:
+    settings = Settings(library_dir=tmp_path)
+    source = SourceInfo(
+        kind="soundcloud",
+        id="soundcloud:tracks:1",
+        url="https://soundcloud.com/kaia/midnight-drive",
+        title="Midnight Drive (feat. Lou V)",
+        uploader="Kaia",
+    )
+    tags = render(suggest(source, settings), None, {}, settings)
+    destination = plan_destination(tmp_path, tags, settings, "mp3")
+    assert destination == tmp_path / "Kaia" / "Kaia, Lou V - Midnight Drive.mp3"
+
+
+@pytest.mark.parametrize("album_artist", ["", "   ", "...", "???", " - "])
+def test_a_track_without_an_album_artist_goes_in_unknown_artist(
+    tmp_path: Path, album_artist: str
+) -> None:
+    tags = dataclasses.replace(SAMPLE, album_artist=album_artist)
+    destination = plan_destination(tmp_path, tags, Settings(), "mp3")
+    assert destination == tmp_path / "Unknown artist" / f"{SAMPLE_NAME}.mp3"
+
+
+@pytest.mark.parametrize(
+    ("album_artist", "folder"),
+    [
+        ("AC/DC", "AC-DC"),
+        ("Kaia...", "Kaia"),
+        ("Kaia. ", "Kaia"),
+        (".Kaia", "Kaia"),
+        ("Lou   V", "Lou V"),
+        ("CON", "CON_"),
+        ("nul", "nul_"),
+        ("KAIASO~1", "KAIASO~1_"),
+        (f"Beyonce{COMBINING_ACUTE}", f"Beyonc{E_ACUTE}"),
+        ("{title}", "{title}"),
+    ],
+)
+def test_the_artist_folder_follows_the_file_name_rules(
+    tmp_path: Path, album_artist: str, folder: str
+) -> None:
+    tags = dataclasses.replace(SAMPLE, album_artist=album_artist)
+    assert plan_destination(tmp_path, tags, Settings(), "mp3").parent.name == folder
+
+
+def test_a_long_artist_name_is_cut_to_100_characters(tmp_path: Path) -> None:
+    tags = dataclasses.replace(SAMPLE, album_artist="a" * 150)
+    assert plan_destination(tmp_path, tags, Settings(), "mp3").parent.name == "a" * 100
+
+
+def test_the_cut_leaves_no_dot_or_space_at_the_end_of_the_artist_folder(tmp_path: Path) -> None:
+    tags = dataclasses.replace(SAMPLE, album_artist="a" * 98 + ". Lou V")
+    assert plan_destination(tmp_path, tags, Settings(), "mp3").parent.name == "a" * 98
+
+
+def test_a_long_artist_name_in_wide_characters_is_cut_to_240_bytes(tmp_path: Path) -> None:
+    tags = dataclasses.replace(SAMPLE, album_artist=NIGHT * 100)
+    assert plan_destination(tmp_path, tags, Settings(), "mp3").parent.name == NIGHT * 80
+
+
+def test_planning_never_lists_the_library(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (tmp_path / "KAIA").mkdir()
+    monkeypatch.setattr(library.os, "scandir", fail_on_purpose("plan_destination read the disk"))
+    destination = plan_destination(tmp_path, SAMPLE, Settings(album_subfolders=True), "mp3")
+    # Names are compared as text, since Windows paths are equal ignoring case.
+    assert destination.parent.parent.name == "Kaia"
+
+
+def test_an_artist_folder_that_differs_only_by_case_is_reused(tmp_path: Path) -> None:
+    (tmp_path / "Kaia").mkdir()
+    tags = dataclasses.replace(SAMPLE, album_artist="KAIA")
+    destination = make_file(planned_and_reused(tmp_path, tags, Settings()))
+    assert destination.parent.name == "Kaia"
+    assert [path.name for path in tmp_path.iterdir()] == ["Kaia"]
+
+
+def test_reuse_leaves_a_file_at_the_top_of_the_library_as_planned(tmp_path: Path) -> None:
+    (tmp_path / "KAIA").mkdir()
+    planned = plan_destination(tmp_path, SAMPLE, flat(), "mp3")
+    assert reuse_folders_by_case(planned, tmp_path) == tmp_path / f"{SAMPLE_NAME}.mp3"
+
+
+def test_a_file_named_like_the_artist_isnt_taken_for_their_folder(tmp_path: Path) -> None:
+    make_file(tmp_path / "kaia")
+    assert planned_and_reused(tmp_path, SAMPLE, Settings()).parent.name == "Kaia"
+
+
+@pytest.mark.parametrize(
+    ("name", "existing", "expected"),
+    [
+        ("KAIA", ["Hazy", "Kaia"], "Kaia"),
+        ("Kaia", ["KAIA", "Kaia"], "Kaia"),
+        ("kaia", ["KAIA", "Kaia"], "KAIA"),
+        (f"Beyonc{E_ACUTE}", [f"BEYONCE{COMBINING_ACUTE}"], f"BEYONCE{COMBINING_ACUTE}"),
+        ("Lou V", ["Kaia", "Lou V2"], "Lou V"),
+        ("Kaia", [], "Kaia"),
+    ],
+)
+def test_the_folder_to_reuse_is_the_same_name_or_the_first_that_differs_only_by_case(
+    name: str, existing: list[str], expected: str
+) -> None:
+    assert library.folder_name_to_reuse(name, existing) == expected
+
+
+def test_a_library_folder_that_doesnt_exist_yet_still_gets_artist_folders(tmp_path: Path) -> None:
+    library_dir = tmp_path / "Music" / "sc-mp3"
+    destination = planned_and_reused(library_dir, SAMPLE, Settings())
+    assert destination == library_dir / "Kaia" / f"{SAMPLE_NAME}.mp3"
+
+
+def test_a_library_that_cant_be_listed_gets_a_new_artist_folder_and_a_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def refuse(path: object) -> None:
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(library.os, "scandir", refuse)
+    with caplog.at_level(logging.WARNING, logger="scmp3.core.library"):
+        destination = planned_and_reused(tmp_path, SAMPLE, Settings())
+    assert destination == tmp_path / "Kaia" / f"{SAMPLE_NAME}.mp3"
+    assert "Couldn't look for a folder to reuse: Permission denied" in caplog.text
+
+
+def test_with_album_folders_an_album_goes_inside_its_artists_folder(tmp_path: Path) -> None:
+    destination = plan_destination(tmp_path, SAMPLE, Settings(album_subfolders=True), "mp3")
+    assert destination == tmp_path / "Kaia" / "Night Shift" / f"03 {SAMPLE_NAME}.mp3"
+
+
+def test_with_album_folders_a_single_goes_in_its_artists_folder_only(tmp_path: Path) -> None:
+    tags = dataclasses.replace(SAMPLE, title="Midnight Drive", album="Midnight Drive")
+    destination = plan_destination(tmp_path, tags, Settings(album_subfolders=True), "mp3")
+    assert destination == tmp_path / "Kaia" / "Kaia - Midnight Drive.mp3"
+
+
+def test_an_album_folder_that_differs_only_by_case_is_reused(tmp_path: Path) -> None:
+    (tmp_path / "kaia" / "night shift").mkdir(parents=True)
+    destination = planned_and_reused(tmp_path, SAMPLE, Settings(album_subfolders=True))
+    assert (destination.parent.parent.name, destination.parent.name) == ("kaia", "night shift")
+
+
+def test_without_artist_folders_a_case_variant_album_folder_is_reused(tmp_path: Path) -> None:
+    (tmp_path / "kaia - night shift").mkdir()
+    destination = planned_and_reused(tmp_path, SAMPLE, flat(album_subfolders=True))
+    assert destination.parent.name == "kaia - night shift"
+
+
+def test_turning_artist_folders_on_leaves_saved_files_where_they_are(tmp_path: Path) -> None:
+    saved_before = make_file(plan_destination(tmp_path, SAMPLE, flat(), "mp3"))
+    destination = plan_destination(tmp_path, SAMPLE, Settings(), "mp3")
+    assert destination == tmp_path / "Kaia" / saved_before.name
+    assert resolve_collision(destination, "skip") == destination
+    assert saved_before.is_file()
 
 
 def test_the_default_library_is_inside_scmp3_home(scmp3_home: Path) -> None:
@@ -617,7 +515,7 @@ def test_a_name_too_long_for_windows_paths_is_shortened(
     # 259 - 200 - 1 for the separator - 11 for a temp name - 4 for .mp3 leaves 43.
     folder = folder_of_length(tmp_path, 200)
     tags = dataclasses.replace(SAMPLE, title="Midnight Drive (feat. Lou V) [Extended Mix]")
-    destination = plan_destination(folder, tags, Settings(), "mp3")
+    destination = plan_destination(folder, tags, flat(), "mp3")
     assert destination == folder / "Kaia - Midnight Drive (feat. Lou V) [Extend.mp3"
     assert len(str(destination)) + library.TEMP_NAME_EXTRA == windows_path_limit
 
@@ -626,7 +524,7 @@ def test_a_name_that_fits_the_windows_path_isnt_shortened(
     windows_path_limit: int, tmp_path: Path
 ) -> None:
     folder = folder_of_length(tmp_path, 200)
-    assert plan_destination(folder, SAMPLE, Settings(), "mp3").name == f"{SAMPLE_NAME}.mp3"
+    assert plan_destination(folder, SAMPLE, flat(), "mp3").name == f"{SAMPLE_NAME}.mp3"
 
 
 def test_a_name_is_never_shortened_below_20_characters(
@@ -635,7 +533,7 @@ def test_a_name_is_never_shortened_below_20_characters(
     # This leaves 19 for the name, one short of the minimum.
     folder = folder_of_length(tmp_path, 224)
     with pytest.raises(ScmpError) as error_info:
-        plan_destination(folder, SAMPLE, Settings(), "mp3")
+        plan_destination(folder, SAMPLE, flat(), "mp3")
     assert error_info.value.kind is ErrorKind.disk
     assert error_info.value.detail is not None
     assert "library folder path is too long" in error_info.value.detail
@@ -646,7 +544,7 @@ def test_a_short_name_still_fits_a_folder_with_little_room(
 ) -> None:
     folder = folder_of_length(tmp_path, 224)
     tags = dataclasses.replace(SAMPLE, title="Song")
-    destination = plan_destination(folder, tags, Settings(title_style="all_in_title"), "mp3")
+    destination = plan_destination(folder, tags, flat(title_style="all_in_title"), "mp3")
     assert destination == folder / "Song.mp3"
 
 
@@ -656,6 +554,39 @@ def test_without_a_path_limit_a_deep_folder_changes_nothing(
     monkeypatch.setattr(library, "MAX_PATH_UNITS", None)
     folder = folder_of_length(tmp_path, 300)
     assert plan_destination(folder, SAMPLE, Settings(), "mp3").name == f"{SAMPLE_NAME}.mp3"
+
+
+def test_the_artist_folder_counts_toward_the_windows_path_limit(
+    windows_path_limit: int, tmp_path: Path
+) -> None:
+    # "Kaia" and its separator make this the same 200-character folder as above.
+    library_dir = folder_of_length(tmp_path, 195)
+    tags = dataclasses.replace(SAMPLE, title="Midnight Drive (feat. Lou V) [Extended Mix]")
+    destination = plan_destination(library_dir, tags, Settings(), "mp3")
+    assert destination == library_dir / "Kaia" / "Kaia - Midnight Drive (feat. Lou V) [Extend.mp3"
+    assert len(str(destination)) + library.TEMP_NAME_EXTRA == windows_path_limit
+
+
+def test_artist_and_album_folders_both_count_toward_the_windows_path_limit(
+    windows_path_limit: int, tmp_path: Path
+) -> None:
+    library_dir = folder_of_length(tmp_path, 183)
+    tags = dataclasses.replace(SAMPLE, title="Midnight Drive (feat. Lou V) [Extended Mix]")
+    destination = plan_destination(library_dir, tags, Settings(album_subfolders=True), "mp3")
+    assert destination.parent == library_dir / "Kaia" / "Night Shift"
+    assert destination.name == "03 Kaia - Midnight Drive (feat. Lou V) [Ext.mp3"
+    assert len(str(destination)) + library.TEMP_NAME_EXTRA == windows_path_limit
+
+
+def test_a_long_artist_folder_can_leave_no_room_for_any_name(
+    windows_path_limit: int, tmp_path: Path
+) -> None:
+    # 150 for the library and 101 for the artist folder leave less than 20 within 259.
+    library_dir = folder_of_length(tmp_path, 150)
+    tags = dataclasses.replace(SAMPLE, album_artist="a" * 120)
+    with pytest.raises(ScmpError) as error_info:
+        plan_destination(library_dir, tags, Settings(), "mp3")
+    assert error_info.value.kind is ErrorKind.disk
 
 
 POLICIES: list[CollisionPolicy] = ["ask", "keep_both", "replace", "skip"]
@@ -700,7 +631,7 @@ def test_keep_both_stays_within_the_windows_path_limit(
 ) -> None:
     folder = folder_of_length(tmp_path, 200)
     tags = dataclasses.replace(SAMPLE, title="Midnight Drive (feat. Lou V) [Extended Mix]")
-    taken = plan_destination(folder, tags, Settings(), "mp3")
+    taken = plan_destination(folder, tags, flat(), "mp3")
     pretend_taken(monkeypatch, taken)
     second = resolve_collision(taken, "keep_both")
     assert second == folder / "Kaia - Midnight Drive (feat. Lou V) [Ex (2).mp3"

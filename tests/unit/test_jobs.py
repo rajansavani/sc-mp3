@@ -73,7 +73,7 @@ def test_a_job_in_review_carries_what_the_ui_shows(jobs: Harness) -> None:
     job = jobs.job(jobs.add_and_resolve())
     assert job["tags"]["title"] == "Midnight Drive"
     assert job["tags"]["artist"] == "Kaia, Lou V"
-    assert job["filename"] == "Kaia, Lou V - Midnight Drive.mp3"
+    assert job["filename"] == "Kaia/Kaia, Lou V - Midnight Drive.mp3"
     assert job["format"]["format"]["format_id"] == "hls_aac_160k"
     assert job["cover_url"] == fakes.ARTWORK
     assert job["collision"] is None
@@ -197,7 +197,7 @@ def test_saving_downloaded_audio_saves_it_into_the_library(jobs: Harness) -> Non
     jobs.pools.run_all()
     job = jobs.job(job_id)
     assert job["state"] == "saved"
-    assert job["output_path"] == str(jobs.library / "Kaia, Lou V - Midnight Drive.mp3")
+    assert job["output_path"] == str(jobs.library / "Kaia" / "Kaia, Lou V - Midnight Drive.mp3")
     assert Path(job["output_path"]).read_bytes() == b"converted audio"
     assert job["staged_audio"] is None
     assert not staging(job_id).exists()
@@ -269,7 +269,7 @@ def test_the_save_waits_for_a_new_cover_being_checked(jobs: Harness) -> None:
 
 
 def test_a_name_policy_of_skip_leaves_the_job_skipped(tmp_path: Path) -> None:
-    jobs = fakes.make_harness(tmp_path / "library", when_file_exists="skip")
+    jobs = fakes.make_harness(tmp_path / "library", when_file_exists="skip", artist_folders=False)
     (jobs.library / "Kaia, Lou V - Midnight Drive.mp3").parent.mkdir(parents=True)
     (jobs.library / "Kaia, Lou V - Midnight Drive.mp3").write_bytes(b"older")
     job_id = jobs.add_and_resolve()
@@ -281,6 +281,12 @@ def test_a_name_policy_of_skip_leaves_the_job_skipped(tmp_path: Path) -> None:
 # Taken file names under the "ask" policy
 
 
+@pytest.fixture
+def flat_jobs(tmp_path: Path) -> Harness:
+    """A harness with artist folders off, so a taken name sits at the top of the library."""
+    return fakes.make_harness(tmp_path / "library", artist_folders=False)
+
+
 def taken(jobs: Harness) -> Path:
     existing = jobs.library / "Kaia, Lou V - Midnight Drive.mp3"
     existing.parent.mkdir(parents=True, exist_ok=True)
@@ -288,16 +294,16 @@ def taken(jobs: Harness) -> Path:
     return existing
 
 
-def test_a_taken_name_asks_the_user_without_blocking_the_save_worker(jobs: Harness) -> None:
-    existing = taken(jobs)
-    first = jobs.add_and_resolve()
-    second = jobs.add_and_resolve(OTHER)
-    jobs.manager.save([first, second])
-    jobs.pools.run_all()
-    job = jobs.job(first)
+def test_a_taken_name_asks_the_user_without_blocking_the_save_worker(flat_jobs: Harness) -> None:
+    existing = taken(flat_jobs)
+    first = flat_jobs.add_and_resolve()
+    second = flat_jobs.add_and_resolve(OTHER)
+    flat_jobs.manager.save([first, second])
+    flat_jobs.pools.run_all()
+    job = flat_jobs.job(first)
     assert job["state"] == "needs_review"
     assert job["collision"] == {"path": str(existing)}
-    assert jobs.job(second)["state"] == "saved"
+    assert flat_jobs.job(second)["state"] == "saved"
     assert existing.read_bytes() == b"older"
 
 
@@ -310,31 +316,31 @@ def test_a_taken_name_asks_the_user_without_blocking_the_save_worker(jobs: Harne
     ],
 )
 def test_the_answer_to_a_taken_name_decides_the_save(
-    jobs: Harness, choice: str, state: str, name: str | None
+    flat_jobs: Harness, choice: str, state: str, name: str | None
 ) -> None:
-    taken(jobs)
-    job_id = jobs.add_and_resolve()
-    jobs.manager.save([job_id])
-    jobs.pools.run_all()
-    assert jobs.manager.answer_collision(job_id, choice) == {}
-    jobs.pools.run_all()
-    job = jobs.job(job_id)
+    taken(flat_jobs)
+    job_id = flat_jobs.add_and_resolve()
+    flat_jobs.manager.save([job_id])
+    flat_jobs.pools.run_all()
+    assert flat_jobs.manager.answer_collision(job_id, choice) == {}
+    flat_jobs.pools.run_all()
+    job = flat_jobs.job(job_id)
     assert job["state"] == state
     assert job["collision"] is None
     if name is not None:
-        assert job["output_path"] == str(jobs.library / name)
+        assert job["output_path"] == str(flat_jobs.library / name)
 
 
-def test_an_edit_drops_the_question_about_the_old_name(jobs: Harness) -> None:
-    taken(jobs)
-    job_id = jobs.add_and_resolve()
-    jobs.manager.save([job_id])
-    jobs.pools.run_all()
-    jobs.manager.update_fields(job_id, {"title": "Midnight Drive II"})
-    assert jobs.job(job_id)["collision"] is None
-    jobs.manager.save([job_id])
-    jobs.pools.run_all()
-    assert jobs.job(job_id)["output_path"].endswith("Midnight Drive II.mp3")
+def test_an_edit_drops_the_question_about_the_old_name(flat_jobs: Harness) -> None:
+    taken(flat_jobs)
+    job_id = flat_jobs.add_and_resolve()
+    flat_jobs.manager.save([job_id])
+    flat_jobs.pools.run_all()
+    flat_jobs.manager.update_fields(job_id, {"title": "Midnight Drive II"})
+    assert flat_jobs.job(job_id)["collision"] is None
+    flat_jobs.manager.save([job_id])
+    flat_jobs.pools.run_all()
+    assert flat_jobs.job(job_id)["output_path"].endswith("Midnight Drive II.mp3")
 
 
 def other_track_file(jobs: Harness) -> Path:
@@ -344,52 +350,69 @@ def other_track_file(jobs: Harness) -> Path:
     return other
 
 
-def test_an_answer_about_one_file_never_replaces_another(jobs: Harness) -> None:
-    existing = taken(jobs)
-    other = other_track_file(jobs)
-    job_id = jobs.add_and_resolve()
-    jobs.manager.save([job_id])
-    jobs.pools.run_all()
-    assert jobs.job(job_id)["collision"] == {"path": str(existing)}
+def test_an_answer_about_one_file_never_replaces_another(flat_jobs: Harness) -> None:
+    existing = taken(flat_jobs)
+    other = other_track_file(flat_jobs)
+    job_id = flat_jobs.add_and_resolve()
+    flat_jobs.manager.save([job_id])
+    flat_jobs.pools.run_all()
+    assert flat_jobs.job(job_id)["collision"] == {"path": str(existing)}
     # The new template names the job's file after the other track, so the question is dropped.
-    jobs.change_settings(filename_template="{title}")
-    jobs.pools.run("misc")
-    assert jobs.job(job_id)["collision"] is None
-    assert jobs.manager.answer_collision(job_id, "replace") == {}
-    jobs.manager.save([job_id])
-    jobs.pools.run_all()
-    assert jobs.job(job_id)["collision"] == {"path": str(other)}
+    flat_jobs.change_settings(filename_template="{title}")
+    flat_jobs.pools.run("misc")
+    assert flat_jobs.job(job_id)["collision"] is None
+    assert flat_jobs.manager.answer_collision(job_id, "replace") == {}
+    flat_jobs.manager.save([job_id])
+    flat_jobs.pools.run_all()
+    assert flat_jobs.job(job_id)["collision"] == {"path": str(other)}
     assert existing.read_bytes() == b"older"
     assert other.read_bytes() == b"another artist's track"
 
 
-def test_an_answer_for_a_name_that_changed_before_the_save_asks_again(jobs: Harness) -> None:
-    existing = taken(jobs)
-    other = other_track_file(jobs)
-    job_id = jobs.add_and_resolve()
-    jobs.manager.save([job_id])
-    jobs.pools.run_all()
-    jobs.manager.answer_collision(job_id, "replace")
+def test_an_answer_for_a_name_that_changed_before_the_save_asks_again(flat_jobs: Harness) -> None:
+    existing = taken(flat_jobs)
+    other = other_track_file(flat_jobs)
+    job_id = flat_jobs.add_and_resolve()
+    flat_jobs.manager.save([job_id])
+    flat_jobs.pools.run_all()
+    flat_jobs.manager.answer_collision(job_id, "replace")
     # The name changes after the answer, while the save waits for the save worker.
-    jobs.change_settings(filename_template="{title}")
-    jobs.pools.run("save")
-    assert jobs.job(job_id)["collision"] == {"path": str(other)}
+    flat_jobs.change_settings(filename_template="{title}")
+    flat_jobs.pools.run("save")
+    assert flat_jobs.job(job_id)["collision"] == {"path": str(other)}
     assert existing.read_bytes() == b"older"
     assert other.read_bytes() == b"another artist's track"
 
 
 def test_an_answer_for_a_name_that_changed_to_a_free_one_saves_without_asking(
-    jobs: Harness,
+    flat_jobs: Harness,
 ) -> None:
-    existing = taken(jobs)
+    existing = taken(flat_jobs)
+    job_id = flat_jobs.add_and_resolve()
+    flat_jobs.manager.save([job_id])
+    flat_jobs.pools.run_all()
+    flat_jobs.manager.answer_collision(job_id, "replace")
+    flat_jobs.change_settings(filename_template="{title}")
+    flat_jobs.pools.run_all()
+    assert flat_jobs.job(job_id)["output_path"] == str(flat_jobs.library / "Midnight Drive.mp3")
+    assert existing.read_bytes() == b"older"
+
+
+def test_a_taken_name_in_a_folder_that_differs_by_case_is_asked_about(jobs: Harness) -> None:
+    # The plan says "Kaia", and the save reuses "kaia", so the question is about that file.
+    existing = jobs.library / "kaia" / "Kaia, Lou V - Midnight Drive.mp3"
+    existing.parent.mkdir(parents=True)
+    existing.write_bytes(b"older")
     job_id = jobs.add_and_resolve()
     jobs.manager.save([job_id])
     jobs.pools.run_all()
-    jobs.manager.answer_collision(job_id, "replace")
-    jobs.change_settings(filename_template="{title}")
+    # Paths are compared as text, since Windows paths are equal ignoring case.
+    assert jobs.job(job_id)["collision"] == {"path": str(existing)}
+    assert jobs.manager.answer_collision(job_id, "replace") == {}
     jobs.pools.run_all()
-    assert jobs.job(job_id)["output_path"] == str(jobs.library / "Midnight Drive.mp3")
-    assert existing.read_bytes() == b"older"
+    assert jobs.job(job_id)["output_path"] == str(existing)
+    assert existing.read_bytes() == b"converted audio"
+    assert [path.name for path in jobs.library.iterdir()] == ["kaia"]
 
 
 def test_an_answer_without_a_question_does_nothing(jobs: Harness) -> None:
@@ -470,7 +493,7 @@ def test_removing_a_job_while_its_file_is_placed_lets_the_save_finish(jobs: Harn
     jobs.manager.save([job_id])
     jobs.pools.run_all()
     assert answers == [{}, [job_id]]
-    assert (jobs.library / "Kaia, Lou V - Midnight Drive.mp3").is_file()
+    assert (jobs.library / "Kaia" / "Kaia, Lou V - Midnight Drive.mp3").is_file()
     assert jobs.manager.views() == []
     events = jobs.events.for_job(job_id)
     assert events[-2]["job"]["state"] == "saved"

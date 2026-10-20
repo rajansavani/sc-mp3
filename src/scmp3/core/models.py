@@ -388,6 +388,7 @@ class Settings(Model):
     # None means the title style's own default: {title} for all_in_title, else {artist} - {title}.
     filename_template: str | None = None
     when_file_exists: CollisionPolicy = "ask"
+    artist_folders: bool = True
     album_subfolders: bool = False
     # Title style. First-run setup asks for the style, so its default only applies until then.
     title_style: TitleStyle = "artist_field"

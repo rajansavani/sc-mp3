@@ -1,4 +1,4 @@
-// The Library section: the folder, the file name, collisions and album folders.
+// The Library section: the folder, the file name, collisions, and artist and album folders.
 import { html } from "htm/preact";
 
 import { strings } from "../../strings/index.js";
@@ -32,6 +32,10 @@ export function LibrarySection({ settings, form, preview }) {
     <div class="settings-grid settings-grid-wide">
       <${Selects} names=${["when_file_exists"]} settings=${settings} form=${form} />
     </div>
-    <${Switches} names=${["album_subfolders"]} settings=${settings} form=${form} />
+    <${Switches}
+      names=${["artist_folders", "album_subfolders"]}
+      settings=${settings}
+      form=${form}
+    />
   `;
 }

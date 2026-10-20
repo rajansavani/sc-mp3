@@ -1,6 +1,7 @@
 // What the bridge adds to each job it sends: the rendered tags, the file name, the format, and
 // the cover with its size. This follows core/suggest closely enough for the sample data.
 import { coverSize, coverUrl } from "./covers.js";
+import { artistFolder } from "./names.js";
 import { snapshotPart as settingsPart } from "./settings.js";
 
 // Characters that can't go in a file name on Windows.
@@ -73,6 +74,19 @@ function numberOr(overrides, field, fallback) {
   return overrides[field].trim() ? Number(overrides[field]) : null;
 }
 
+// The album artist as render picks it: typed, or the suggestion's while a typed artist still
+// names it, split on commas or the artist separator, or else the typed artist whole. Matching
+// ignores case only, unlike the real one.
+function albumArtist(overrides, track, separator) {
+  if ("album_artist" in overrides) return overrides.album_artist;
+  const suggested = track.album_artist ?? track.main_artists[0] ?? "";
+  if (!("artist" in overrides)) return suggested;
+  const typed = overrides.artist;
+  const parts = [typed, ...typed.split(","), ...typed.toLowerCase().split(separator)];
+  const names = parts.map((name) => name.trim().toLowerCase());
+  return names.includes(suggested.toLowerCase()) ? suggested : typed;
+}
+
 function renderTags(job, settings) {
   const track = applied(job.suggestion, job.source);
   const style = job.style ?? settings.title_style;
@@ -84,7 +98,7 @@ function renderTags(job, settings) {
     title: overrides.title ?? rendered.title,
     artist: overrides.artist ?? rendered.artist,
     album: overrides.album ?? track.album ?? withVersion(track.base_title, track),
-    album_artist: overrides.album_artist ?? track.album_artist ?? track.main_artists[0] ?? "",
+    album_artist: albumArtist(overrides, track, settings.artist_separator),
     year: numberOr(overrides, "year", track.year),
     genre: "genre" in overrides ? overrides.genre || null : track.genre,
     track_no: trackNo,
@@ -103,7 +117,10 @@ function fileName(tags, job, settings) {
   const template = settings.filename_template ?? styleDefault;
   const filled = template.replace(/\{(\w+)\}/g, (whole, name) => String(tags[name] ?? ""));
   const extension = settings.audio_format === "m4a" ? ".m4a" : ".mp3";
-  return `${filled.replace(UNSAFE_IN_NAMES, "_").replace(/^ - | - $/g, "").trim()}${extension}`;
+  const stem = filled.replace(UNSAFE_IN_NAMES, "_").replace(/^ - | - $/g, "").trim();
+  const name = `${stem}${extension}`;
+  // Relative to the library, as the bridge sends it, so the artist's folder comes first.
+  return settings.artist_folders ? `${artistFolder(tags.album_artist)}/${name}` : name;
 }
 
 // The artist's original when the source offers one, or else the best stream.

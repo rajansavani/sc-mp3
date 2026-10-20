@@ -30,6 +30,7 @@ from scmp3.core.settings import SettingsStore
 MENU_CHANGES: dict[str, Any] = {
     "filename_template": "{track:02} {artist} - {title} ({year})",
     "when_file_exists": "keep_both",
+    "artist_folders": False,
     "album_subfolders": True,
     "title_style": "custom",
     "custom_title_template": "{title} (ft. {featured}){version}",
@@ -219,7 +220,7 @@ def test_typing_the_styles_own_template_saves_none_so_the_name_follows_the_style
     api.update_settings({"title_style": "all_in_title"})
     preview = api.preview_render()
     assert (preview["filename"], preview["filename_template"]) == (
-        "Midnight Drive (Kaia, Lou V).mp3",
+        "Kaia/Midnight Drive (Kaia, Lou V).mp3",
         "{title}",
     )
 
@@ -461,19 +462,19 @@ def test_a_clean_profile_starts_with_first_run(scmp3_home: Path) -> None:
 @pytest.mark.parametrize(
     ("style", "title", "artist", "filename"),
     [
-        (None, "Midnight Drive", "Kaia, Lou V", "Kaia, Lou V - Midnight Drive.mp3"),
-        ("artist_field", "Midnight Drive", "Kaia, Lou V", "Kaia, Lou V - Midnight Drive.mp3"),
+        (None, "Midnight Drive", "Kaia, Lou V", "Kaia/Kaia, Lou V - Midnight Drive.mp3"),
+        ("artist_field", "Midnight Drive", "Kaia, Lou V", "Kaia/Kaia, Lou V - Midnight Drive.mp3"),
         (
             "feat_in_title",
             "Midnight Drive (feat. Lou V)",
             "Kaia",
-            "Kaia - Midnight Drive (feat. Lou V).mp3",
+            "Kaia/Kaia - Midnight Drive (feat. Lou V).mp3",
         ),
         (
             "all_in_title",
             "Midnight Drive (Kaia, Lou V)",
             "Kaia",
-            "Midnight Drive (Kaia, Lou V).mp3",
+            "Kaia/Midnight Drive (Kaia, Lou V).mp3",
         ),
     ],
 )
@@ -489,7 +490,7 @@ def test_the_preview_follows_the_saved_title_style(api: Api) -> None:
     preview = api.preview_render()
     assert preview["title"] == "Midnight Drive (Kaia, Lou V)"
     assert (preview["filename"], preview["filename_template"]) == (
-        "Midnight Drive (Kaia, Lou V).mp3",
+        "Kaia/Midnight Drive (Kaia, Lou V).mp3",
         "{title}",
     )
 
@@ -520,28 +521,49 @@ def test_the_preview_keeps_credits_and_promo_when_the_settings_say_so(api: Api) 
 def test_the_preview_fills_in_the_filename_template(api: Api) -> None:
     api.update_settings({"filename_template": "{year} {album_artist} - {title} [{track}]"})
     preview = api.preview_render()
-    assert preview["filename"] == "2026 Kaia - Midnight Drive.mp3"
+    assert preview["filename"] == "Kaia/2026 Kaia - Midnight Drive.mp3"
     assert preview["filename_template"] == "{year} {album_artist} - {title} [{track}]"
 
 
 @pytest.mark.parametrize("style", ["artist_field", "feat_in_title", "all_in_title"])
 @pytest.mark.parametrize("singles_album", ["title", "fixed"])
+@pytest.mark.parametrize(("artist_folders", "folder"), [(True, "Kaia"), (False, "")])
 def test_the_sample_single_stays_out_of_album_folders(
-    api: Api, style: str, singles_album: str
+    api: Api, style: str, singles_album: str, artist_folders: bool, folder: str
 ) -> None:
     api.update_settings(
         {
+            "artist_folders": artist_folders,
             "album_subfolders": True,
             "singles_album": singles_album,
             "singles_album_text": "Loose Tracks",
         }
     )
-    assert "/" not in api.preview_render(None, style)["filename"]
+    filename = api.preview_render(None, style)["filename"]
+    assert filename.rpartition("/")[0] == folder
+
+
+def test_the_preview_has_no_folder_with_artist_folders_off(api: Api) -> None:
+    api.update_settings({"artist_folders": False})
+    assert api.preview_render()["filename"] == "Kaia, Lou V - Midnight Drive.mp3"
+
+
+def test_the_preview_shows_the_planned_folder_without_listing_the_library(
+    api: Api, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "KAIA").mkdir()
+    api.update_settings({"library_dir": str(tmp_path)})
+
+    def refuse(path: object) -> None:
+        pytest.fail("the preview listed the library")
+
+    monkeypatch.setattr(library.os, "scandir", refuse)
+    assert api.preview_render()["filename"] == "Kaia/Kaia, Lou V - Midnight Drive.mp3"
 
 
 def test_the_preview_ends_in_m4a_when_aac_is_kept(api: Api) -> None:
     api.update_settings({"audio_format": "m4a"})
-    assert api.preview_render()["filename"] == "Kaia, Lou V - Midnight Drive.m4a"
+    assert api.preview_render()["filename"] == "Kaia/Kaia, Lou V - Midnight Drive.m4a"
 
 
 def test_the_preview_takes_a_sample_of_the_callers(api: Api) -> None:
@@ -582,6 +604,17 @@ def test_every_problem_the_bridge_names_has_text_in_the_ui() -> None:
     block = block[: block.index("\n  },")]
     texts = set(re.findall(r"^\s+([A-Z_]+):", block, re.MULTILINE))
     assert codes == texts
+
+
+def test_the_mock_starts_from_every_setting_and_its_default() -> None:
+    mock = (WEB_DIR / "mock" / "settings.js").read_text(encoding="utf-8")
+    block = mock[mock.index("const DEFAULTS = {") : mock.index("\n};")]
+    values = dict(re.findall(r"^  (\w+): (.+),$", block, re.MULTILINE))
+    defaults = Settings().to_dict()
+    assert values.keys() == defaults.keys()
+    # The mock's library folder is a made-up home path, not this machine's.
+    for key in defaults.keys() - {"library_dir"}:
+        assert json.loads(values[key]) == defaults[key], key
 
 
 def test_the_answers_are_json(api: Api, tmp_path: Path) -> None:

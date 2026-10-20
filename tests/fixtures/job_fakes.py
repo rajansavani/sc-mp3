@@ -23,7 +23,7 @@ from scmp3.core.convert import AudioInfo
 from scmp3.core.errors import Cancelled, ScmpError
 from scmp3.core.history import History
 from scmp3.core.inputs import ParsedInput
-from scmp3.core.library import AskFn, resolve_collision
+from scmp3.core.library import AskFn, resolve_collision, reuse_folders_by_case
 from scmp3.core.models import (
     ArtworkChoice,
     FormatOption,
@@ -184,6 +184,8 @@ class FakeSteps:
         planned = pipeline.destination(
             prepared.source, suggestion, staged, tags, settings, style=style, overrides=overrides
         )
+        # As pipeline.finalize does, before the collision check.
+        planned = reuse_folders_by_case(planned, settings.library_dir)
         dest = resolve_collision(planned, settings.when_file_exists, ask)
         if dest is not None:
             dest.parent.mkdir(parents=True, exist_ok=True)

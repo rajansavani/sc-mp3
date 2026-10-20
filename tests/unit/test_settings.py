@@ -24,6 +24,7 @@ MENU_DEFAULTS: dict[str, Any] = {
     # None means the title style's default file name.
     "filename_template": None,
     "when_file_exists": "ask",
+    "artist_folders": True,
     "album_subfolders": False,
     # Title style
     "title_style": "artist_field",
@@ -450,6 +451,7 @@ def test_update_refuses_to_save_over_a_file_it_couldnt_read(
 def test_updates_from_many_threads_all_land(path: Path) -> None:
     store = store_at(path)
     keys = [
+        "artist_folders",
         "album_subfolders",
         "keep_lossless_originals",
         "save_cover_jpg",

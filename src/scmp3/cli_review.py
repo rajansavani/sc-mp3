@@ -25,10 +25,13 @@ EDITABLE_FIELDS: dict[str, str] = {
     "title": "title",
     "artist": "artist",
     "album": "album",
+    "album artist": "album_artist",
     "year": "year",
     "genre": "genre",
     "track": "track_no",
 }
+# Longest first, so "album artist Kaia" sets the album artist rather than the album.
+FIELD_NAMES_LONGEST_FIRST = sorted(EDITABLE_FIELDS, key=len, reverse=True)
 REQUIRED_FIELDS = frozenset({"title", "artist"})
 # What to say when a typed number can't be used, by the tag field.
 FIELD_PROBLEMS: dict[str, str] = {
@@ -88,12 +91,13 @@ class TrackReview:
 
     def answer(self, text: str) -> str | None:
         """Act on a change number or a field edit. Returns a problem to show, or None."""
-        word, _, value = text.strip().partition(" ")
+        text = text.strip()
+        word = text.partition(" ")[0]
         if WHOLE_NUMBER.fullmatch(word):
             return self.toggle(int(word))
-        name = word.lower()
-        if name in EDITABLE_FIELDS:
-            return self.edit(name, value.strip())
+        edit = field_edit(text)
+        if edit is not None:
+            return self.edit(*edit)
         return REVIEW_HELP
 
     def toggle(self, number: int) -> str | None:
@@ -121,6 +125,15 @@ class TrackReview:
         return None
 
 
+def field_edit(text: str) -> tuple[str, str] | None:
+    """The field a typed edit names and its new value, or None when it names no field."""
+    for name in FIELD_NAMES_LONGEST_FIRST:
+        head, rest = text[: len(name)], text[len(name) :]
+        if head.lower() == name and (not rest or rest.startswith(" ")):
+            return name, rest.strip()
+    return None
+
+
 def run_review(review: TrackReview, staged: pipeline.Staged, read: Reader) -> Tags | None:
     """Show the review until you save or skip. Returns the tags to save, or None to skip."""
     say(REVIEW_HELP)
@@ -143,13 +156,15 @@ def review_text(review: TrackReview, staged: pipeline.Staged) -> str:
         "Title": tags.title,
         "Artist": tags.artist,
         "Album": tags.album,
+        "Album artist": tags.album_artist,
         "Year": tags.year,
         "Genre": tags.genre,
         "Track": _track_text(tags),
     }
+    width = max(len(name) for name in fields)
     source = review.source
     lines = ["", f"Original title: {source.title}", f"Uploaded by {source.uploader}"]
-    lines += [f"  {name:<7} {_shown(value)}" for name, value in fields.items()]
+    lines += [f"  {name:<{width}} {_shown(value)}" for name, value in fields.items()]
     if review.suggestion.changes:
         lines.append("Changes:")
     for number, change in enumerate(review.suggestion.changes, start=1):

@@ -4,11 +4,13 @@
 //
 // Canned folders: a path with "read-only" in it can't be written to, and one ending in .mp3 is a
 // file. ?mock&first_run starts with first-run setup, the way a clean profile does.
+import { artistFolder, safeName } from "./names.js";
 
 const DEFAULTS = {
   library_dir: "~/Music/sc-mp3",
   filename_template: null,
   when_file_exists: "ask",
+  artist_folders: true,
   album_subfolders: false,
   title_style: "artist_field",
   custom_title_template: "{title}{version}",
@@ -165,13 +167,6 @@ function singlesAlbum(track) {
   return albums[settings.singles_album];
 }
 
-function safeName(name) {
-  return name
-    .replace(/[\\/:*?"<>|]/g, "-")
-    .replace(/\s+/g, " ")
-    .replace(/^[ .-]+|[ .-]+$/g, "");
-}
-
 function styleTemplate(style) {
   return style === "all_in_title" ? "{title}" : "{artist} - {title}";
 }
@@ -181,7 +176,8 @@ function filenameTemplate(style) {
   return styleTemplate(style);
 }
 
-// The sample is a single, and singles stay out of album folders, so there's never a folder.
+// The sample is a single, and singles stay out of album folders, so the only folder it can get
+// is its artist's.
 function fileName(rendered, track, style) {
   const values = {
     artist: rendered.artist,
@@ -194,7 +190,8 @@ function fileName(rendered, track, style) {
   const template = filenameTemplate(style).replace(/\{track:0\d\}/g, "{track}");
   const stem = safeName(fill(template, values)) || "Untitled";
   const extension = settings.audio_format === "m4a" ? ".m4a" : ".mp3";
-  return `${stem}${extension}`;
+  const name = `${stem}${extension}`;
+  return settings.artist_folders ? `${artistFolder(values.album_artist)}/${name}` : name;
 }
 
 export function snapshotPart() {

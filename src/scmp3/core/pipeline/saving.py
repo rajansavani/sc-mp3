@@ -10,7 +10,12 @@ from scmp3.core.artwork import Cover
 from scmp3.core.cover_choice import load_cover
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.history import History
-from scmp3.core.library import AskFn, plan_destination, resolve_collision
+from scmp3.core.library import (
+    AskFn,
+    plan_destination,
+    resolve_collision,
+    reuse_folders_by_case,
+)
 from scmp3.core.models import (
     ArtworkChoice,
     HistoryEntry,
@@ -43,10 +48,10 @@ def destination(
     style: TitleStyle | None = None,
     overrides: Mapping[str, str] | None = None,
 ) -> Path:
-    """Where finalize saves the file, before checking whether the name is taken.
+    """Where finalize saves the file, before it reuses folders by case and checks for a taken name.
 
     Pass the suggestion, style and overrides the tags were rendered from. Album subfolders use
-    them to tell a single's album from a real one (TECH_SPEC §12).
+    them to tell a single's album from a real one (TECH_SPEC §12). It doesn't read the disk.
     """
     typed_album = "album" in (overrides or {})
     return plan_destination(
@@ -88,6 +93,8 @@ def finalize(
         planned = destination(
             prepared.source, reviewed, staged, tags, settings, style=style, overrides=overrides
         )
+        # Here rather than in destination(), since it lists folders and previews shouldn't wait.
+        planned = reuse_folders_by_case(planned, settings.library_dir)
     # Outside the error mapping, since `ask` is the caller's and its errors are theirs.
     dest = resolve_collision(planned, settings.when_file_exists, ask)
     if dest is None:

@@ -5,6 +5,7 @@ import re
 from collections.abc import Mapping
 
 from scmp3.core.models import Settings, Tags, TagSuggestion, TitleStyle
+from scmp3.core.suggest.names import comma_parts, same_artist
 from scmp3.core.suggest.rules import tidy
 
 # The tokens a template may use. Anything else in braces is left as it is.
@@ -45,13 +46,12 @@ def render(
     # With no title text, the title stays empty rather than becoming just "(Kaia)".
     has_title = bool(values["title"] or values["version"])
     title = overrides.get("title", fill(title_template, values) if has_title else "")
-    first_main = suggestion.main_artists[0] if suggestion.main_artists else ""
     track_no, track_total = _track(overrides, suggestion)
     return Tags(
         title=title,
         artist=overrides.get("artist", fill(artist_template, values)),
         album=overrides.get("album", _album(suggestion, overrides, settings)),
-        album_artist=overrides.get("album_artist", suggestion.album_artist or first_main),
+        album_artist=_album_artist(suggestion, overrides, settings.artist_separator),
         year=_number(overrides, "year", suggestion.year),
         genre=_text_or_none(overrides, "genre", suggestion.genre),
         track_no=track_no,
@@ -143,6 +143,58 @@ def _album(suggestion: TagSuggestion, overrides: Mapping[str, str], settings: Se
     )
     choices = {"title": title, "fixed": settings.singles_album_text, "blank": ""}
     return choices[settings.singles_album]
+
+
+def _album_artist(suggestion: TagSuggestion, overrides: Mapping[str, str], separator: str) -> str:
+    """The album artist: typed, or the suggestion's while a typed artist still names it.
+
+    A typed artist that no longer names it becomes the album artist whole, since splitting
+    typed text would break names like "Tyler, The Creator".
+    """
+    if "album_artist" in overrides:
+        return overrides["album_artist"]
+    first_main = suggestion.main_artists[0] if suggestion.main_artists else ""
+    suggested = suggestion.album_artist or first_main
+    typed_artist = overrides.get("artist")
+    if typed_artist is None or _still_names(typed_artist, suggested, separator):
+        return suggested
+    return typed_artist
+
+
+def _still_names(typed: str, artist: str, separator: str) -> bool:
+    """Whether typed artist text names `artist` as a whole name: all of it, or a run of its parts.
+
+    Parts are split on commas, and on the artist separator setting, for matching only.
+    """
+    if same_artist(typed, artist):
+        return True
+    typed_splits = [comma_parts(typed), _separator_parts(typed, separator)]
+    # A name with a joiner of its own, like "Tyler, The Creator", is split the same way.
+    artist_splits = [
+        comma_parts(artist) or [artist],
+        _separator_parts(artist, separator) or [artist],
+    ]
+    return any(
+        _in_a_row(parts, names) for parts, names in zip(typed_splits, artist_splits, strict=True)
+    )
+
+
+def _separator_parts(text: str, separator: str) -> list[str]:
+    """The names `text` lists with the artist separator, like comma_parts does with commas."""
+    # Ignoring case, so " X " counts for " x ".
+    parts = [part.strip() for part in re.split(re.escape(separator), text, flags=re.IGNORECASE)]
+    if len(parts) < 2:
+        return []
+    return [part for part in parts if part]
+
+
+def _in_a_row(parts: list[str], names: list[str]) -> bool:
+    """Whether `names` come one after another somewhere in `parts`, each the same artist."""
+    for start in range(len(parts) - len(names) + 1):
+        run = parts[start : start + len(names)]
+        if all(same_artist(part, name) for part, name in zip(run, names, strict=True)):
+            return True
+    return False
 
 
 def _text_or_none(overrides: Mapping[str, str], field: str, default: str | None) -> str | None:

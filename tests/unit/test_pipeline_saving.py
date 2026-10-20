@@ -54,7 +54,7 @@ def test_finalize_tags_places_and_records_the_file(
 ) -> None:
     prepared = prepare(world, settings, history)
     saved = save(prepared, settings)
-    assert saved == settings.library_dir / "80M - The Following.mp3"
+    assert saved == settings.library_dir / "80M" / "80M - The Following.mp3"
     tags = ID3(saved)
     assert tags.version == (2, 3, 0)
     assert str(tags["TIT2"]) == "The Following"
@@ -137,12 +137,46 @@ def test_choosing_no_cover_saves_without_one(
 def test_a_taken_name_gets_a_number_when_keeping_both(
     world: FakeSoundCloud, settings: Settings, history: History
 ) -> None:
-    taken = settings.library_dir / "80M - The Following.mp3"
+    flat = replace(settings, artist_folders=False)
+    taken = flat.library_dir / "80M - The Following.mp3"
+    taken.parent.mkdir(parents=True)
+    taken.write_bytes(b"someone else's file")
+    saved = save(prepare(world, flat, history), flat)
+    assert saved == flat.library_dir / "80M - The Following (2).mp3"
+    assert taken.read_bytes() == b"someone else's file"
+
+
+def test_a_taken_name_in_the_artists_folder_gets_a_number(
+    world: FakeSoundCloud, settings: Settings, history: History
+) -> None:
+    taken = settings.library_dir / "80M" / "80M - The Following.mp3"
     taken.parent.mkdir(parents=True)
     taken.write_bytes(b"someone else's file")
     saved = save(prepare(world, settings, history), settings)
-    assert saved == settings.library_dir / "80M - The Following (2).mp3"
+    assert saved == settings.library_dir / "80M" / "80M - The Following (2).mp3"
     assert taken.read_bytes() == b"someone else's file"
+
+
+def test_a_save_reuses_an_artist_folder_that_differs_only_by_case(
+    world: FakeSoundCloud, settings: Settings, history: History
+) -> None:
+    (settings.library_dir / "80m").mkdir(parents=True)
+    saved = save(prepare(world, settings, history), settings)
+    assert saved is not None
+    # Names are compared as text, since Windows paths are equal ignoring case.
+    assert saved.parent.name == "80m"
+    assert [path.name for path in settings.library_dir.iterdir()] == ["80m"]
+
+
+def test_the_folder_is_reused_before_the_taken_name_check(
+    world: FakeSoundCloud, settings: Settings, history: History
+) -> None:
+    taken = settings.library_dir / "80m" / "80M - The Following.mp3"
+    taken.parent.mkdir(parents=True)
+    taken.write_bytes(b"old")
+    skip = replace(settings, when_file_exists="skip")
+    assert save(prepare(world, skip, history), skip) is None
+    assert taken.read_bytes() == b"old"
 
 
 def test_skipping_a_taken_name_saves_nothing_and_clears_the_staging_folder(
@@ -151,7 +185,7 @@ def test_skipping_a_taken_name_saves_nothing_and_clears_the_staging_folder(
     taken = settings.library_dir / "80M - The Following.mp3"
     taken.parent.mkdir(parents=True)
     taken.write_bytes(b"someone else's file")
-    skip = replace(settings, when_file_exists="skip")
+    skip = replace(settings, when_file_exists="skip", artist_folders=False)
     assert save(prepare(world, skip, history), skip) is None
     assert taken.read_bytes() == b"someone else's file"
     assert history.find_by_source_id(TYPICAL_ID) is None
@@ -170,7 +204,7 @@ def test_the_ask_policy_asks_about_a_taken_name(
         asked.append(path)
         return "replace"
 
-    ask_settings = replace(settings, when_file_exists="ask")
+    ask_settings = replace(settings, when_file_exists="ask", artist_folders=False)
     saved = save(prepare(world, ask_settings, history), ask_settings, ask=ask)
     assert asked == [taken]
     assert saved == taken
@@ -189,7 +223,7 @@ def test_what_ask_raises_reaches_the_caller_unchanged(
     taken = settings.library_dir / "80M - The Following.mp3"
     taken.parent.mkdir(parents=True)
     taken.write_bytes(b"old")
-    ask_settings = replace(settings, when_file_exists="ask")
+    ask_settings = replace(settings, when_file_exists="ask", artist_folders=False)
     with pytest.raises(InputClosed):
         save(prepare(world, ask_settings, history), ask_settings, ask=ask)
     assert taken.read_bytes() == b"old"
@@ -265,7 +299,7 @@ def test_album_subfolders_are_only_for_albums_that_arent_the_track_itself(
     history: History,
 ) -> None:
     world.fixture["api"]["publisher_metadata"]["album_title"] = publisher_album
-    subfolders = replace(settings, album_subfolders=True)
+    subfolders = replace(settings, album_subfolders=True, artist_folders=False)
     saved = save_with_overrides(prepare(world, subfolders, history), subfolders, overrides)
     assert saved.parent == subfolders.library_dir / folder
 
@@ -274,7 +308,11 @@ def test_a_fixed_album_for_singles_keeps_singles_at_the_top(
     world: FakeSoundCloud, settings: Settings, history: History
 ) -> None:
     fixed = replace(
-        settings, album_subfolders=True, singles_album="fixed", singles_album_text="SC singles"
+        settings,
+        album_subfolders=True,
+        artist_folders=False,
+        singles_album="fixed",
+        singles_album_text="SC singles",
     )
     saved = save_with_overrides(prepare(world, fixed, history), fixed, {})
     assert ID3(saved)["TALB"].text == ["SC singles"]
@@ -293,13 +331,41 @@ def save_with_overrides(
     return saved.path
 
 
+def test_a_typed_artist_saves_in_their_own_folder(
+    world: FakeSoundCloud, settings: Settings, history: History
+) -> None:
+    # A repost channel's upload, where the artist falls back to the uploader.
+    info, api = world.fixture["info"], world.fixture["api"]
+    info.update(title="Midnight Drive", uploader="Chill Nation", artist=None, artists=None)
+    api["publisher_metadata"]["artist"] = None
+    api["user"]["username"] = "Chill Nation"
+    prepared = prepare(world, settings, history)
+    assert prepared.suggestion.main_artists == ["Chill Nation"]
+    saved = save_with_overrides(prepared, settings, {"artist": "Mara Lune"})
+    assert saved == settings.library_dir / "Mara Lune" / "Mara Lune - Midnight Drive.mp3"
+    tags = ID3(saved)
+    assert (tags["TPE1"].text, tags["TPE2"].text) == (["Mara Lune"], ["Mara Lune"])
+
+
+@pytest.mark.parametrize("typed", ["80M, Lou Vee", "80M, Lou V, Mara"])
+def test_editing_a_feature_or_adding_a_name_keeps_the_artists_folder(
+    typed: str, world: FakeSoundCloud, settings: Settings, history: History
+) -> None:
+    world.fixture["info"]["title"] = "The Following (feat. Lou V)"
+    prepared = prepare(world, settings, history)
+    assert prepared.suggestion.featured == ["Lou V"]
+    saved = save_with_overrides(prepared, settings, {"artist": typed})
+    assert saved == settings.library_dir / "80M" / f"{typed} - The Following.mp3"
+    assert ID3(saved)["TPE2"].text == ["80M"]
+
+
 def test_an_album_that_is_only_the_base_title_counts_as_a_single(
     world: FakeSoundCloud, settings: Settings, history: History
 ) -> None:
     # The base title, "The Following", matches neither the raw title nor the edited one.
     world.fixture["info"]["title"] = "80M - The Following FREE DL"
     world.fixture["api"]["publisher_metadata"]["album_title"] = "The Following"
-    subfolders = replace(settings, album_subfolders=True)
+    subfolders = replace(settings, album_subfolders=True, artist_folders=False)
     prepared = prepare(world, subfolders, history)
     assert prepared.suggestion.base_title == "The Following"
     saved = save_with_overrides(prepared, subfolders, {"title": "Following"})

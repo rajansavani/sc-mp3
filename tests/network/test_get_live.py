@@ -11,13 +11,22 @@ from scmp3.core.errors import ErrorKind
 
 pytestmark = pytest.mark.network
 
-# Public tracks that the recorded fixtures come from: url, file name, seconds, kbps, has a cover.
+# Public tracks that the recorded fixtures come from: url, artist folder, file name, seconds,
+# kbps, has a cover.
 SAVED = [
-    ("https://soundcloud.com/the80m/the-following", "80M - The Following.mp3", 397, 320, True),
+    (
+        "https://soundcloud.com/the80m/the-following",
+        "80M",
+        "80M - The Following.mp3",
+        397,
+        320,
+        True,
+    ),
     # A legacy MP3 upload, copied rather than encoded again. It has no artwork, and the uploader
     # has SoundCloud's default avatar, so it gets no cover.
     (
         "https://soundcloud.com/thesilverlakes/burn-down-demo-2008",
+        "thesilverlakes",
         "thesilverlakes - Burn Down - Demo 2008.mp3",
         277,
         128,
@@ -30,9 +39,10 @@ REFUSED = [
 ]
 
 
-@pytest.mark.parametrize(("url", "name", "seconds", "kbps", "has_cover"), SAVED)
+@pytest.mark.parametrize(("url", "folder", "name", "seconds", "kbps", "has_cover"), SAVED)
 def test_get_saves_a_public_track_with_its_tags_and_cover(
     url: str,
+    folder: str,
     name: str,
     seconds: int,
     kbps: int,
@@ -42,7 +52,7 @@ def test_get_saves_a_public_track_with_its_tags_and_cover(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     assert cli.main(["get", "--yes", "--out", str(tmp_path), url]) == cli_output.EXIT_OK
-    saved = tmp_path / name
+    saved = tmp_path / folder / name
     assert capsys.readouterr().out == f"{saved}\n"
     audio = MP3(saved)
     assert audio.info.length == pytest.approx(seconds, abs=2)
@@ -51,7 +61,8 @@ def test_get_saves_a_public_track_with_its_tags_and_cover(
     assert tags.version == (2, 3, 0)
     assert str(tags["WOAS"]) == url
     assert [cover.mime for cover in tags.getall("APIC")] == (["image/jpeg"] if has_cover else [])
-    assert [path.name for path in tmp_path.iterdir()] == [name]
+    assert [path.name for path in tmp_path.iterdir()] == [folder]
+    assert [path.name for path in saved.parent.iterdir()] == [name]
 
 
 @pytest.mark.parametrize(("url", "kind"), REFUSED)

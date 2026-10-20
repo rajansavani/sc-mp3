@@ -2,7 +2,14 @@
 
 import pytest
 
-from scmp3.core.models import FeatWording, Settings, SinglesAlbum, TagSuggestion, TitleStyle
+from scmp3.core.models import (
+    ArtistSeparator,
+    FeatWording,
+    Settings,
+    SinglesAlbum,
+    TagSuggestion,
+    TitleStyle,
+)
 from scmp3.core.suggest import render
 from scmp3.core.suggest.render import InvalidOverride, fill
 
@@ -233,6 +240,97 @@ def test_the_album_artist_is_the_first_main_artist_unless_the_suggestion_has_one
 
     assert render(duo, "artist_field", {}, Settings()).album_artist == "Kaia"
     assert render(with_album_artist, "artist_field", {}, Settings()).album_artist == "Mara"
+
+
+@pytest.mark.parametrize(
+    "typed",
+    [
+        "Kaia, Lou Vee, Mara",
+        "Kaia, Lou V, Mara, Hazy",
+        "kaia",
+        "Kaïa, Lou V",
+        "Lou V, Kaia",
+        "Kaia,",
+    ],
+)
+def test_a_typed_artist_that_still_names_the_album_artist_keeps_it(typed: str) -> None:
+    tags = render(FULL, "artist_field", {"artist": typed}, Settings())
+
+    assert (tags.artist, tags.album_artist) == (typed, "Kaia")
+
+
+@pytest.mark.parametrize(
+    "typed",
+    ["Mara Lune", "Kaiak, Lou V", "Kaia & Lou V", "Kaia Lou V", "Tyler, The Creator"],
+)
+def test_a_typed_artist_that_no_longer_names_the_album_artist_replaces_it_whole(
+    typed: str,
+) -> None:
+    tags = render(FULL, "artist_field", {"artist": typed}, Settings())
+
+    assert tags.album_artist == typed
+
+
+@pytest.mark.parametrize("typed", ["Kaia & Lou Vee & Mara", "Lou V & Kaia", "Kaia & Lou V, Hazy"])
+def test_under_the_ampersand_separator_editing_a_feature_keeps_the_album_artist(
+    typed: str,
+) -> None:
+    tags = render(FULL, "artist_field", {"artist": typed}, Settings(artist_separator=" & "))
+
+    assert tags.album_artist == "Kaia"
+
+
+@pytest.mark.parametrize("typed", ["Kaia x Lou Vee x Mara", "Kaia X Lou Vee"])
+def test_under_the_x_separator_editing_a_feature_keeps_the_album_artist(typed: str) -> None:
+    tags = render(FULL, "artist_field", {"artist": typed}, Settings(artist_separator=" x "))
+
+    assert tags.album_artist == "Kaia"
+
+
+@pytest.mark.parametrize(
+    ("separator", "typed"),
+    [(" & ", "Mara Lune & Lou V"), (" x ", "Kaiax Lou V"), (", ", "Kaia & Lou Vee")],
+)
+def test_the_separator_is_only_for_matching_so_a_new_artist_stays_whole(
+    separator: ArtistSeparator, typed: str
+) -> None:
+    tags = render(FULL, "artist_field", {"artist": typed}, Settings(artist_separator=separator))
+
+    assert tags.album_artist == typed
+
+
+def test_a_typed_artist_keeps_an_album_artist_with_a_separator_of_its_own() -> None:
+    duo = TagSuggestion(base_title="Song", main_artists=["Chase & Status"])
+    settings = Settings(artist_separator=" & ")
+
+    kept = render(duo, "artist_field", {"artist": "Chase & Status & Kaia"}, settings)
+    replaced = render(duo, "artist_field", {"artist": "Chase & Kaia"}, settings)
+
+    assert (kept.album_artist, replaced.album_artist) == ("Chase & Status", "Chase & Kaia")
+
+
+def test_a_typed_artist_keeps_an_album_artist_with_a_comma_of_its_own() -> None:
+    tyler = TagSuggestion(base_title="Song", main_artists=["Tyler, The Creator"])
+
+    tags = render(tyler, "artist_field", {"artist": "Tyler, The Creator, Kaia"}, Settings())
+
+    assert tags.album_artist == "Tyler, The Creator"
+
+
+def test_a_typed_artist_is_checked_against_the_suggestions_album_artist() -> None:
+    with_album_artist = TagSuggestion(base_title="Song", main_artists=["Kaia"], album_artist="Mara")
+
+    kept = render(with_album_artist, "artist_field", {"artist": "Mara, Kaia"}, Settings())
+    replaced = render(with_album_artist, "artist_field", {"artist": "Kaia"}, Settings())
+
+    assert (kept.album_artist, replaced.album_artist) == ("Mara", "Kaia")
+
+
+@pytest.mark.parametrize("typed_album_artist", ["Someone", ""])
+def test_a_typed_album_artist_always_wins_over_a_typed_artist(typed_album_artist: str) -> None:
+    overrides = {"artist": "Mara Lune", "album_artist": typed_album_artist}
+
+    assert render(FULL, "artist_field", overrides, Settings()).album_artist == typed_album_artist
 
 
 def test_year_and_genre_come_from_the_suggestion() -> None:

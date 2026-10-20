@@ -409,7 +409,7 @@ def test_the_library_folder_setting_applies_to_the_next_save_at_once(jobs: Harne
     jobs.change_settings(library_dir=str(elsewhere))
     jobs.manager.retry(job_id)
     jobs.pools.run_all()
-    assert Path(jobs.job(job_id)["output_path"]).parent == elsewhere
+    assert Path(jobs.job(job_id)["output_path"]).parent == elsewhere / "Kaia"
 
 
 def test_a_cleanup_setting_changed_while_resolving_reaches_the_job(jobs: Harness) -> None:

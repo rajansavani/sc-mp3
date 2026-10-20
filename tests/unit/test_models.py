@@ -161,6 +161,7 @@ SETTINGS = Settings(
     library_dir=Path("Music") / "Spotify songs",
     filename_template="{title}",
     when_file_exists="keep_both",
+    artist_folders=False,
     album_subfolders=True,
     title_style="custom",
     custom_title_template="{title} [{featured}]{version}",
