@@ -1,6 +1,10 @@
 """Runs the UI in a hidden app window, adds a short link that turns out to be a set, and prints
 the page's text once the job has left the queue, as JSON. test_ui_events.py runs it in a child
-process, since pywebview can start only once per process. It closes itself within 40 seconds.
+process, since pywebview can start only once per process. It closes itself within 300 seconds.
+
+WebView2 can take well over 20 seconds to start on a busy machine, which is as long as
+pywebview's own calls wait for the page. So this waits for the UI itself, with room to spare,
+before it calls into the page.
 """
 
 import json
@@ -27,8 +31,10 @@ from scmp3.core.sources import soundcloud
 from scmp3.core.urls import UnsupportedInput
 
 SHORT_LINK = "https://on.soundcloud.com/AbCdEfGh"
+# How long the UI may take to load, and then the toast to show, on a busy machine.
+UI_WAIT = 240.0
 WAIT = 20.0
-GIVE_UP_AFTER = 40.0
+GIVE_UP_AFTER = 300.0
 
 
 class SetBehindShortLink:
@@ -64,8 +70,13 @@ def wait_for_text(window: webview.Window, wanted: str) -> str:
     return text
 
 
-def drive(window: webview.Window, result: dict[str, Any]) -> None:
+def drive(window: webview.Window, ui_ready: threading.Event, result: dict[str, Any]) -> None:
+    start = time.monotonic()
     try:
+        if not ui_ready.wait(UI_WAIT):
+            result["error"] = f"the UI didn't load within {UI_WAIT:.0f} s"
+            return
+        result["ui_loaded_after"] = round(time.monotonic() - start, 1)
         wait_for_text(window, "Paste a SoundCloud")
         # Through the page's bridge, as the paste field adds links.
         window.evaluate_js(f"window.pywebview.api.add_inputs({json.dumps(SHORT_LINK)}); 0")
@@ -74,6 +85,20 @@ def drive(window: webview.Window, result: dict[str, Any]) -> None:
         result["error"] = repr(error)
     finally:
         window.destroy()
+
+
+def watch_for_the_ui(window: webview.Window, events: EventBus) -> threading.Event:
+    """Load the page as the app does, retrying a failed first load, and say when the UI is up."""
+    page_watch = main.PageWatch(events)
+    ui_ready = threading.Event()
+
+    def loaded(window: webview.Window) -> None:
+        page_watch.loaded(window)
+        if not page_watch.failed and main.shows_the_ui(window):
+            ui_ready.set()
+
+    window.events.loaded += loaded
+    return ui_ready
 
 
 def give_up() -> None:
@@ -95,10 +120,10 @@ def run() -> int:
     page = main.page_location(main.INDEX_PAGE, Path(get_app_root()))
     main.start_page_server(webview.http.start_global_server, page)
     window = webview.create_window("sc-mp3 test", page, js_api=Api(context), hidden=True)
-    window.events.loaded += lambda: context.events.attach(window)
+    ui_ready = watch_for_the_ui(window, context.events)
     result: dict[str, Any] = {}
     threading.Thread(target=give_up, daemon=True).start()
-    threading.Thread(target=drive, args=(window, result), daemon=True).start()
+    threading.Thread(target=drive, args=(window, ui_ready, result), daemon=True).start()
     webview.start(http_server=True, private_mode=True)
     context.events.close()
     context.jobs.shut_down()

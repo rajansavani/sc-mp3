@@ -253,6 +253,7 @@ class ManualPool:
         self.size = size
         self.tasks: deque[Task] = deque()
         self.closed = False
+        self.started = False
 
     def submit(self, task: Task) -> None:
         if not self.closed:
@@ -267,6 +268,9 @@ class ManualPool:
 
     def wait_until_idle(self, timeout: float) -> bool:
         return not self.tasks
+
+    def start_threads(self) -> None:
+        self.started = True
 
     def run_one(self) -> None:
         self.tasks.popleft()()

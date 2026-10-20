@@ -329,6 +329,7 @@ def run_window() -> int:
 
     route_pywebview_logging()
     context = AppContext.from_app_folders()
+    context.open_stores()
     context.jobs.start_up()
     page = page_location(INDEX_PAGE, Path(get_app_root()))
     if is_servable(page):

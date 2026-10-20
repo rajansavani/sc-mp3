@@ -11,6 +11,7 @@ from scmp3.app.jobs import JobManager
 from scmp3.app.settings_watch import WatchedSettingsStore
 from scmp3.core import history, settings
 from scmp3.core.components import Components
+from scmp3.core.errors import ScmpError
 from scmp3.core.history import History
 from scmp3.core.settings import SettingsStore
 
@@ -55,6 +56,18 @@ class AppContext:
     def __post_init__(self) -> None:
         # Frozen dataclasses set their own fields this way too.
         object.__setattr__(self, "jobs", self.make_jobs(self))
+
+    def open_stores(self) -> None:
+        """Open history.db now, before the window loads, creating it on a first run.
+
+        Creating it takes much longer than opening it, over 100 ms on a slow disk, so the first
+        bridge call that reads it would otherwise be slow.
+        """
+        try:
+            self.history.recent(1)
+        except ScmpError as error:
+            # The app works without it; saves just can't warn about repeats.
+            log.warning("The history couldn't be opened: %s", error)
 
     @classmethod
     def from_app_folders(cls) -> "AppContext":

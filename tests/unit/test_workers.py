@@ -148,3 +148,36 @@ def test_a_timer_called_off_never_fires() -> None:
     fired = threading.Event()
     ThreadTimers().call_later(0.05, fired.set).cancel()
     assert not fired.wait(0.2)
+
+
+def pool_threads(name: str) -> int:
+    return sum(1 for thread in threading.enumerate() if thread.name == f"scmp3-{name}")
+
+
+def test_starting_the_threads_up_front_leaves_none_to_start_later() -> None:
+    pool = TaskPool("up-front", 3)
+    pool.start_threads()
+    assert pool_threads("up-front") == 3
+    done = threading.Event()
+    pool.submit(done.set)
+    assert done.wait(WAIT)
+    assert pool_threads("up-front") == 3
+    pool.close()
+
+
+def test_a_bigger_size_starts_its_threads_at_once_once_they_start_up_front() -> None:
+    pool = TaskPool("growing", 1)
+    pool.start_threads()
+    pool.resize(3)
+    assert pool_threads("growing") == 3
+    pool.close()
+
+
+def test_without_starting_up_front_threads_start_as_tasks_come() -> None:
+    pool = TaskPool("lazy", 3)
+    assert pool_threads("lazy") == 0
+    done = threading.Event()
+    pool.submit(done.set)
+    assert done.wait(WAIT)
+    assert pool_threads("lazy") == 1
+    pool.close()

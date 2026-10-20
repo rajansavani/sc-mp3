@@ -18,8 +18,14 @@ pytestmark = pytest.mark.skipif(
 
 
 def test_a_link_rejected_after_resolving_shows_the_same_toast_as_one_rejected_at_once() -> None:
+    # The window closes itself within 300 s. On a quiet machine it takes about 3 s, but with every
+    # core busy, WebView2 has taken up to 110 s to show the UI.
     result = subprocess.run(
-        [sys.executable, str(PROBE)], capture_output=True, text=True, timeout=60, check=False
+        [sys.executable, str(PROBE)],
+        capture_output=True,
+        text=True,
+        timeout=330,
+        check=False,
     )
     lines = result.stdout.strip().splitlines()
     assert lines, result.stderr[-2000:]

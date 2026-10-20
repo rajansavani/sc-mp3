@@ -208,6 +208,22 @@ def test_a_refused_field_comes_back_with_its_reason(api: Api, harness: Any) -> N
     }
 
 
+def test_creating_history_db_is_paid_before_the_first_history_call(
+    api: Api, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Creating the file took over 100 ms on a Windows CI runner, against about 1 ms to open it.
+    open_once = History._open_once
+
+    def slow_when_creating(self: History) -> Any:
+        if not self.path.exists():
+            time.sleep(0.2)
+        return open_once(self)
+
+    monkeypatch.setattr(History, "_open_once", slow_when_creating)
+    api._context.open_stores()
+    assert timed(lambda: api.history("drive", 10)) < CALL_BUDGET
+
+
 def test_history_lists_the_latest_saves_or_the_ones_that_match(api: Api) -> None:
     history = api._context.history
     for title in ("Midnight Drive", "Night Bus"):
@@ -249,6 +265,10 @@ def test_every_call_returns_at_once_while_the_pipeline_is_slow(tmp_path: Path) -
     events = fakes.RecordingBus()
     manager = JobManager(store, events, steps=steps, covers=fakes.FakeCovers(), make_pool=TaskPool)
     api = api_on(store, events, manager)
+    # As the app does before its window loads: history.db is created and the pools' threads
+    # are started, so no call pays for either.
+    api._context.open_stores()
+    manager.start_up()
     durations: dict[str, float] = {}
 
     def measure(name: str, call: Callable[[], Any]) -> Any:

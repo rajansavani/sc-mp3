@@ -23,9 +23,11 @@ class Pool(Protocol):
 
     def wait_until_idle(self, timeout: float) -> bool: ...
 
+    def start_threads(self) -> None: ...
+
 
 class TaskPool:
-    """Runs tasks in order on up to `size` threads, started as they're needed.
+    """Runs tasks in order on up to `size` threads, started as they're needed or all at once.
 
     A smaller size takes effect as threads finish their tasks, so a running task is never cut
     short. Threads are daemons, so a task still running when the app quits doesn't hold it open.
@@ -39,6 +41,8 @@ class TaskPool:
         self._threads: set[threading.Thread] = set()
         self._running = 0
         self._closed = False
+        # Set once start_threads() has run, so a bigger size starts its threads at once too.
+        self._eager = False
 
     def submit(self, task: Task) -> None:
         """Queue a task. After close() it's dropped."""
@@ -54,9 +58,21 @@ class TaskPool:
         """Run up to `size` tasks at once from now on."""
         with self._changed:
             self._size = size
+            if self._eager:
+                self._start_threads_up_to_size()
             self._start_threads_for_waiting_tasks()
             # Threads over the new size see it when they wake, and stop.
             self._changed.notify_all()
+
+    def start_threads(self) -> None:
+        """Start every thread now, as the app does before its window opens.
+
+        Starting a thread waits for the OS to run it, which takes tens of milliseconds on a busy
+        machine. Done here, no bridge call that queues a task waits for that.
+        """
+        with self._changed:
+            self._eager = True
+            self._start_threads_up_to_size()
 
     def close(self) -> None:
         """Drop the tasks still waiting. Running tasks finish on their own."""
@@ -79,7 +95,14 @@ class TaskPool:
     def _start_threads_for_waiting_tasks(self) -> None:
         idle = len(self._threads) - self._running
         wanted = min(self._size, len(self._threads) + max(0, len(self._tasks) - idle))
-        while len(self._threads) < wanted:
+        self._start_threads_up_to(wanted)
+
+    def _start_threads_up_to_size(self) -> None:
+        if not self._closed:
+            self._start_threads_up_to(self._size)
+
+    def _start_threads_up_to(self, count: int) -> None:
+        while len(self._threads) < count:
             thread = threading.Thread(target=self._work, name=f"scmp3-{self._name}", daemon=True)
             self._threads.add(thread)
             thread.start()

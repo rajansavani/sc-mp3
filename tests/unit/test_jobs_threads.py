@@ -47,6 +47,40 @@ def jobs(tmp_path: Path) -> Harness:
 # Starting and stopping
 
 
+def test_starting_up_starts_every_pools_threads(jobs: Harness) -> None:
+    jobs.manager.start_up()
+    assert {name: pool.started for name, pool in jobs.pools.by_name.items()} == {
+        "resolve": True,
+        "download": True,
+        "save": True,
+        "misc": True,
+    }
+
+
+def test_a_bigger_download_pool_is_resized_outside_the_lock(jobs: Harness) -> None:
+    held: list[bool] = []
+    pool = jobs.pools["download"]
+    lock = jobs.manager._flow.lock
+
+    def try_lock() -> None:
+        got = lock.acquire(timeout=1)
+        held.append(got)
+        if got:
+            lock.release()
+
+    def resize(size: int) -> None:
+        # Another thread can take the lock, so no bridge call waits while threads start.
+        other = threading.Thread(target=try_lock)
+        other.start()
+        other.join(5)
+        pool.size = size
+
+    pool.resize = resize
+    jobs.change_settings(concurrent_downloads=4)
+    assert held == [True]
+    assert pool.size == 4
+
+
 def test_starting_up_clears_old_staging_folders_and_leftover_temp_files(jobs: Harness) -> None:
     old = download.new_staging("old")
     stamp = datetime(2026, 1, 1).timestamp()

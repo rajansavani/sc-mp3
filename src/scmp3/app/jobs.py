@@ -202,10 +202,12 @@ class JobManager(JobEditing):
                 return
             flow.settings_version = version or flow.settings_version
             before, flow.settings = flow.settings, settings
-            if before.concurrent_downloads != settings.concurrent_downloads:
-                flow.resize_downloads(settings.concurrent_downloads)
             if settings.download_while_reviewing and not before.download_while_reviewing:
                 self._download_jobs_in_review()
+        if before.concurrent_downloads != settings.concurrent_downloads:
+            # Outside the lock, since a bigger pool starts its threads now. It reads the newest
+            # setting, so two changes resizing at once still end on the latest.
+            flow.resize_downloads(flow.settings.concurrent_downloads)
         # Downloads already started keep their format, and nothing downloads again.
         # Rebuilding suggestions takes a moment per job, so it isn't done on the bridge's thread.
         flow.misc_pool.submit(lambda: self._refresh_reviews(settings))
@@ -250,7 +252,12 @@ class JobManager(JobEditing):
     # Starting and stopping
 
     def start_up(self) -> None:
-        """Clear what the last run left behind, on a worker."""
+        """Start the pools' threads, and clear what the last run left behind on a worker.
+
+        The app calls this before its window opens, so no bridge call waits for a thread to start.
+        """
+        for pool in self._flow.pools():
+            pool.start_threads()
         self._flow.misc_pool.submit(self._clean_up_last_run)
 
     def _clean_up_last_run(self) -> None:

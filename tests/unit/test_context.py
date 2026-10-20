@@ -72,3 +72,26 @@ def test_a_test_can_give_the_context_its_own_job_manager() -> None:
         make_jobs=make_jobs,
     )
     assert made == [app]
+
+
+def test_opening_the_stores_creates_the_history_database() -> None:
+    app = AppContext.from_app_folders()
+    assert not app.history.path.exists()
+    app.open_stores()
+    assert app.history.path.is_file()
+    assert app.history.recent(1) == []
+
+
+def test_a_history_that_cant_be_opened_only_warns(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    blocked = tmp_path / "a file, not a folder"
+    blocked.write_bytes(b"")
+    app = AppContext(
+        settings=SettingsStore(tmp_path / "settings.json"),
+        history=History(blocked / "history.db"),
+        events=EventBus(),
+    )
+    with caplog.at_level(logging.WARNING, logger="scmp3.app.context"):
+        app.open_stores()
+    assert "The history couldn't be opened" in caplog.text
