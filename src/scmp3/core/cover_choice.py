@@ -11,15 +11,20 @@ from scmp3.core import artwork, cover_sources
 from scmp3.core.artwork import Cover
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.log import safe_url
-from scmp3.core.models import ArtworkChoice, SourceInfo
+from scmp3.core.models import ArtworkChoice, PlaylistInfo, SourceInfo
 
 log = logging.getLogger(__name__)
 
 
 def load_cover(
-    choice: ArtworkChoice, source: SourceInfo, max_size: int, opener: cover_sources.Opener
+    choice: ArtworkChoice,
+    source: SourceInfo | PlaylistInfo,
+    max_size: int,
+    opener: cover_sources.Opener,
 ) -> Cover | None:
     """The finished cover for a choice, or None for none. The source's artwork tries each size.
+
+    The source is a track, or a set whose own cover an album shares.
 
     Raises the last failure when no image works, so a save never quietly loses its cover.
     """

@@ -43,6 +43,8 @@ PLAYLIST = PlaylistInfo(
     owner="Mara Lune",
     set_type="album",
     is_album=True,
+    release_date=date(2026, 2, 27),
+    genre="Ambient",
     artwork_url="https://i1.sndcdn.com/artworks-lantern-original.jpg",
     entries=[
         PlaylistEntry(url="https://soundcloud.com/mara-lune/one", id="111", title="One"),

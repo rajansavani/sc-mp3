@@ -1,0 +1,774 @@
+{
+  "url": "https://soundcloud.com/non-site_records/sets/tilt-brass-bowery-aug03_ns-src02",
+  "recorded": "2026-10-20",
+  "yt_dlp": "2026.08.19",
+  "hand_built": null,
+  "info": {
+    "album": "TILT Brass - Bowery Poetry Club, August '03 [Non-Site SCR 02]",
+    "album_artist": "Non-Site Records",
+    "album_type": "playlist",
+    "uploader": "Non-Site Records",
+    "uploader_id": "33660914",
+    "uploader_url": "https://soundcloud.com/non-site_records",
+    "timestamp": 1363395687,
+    "release_timestamp": 1363392000,
+    "modified_timestamp": 1444746489,
+    "duration": 2152.685,
+    "license": "all-rights-reserved",
+    "like_count": 2,
+    "repost_count": 2,
+    "genres": [
+      "Downtown"
+    ],
+    "tags": [
+      "Non-Site Records",
+      "TILT Brass",
+      "TILT Creative Brass Band",
+      "Bowery Poetry Club",
+      "Nick Didkovsky",
+      "Tom Waits",
+      "Dave Ballou",
+      "Elliott Sharp",
+      "AFKA Prince",
+      "NPG"
+    ],
+    "thumbnails": [
+      {
+        "id": "mini",
+        "url": "https://i1.sndcdn.com/artworks-000043059944-9zwy8g-mini.jpg",
+        "width": 16,
+        "height": 16,
+        "resolution": "16x16"
+      },
+      {
+        "id": "tiny",
+        "url": "https://i1.sndcdn.com/artworks-000043059944-9zwy8g-tiny.jpg",
+        "width": 20,
+        "height": 20,
+        "resolution": "20x20"
+      },
+      {
+        "id": "small",
+        "url": "https://i1.sndcdn.com/artworks-000043059944-9zwy8g-small.jpg",
+        "width": 32,
+        "height": 32,
+        "resolution": "32x32"
+      },
+      {
+        "id": "badge",
+        "url": "https://i1.sndcdn.com/artworks-000043059944-9zwy8g-badge.jpg",
+        "width": 47,
+        "height": 47,
+        "resolution": "47x47"
+      },
+      {
+        "id": "t67x67",
+        "url": "https://i1.sndcdn.com/artworks-000043059944-9zwy8g-t67x67.jpg",
+        "width": 67,
+        "height": 67,
+        "resolution": "67x67"
+      },
+      {
+        "id": "large",
+        "url": "https://i1.sndcdn.com/artworks-000043059944-9zwy8g-large.jpg",
+        "width": 100,
+        "height": 100,
+        "resolution": "100x100"
+      },
+      {
+        "id": "t300x300",
+        "url": "https://i1.sndcdn.com/artworks-000043059944-9zwy8g-t300x300.jpg",
+        "width": 300,
+        "height": 300,
+        "resolution": "300x300"
+      },
+      {
+        "id": "crop",
+        "url": "https://i1.sndcdn.com/artworks-000043059944-9zwy8g-crop.jpg",
+        "width": 400,
+        "height": 400,
+        "resolution": "400x400"
+      },
+      {
+        "id": "t500x500",
+        "url": "https://i1.sndcdn.com/artworks-000043059944-9zwy8g-t500x500.jpg",
+        "width": 500,
+        "height": 500,
+        "resolution": "500x500"
+      },
+      {
+        "id": "original",
+        "url": "https://i1.sndcdn.com/artworks-000043059944-9zwy8g-original.png",
+        "preference": 10
+      }
+    ],
+    "id": "4110309",
+    "title": "TILT Brass - Bowery Poetry Club, August '03 [Non-Site SCR 02]",
+    "description": "\"TILT Brass - Bowery Poetry Club, August '03\" is the second from the \"SoundCloud Releases (SCR)\" series by Non-Site Records. It presents music from the 2nd concert by TILT's original Brass Band project in August 2003. As did the group's public debut (Non-Site SCR 01), this event took place at the now-defunct East Village venue Bowery Poetry Club. The programing for this show was irreverently \"style-blind,\" encompassing full-ensemble improvisation, pop tune arrangements, and virtuosic concert music. Experimentations of a young, evolving ensemble comprised of world-class, seasoned NYC professionals. Lots of fun listening, enjoy!\r\n\r\nPress Release: http://bit.ly/TILT_BPC_030812\r\nwww.tiltbrass.org | www.tiltbrass.org/tilt-10\r\n\r\nPersonnel:\r\nDave Ballou, Russ Johnson, Jon Nelson - trumpet \r\nGreg Evans, Tom Varner – French horn \r\nCurtis Hasselbring, Christopher McIntyre – trombone \r\nJulie Kalu – bass trombone  \r\nDave Hofstra – tuba  \r\nKevin Norton – percussion\r\n \r\nTILT improvisations\r\nNick Didkovsky - Pascal’s Triangle (1992) (arr. G. Evans)\r\nTom Waits - Coney Island Waltz (2002) (arr. D. Ballou)\r\nTom Waits - Knife Chase (2002) (arr. D. Ballou)\r\nElliott Sharp - SyndaKit (1998)\r\nAFKA Prince - We March (1994) (arr. C. McIntyre)",
+    "_type": "playlist",
+    "entries": [
+      {
+        "album": "TILT Brass - Bowery Poetry Club, August '03 [Non-Site SCR 02]",
+        "album_artist": "Non-Site Records",
+        "album_type": "playlist",
+        "ie_key": "Soundcloud",
+        "id": "83411137",
+        "_type": "url_transparent",
+        "url": "https://soundcloud.com/non-site_records/tilt-improv_sak-passe_030812",
+        "__x_forwarded_for_ip": null
+      },
+      {
+        "album": "TILT Brass - Bowery Poetry Club, August '03 [Non-Site SCR 02]",
+        "album_artist": "Non-Site Records",
+        "album_type": "playlist",
+        "ie_key": "Soundcloud",
+        "id": "83411280",
+        "_type": "url_transparent",
+        "url": "https://soundcloud.com/non-site_records/didkovsky_pascals-triangle_030812",
+        "__x_forwarded_for_ip": null
+      },
+      {
+        "album": "TILT Brass - Bowery Poetry Club, August '03 [Non-Site SCR 02]",
+        "album_artist": "Non-Site Records",
+        "album_type": "playlist",
+        "ie_key": "Soundcloud",
+        "id": "83460399",
+        "_type": "url_transparent",
+        "url": "https://soundcloud.com/non-site_records/waits_coney-island-baby_030812",
+        "__x_forwarded_for_ip": null
+      },
+      {
+        "album": "TILT Brass - Bowery Poetry Club, August '03 [Non-Site SCR 02]",
+        "album_artist": "Non-Site Records",
+        "album_type": "playlist",
+        "ie_key": "Soundcloud",
+        "id": "83460998",
+        "_type": "url_transparent",
+        "url": "https://soundcloud.com/non-site_records/waits_knife-chase_030812",
+        "__x_forwarded_for_ip": null
+      },
+      {
+        "album": "TILT Brass - Bowery Poetry Club, August '03 [Non-Site SCR 02]",
+        "album_artist": "Non-Site Records",
+        "album_type": "playlist",
+        "ie_key": "Soundcloud",
+        "id": "83462427",
+        "_type": "url_transparent",
+        "url": "https://soundcloud.com/non-site_records/sharp_syndakit_030812",
+        "__x_forwarded_for_ip": null
+      },
+      {
+        "album": "TILT Brass - Bowery Poetry Club, August '03 [Non-Site SCR 02]",
+        "album_artist": "Non-Site Records",
+        "album_type": "playlist",
+        "ie_key": "Soundcloud",
+        "id": "83463843",
+        "_type": "url_transparent",
+        "url": "https://api-v2.soundcloud.com/tracks/83463843",
+        "__x_forwarded_for_ip": null
+      }
+    ],
+    "webpage_url": "https://soundcloud.com/non-site_records/sets/tilt-brass-bowery-aug03_ns-src02",
+    "original_url": "https://soundcloud.com/non-site_records/sets/tilt-brass-bowery-aug03_ns-src02",
+    "webpage_url_basename": "tilt-brass-bowery-aug03_ns-src02",
+    "webpage_url_domain": "soundcloud.com",
+    "extractor": "soundcloud:set",
+    "extractor_key": "SoundcloudSet",
+    "duration_string": "35:52",
+    "upload_date": "20130316",
+    "release_date": "20130316",
+    "modified_date": "20151013",
+    "release_year": 2013,
+    "album_artists": [
+      "Non-Site Records"
+    ],
+    "genre": "Downtown",
+    "playlist_count": 6,
+    "epoch": 1792465771,
+    "_version": {
+      "version": "2026.08.19",
+      "current_git_head": null,
+      "release_git_head": "594bd50c2c78ac432f81600d309fdc4e0a92d82c",
+      "repository": "yt-dlp/yt-dlp"
+    }
+  },
+  "info_error": null,
+  "api": {
+    "artwork_url": "https://i1.sndcdn.com/artworks-000043059944-9zwy8g-large.jpg",
+    "created_at": "2013-03-16T01:01:27Z",
+    "description": "\"TILT Brass - Bowery Poetry Club, August '03\" is the second from the \"SoundCloud Releases (SCR)\" series by Non-Site Records. It presents music from the 2nd concert by TILT's original Brass Band project in August 2003. As did the group's public debut (Non-Site SCR 01), this event took place at the now-defunct East Village venue Bowery Poetry Club. The programing for this show was irreverently \"style-blind,\" encompassing full-ensemble improvisation, pop tune arrangements, and virtuosic concert music. Experimentations of a young, evolving ensemble comprised of world-class, seasoned NYC professionals. Lots of fun listening, enjoy!\r\n\r\nPress Release: http://bit.ly/TILT_BPC_030812\r\nwww.tiltbrass.org | www.tiltbrass.org/tilt-10\r\n\r\nPersonnel:\r\nDave Ballou, Russ Johnson, Jon Nelson - trumpet \r\nGreg Evans, Tom Varner – French horn \r\nCurtis Hasselbring, Christopher McIntyre – trombone \r\nJulie Kalu – bass trombone  \r\nDave Hofstra – tuba  \r\nKevin Norton – percussion\r\n \r\nTILT improvisations\r\nNick Didkovsky - Pascal’s Triangle (1992) (arr. G. Evans)\r\nTom Waits - Coney Island Waltz (2002) (arr. D. Ballou)\r\nTom Waits - Knife Chase (2002) (arr. D. Ballou)\r\nElliott Sharp - SyndaKit (1998)\r\nAFKA Prince - We March (1994) (arr. C. McIntyre)",
+    "duration": 2152685,
+    "embeddable_by": "all",
+    "genre": "Downtown",
+    "id": 4110309,
+    "kind": "playlist",
+    "label_name": "Non-Site Records",
+    "last_modified": "2015-10-13T14:28:09Z",
+    "license": "all-rights-reserved",
+    "likes_count": 2,
+    "managed_by_feeds": false,
+    "permalink": "tilt-brass-bowery-aug03_ns-src02",
+    "permalink_url": "https://soundcloud.com/non-site_records/sets/tilt-brass-bowery-aug03_ns-src02",
+    "public": true,
+    "purchase_title": "Donate to TILT Brass, Inc!",
+    "purchase_url": "https://www.nyfa.org/Donate/Project/12c776f3-b440-4f7b-a0b2-815de1f11ab1",
+    "release_date": "2013-03-16T00:00:00Z",
+    "reposts_count": 2,
+    "sharing": "public",
+    "tag_list": "\"Non-Site Records\" \"TILT Brass\" \"TILT Creative Brass Band\" \"Bowery Poetry Club\" \"Nick Didkovsky\" \"Tom Waits\" \"Dave Ballou\" \"Elliott Sharp\" \"AFKA Prince\" NPG",
+    "title": "TILT Brass - Bowery Poetry Club, August '03 [Non-Site SCR 02]",
+    "uri": "https://api.soundcloud.com/playlists/soundcloud%3Aplaylists%3A4110309",
+    "user_id": 33660914,
+    "set_type": "",
+    "is_album": false,
+    "published_at": null,
+    "display_date": "2013-03-16T01:01:27Z",
+    "user": {
+      "avatar_url": "https://i1.sndcdn.com/avatars-000031664596-r06vh2-large.jpg",
+      "comments_count": 0,
+      "created_at": null,
+      "creator_subscriptions": [
+        {
+          "product": {
+            "id": "free"
+          }
+        }
+      ],
+      "creator_subscription": {
+        "product": {
+          "id": "free"
+        }
+      },
+      "description": "Non-Site Records is a Brooklyn-based independent artist owned and operated media label started in 2010 by Chris McIntyre. Non-Site was formed to document and distribute the myriad contemporary music projects McIntyre participates in as performer, composer, and curator/producer. Its inaugural project, the CD and digital audio release entitled \"To TILT: Original Music for TILT Brass Vol. 1\" [NSR 001], presents a set of 5 works culled from the group TILT Brass’ repertoire of original works created for its 10-piece Creative Brass Band. \"To TILT...\" clearly reflects the organization’s direct engagement with New York City's lively composer community, featuring works by Anthony Coleman, Nick Didkovsky, Nate Wooley, Curtis Hasselbring, and McIntyre.\r\n\r\nNon-Site joins the SoundCloud community now to offer its \"Non-Site: SCR\" series imprint. The initial releases on SCR (i.e. SoundCloud Releases) are full sets of live music from TILT Brass' first 10 years of archival audio, beginning with \"Debut at Bowery Poetry Club\" recorded live at BPC on January 20, 2003. \r\n\r\nFuture Non-Site projects include a limited edition vinyl and digital audio release of McIntyre’s \"stuplimity series\" in Fall ‘13. \"stuplimity series\" is a set of  four interrelated compositions for various trombone ensembles (ranging from solo to septet) created between 2005 and 2007.",
+      "followers_count": 20,
+      "followings_count": 3,
+      "groups_count": 0,
+      "id": 33660914,
+      "kind": "user",
+      "last_modified": "2015-08-29T21:30:40Z",
+      "likes_count": 1,
+      "playlist_likes_count": 0,
+      "permalink": "non-site_records",
+      "permalink_url": "https://soundcloud.com/non-site_records",
+      "playlist_count": 2,
+      "reposts_count": null,
+      "track_count": 15,
+      "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A33660914",
+      "urn": "soundcloud:users:33660914",
+      "username": "Non-Site Records",
+      "verified": false,
+      "visuals": {
+        "urn": "soundcloud:users:33660914",
+        "enabled": true,
+        "visuals": [
+          {
+            "urn": "soundcloud:visuals:2254693",
+            "entry_time": 0,
+            "visual_url": "https://i1.sndcdn.com/visuals-000033660914-0WOZHb-original.jpg"
+          }
+        ],
+        "tracking": null
+      },
+      "badges": {
+        "pro": false,
+        "creator_mid_tier": false,
+        "pro_unlimited": false,
+        "verified": false
+      },
+      "station_urn": "soundcloud:system-playlists:artist-stations:33660914",
+      "station_permalink": "artist-stations:33660914"
+    },
+    "tracks": [
+      {
+        "artwork_url": "https://i1.sndcdn.com/artworks-000043059968-sy1bg1-large.jpg",
+        "caption": null,
+        "commentable": true,
+        "comment_count": 0,
+        "created_at": "2013-03-15T19:17:30Z",
+        "description": "Track 01 from \"TILT Brass - Bowery Poetry Club, August '03\", TILT Brass' second Non-Site Records \"SoundCloud Releases (SCR)\" series release. 30 seconds before walking onstage, TILT then Co-Director Chris McIntyre said \"improvise a fanfare!\" and this stunning, pithy, and humorous exclamation ensued. \"Sak Passé?\" is Haitian Creole slang for \"what's up?\"\r\n\r\nDave Ballou, Russ Johnson, Jon Nelson - trumpet \r\nGreg Evans, Tom Varner – French horn \r\nCurtis Hasselbring, Christopher McIntyre – trombone \r\nJulie Kalu – bass trombone  \r\nDave Hofstra – tuba  \r\nKevin Norton – percussion",
+        "downloadable": false,
+        "download_count": 0,
+        "duration": 121946,
+        "full_duration": 122002,
+        "embeddable_by": "all",
+        "genre": "Improvisation",
+        "has_downloads_left": false,
+        "id": 83411137,
+        "kind": "track",
+        "label_name": "Non-Site Records",
+        "last_modified": "2015-07-07T03:10:47Z",
+        "license": "all-rights-reserved",
+        "likes_count": 1,
+        "permalink": "tilt-improv_sak-passe_030812",
+        "permalink_url": "https://soundcloud.com/non-site_records/tilt-improv_sak-passe_030812",
+        "playback_count": 5430,
+        "public": true,
+        "publisher_metadata": null,
+        "purchase_title": null,
+        "purchase_url": "https://www.artspire.org/Donations/DonatetoFiscalSponsorship/Donate.aspx?view=donateNow&pid=T4300",
+        "release_date": "2013-03-16T00:00:00Z",
+        "reposts_count": 0,
+        "sharing": "public",
+        "state": "finished",
+        "streamable": true,
+        "tag_list": "\"Non-Site Records\" \"TILT Brass\" \"TILT Creative Brass Band\" \"Bowery Poetry Club\" \"large ensemble improv\"",
+        "title": "TILT Brass Band improv - Sak Passé? (2003)",
+        "uri": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A83411137",
+        "urn": "soundcloud:tracks:83411137",
+        "user_id": 33660914,
+        "visuals": null,
+        "waveform_url": "https://wave.sndcdn.com/Tf3Zd0GcllaV_m.json",
+        "display_date": "2013-03-15T19:17:30Z",
+        "media": {
+          "transcodings": [
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:83411137/39064763-6c38-4c8e-9371-4664bc7315a2/stream/hls",
+              "preset": "aac_96k",
+              "duration": 121946,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+              },
+              "quality": "lq",
+              "is_legacy_transcoding": false
+            },
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:83411137/a894d660-8006-4aef-bf9e-9737a0396519/stream/hls",
+              "preset": "abr_sq",
+              "duration": 121946,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mpegurl"
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": false
+            }
+          ]
+        },
+        "station_urn": "soundcloud:system-playlists:track-stations:83411137",
+        "station_permalink": "track-stations:83411137",
+        "monetization_model": "BLACKBOX",
+        "policy": "MONETIZE",
+        "user": {
+          "avatar_url": "https://i1.sndcdn.com/avatars-000031664596-r06vh2-large.jpg",
+          "followers_count": 20,
+          "id": 33660914,
+          "kind": "user",
+          "last_modified": "2015-08-29T21:30:40Z",
+          "permalink": "non-site_records",
+          "permalink_url": "https://soundcloud.com/non-site_records",
+          "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A33660914",
+          "urn": "soundcloud:users:33660914",
+          "username": "Non-Site Records",
+          "verified": false,
+          "badges": {
+            "pro": false,
+            "creator_mid_tier": false,
+            "pro_unlimited": false,
+            "verified": false
+          },
+          "station_urn": "soundcloud:system-playlists:artist-stations:33660914",
+          "station_permalink": "artist-stations:33660914"
+        }
+      },
+      {
+        "artwork_url": "https://i1.sndcdn.com/artworks-000043059997-amygfb-large.jpg",
+        "caption": null,
+        "commentable": true,
+        "comment_count": 0,
+        "created_at": "2013-03-15T19:18:46Z",
+        "description": "Track 02 from \"Bowery Poetry Club, August '03\", TILT Brass' second Non-Site Records \"SoundCloud Releases (SCR)\" series release. Originally a solo marimba work, horn player Greg Evans arranged \"Pascal's Triangle\" for the stellar trio of trumpeters on hand. The marimba version is \"Part I\" from a set of pieces called \"Discursive Systems\" and was dedicated to and premiered by the percussionist on this concert, Kevin Norton. \r\n\r\nPersonnel:\r\nDave Ballou, Russ Johnson, Jon Nelson - trumpet",
+        "downloadable": false,
+        "download_count": 0,
+        "duration": 242569,
+        "full_duration": 242569,
+        "embeddable_by": "all",
+        "genre": "Contemporary Classical",
+        "has_downloads_left": false,
+        "id": 83411280,
+        "kind": "track",
+        "label_name": "Non-Site Records",
+        "last_modified": "2015-07-07T03:10:47Z",
+        "license": "all-rights-reserved",
+        "likes_count": 0,
+        "permalink": "didkovsky_pascals-triangle_030812",
+        "permalink_url": "https://soundcloud.com/non-site_records/didkovsky_pascals-triangle_030812",
+        "playback_count": 5256,
+        "public": true,
+        "publisher_metadata": null,
+        "purchase_title": null,
+        "purchase_url": "https://www.artspire.org/Donations/DonatetoFiscalSponsorship/Donate.aspx?view=donateNow&pid=T4300",
+        "release_date": "2013-03-16T00:00:00Z",
+        "reposts_count": 0,
+        "sharing": "public",
+        "state": "finished",
+        "streamable": true,
+        "tag_list": "\"Non-Site Records\" \"TILT Brass\" \"TILT Creative Brass Band\" \"Nick Didkovsky\" \"Dave Ballou\" \"Russ Johnson\" \"Jon Nelson\" \"Bowery Poetry Club\"",
+        "title": "Nick Didkovsky - Pascal's Triangle (1992) [arr. G. Evans]",
+        "uri": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A83411280",
+        "urn": "soundcloud:tracks:83411280",
+        "user_id": 33660914,
+        "visuals": null,
+        "waveform_url": "https://wave.sndcdn.com/h6HIlpT4cd2w_m.json",
+        "display_date": "2013-03-15T19:18:46Z",
+        "media": {
+          "transcodings": [
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:83411280/1d27bb07-ca93-4217-8904-d88811dce713/stream/hls",
+              "preset": "mp3_0_0",
+              "duration": 242569,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mpeg"
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": true
+            },
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:83411280/1d27bb07-ca93-4217-8904-d88811dce713/stream/progressive",
+              "preset": "mp3_0_0",
+              "duration": 242569,
+              "snipped": false,
+              "format": {
+                "protocol": "progressive",
+                "mime_type": "audio/mpeg"
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": true
+            }
+          ]
+        },
+        "station_urn": "soundcloud:system-playlists:track-stations:83411280",
+        "station_permalink": "track-stations:83411280",
+        "monetization_model": "BLACKBOX",
+        "policy": "MONETIZE",
+        "user": {
+          "avatar_url": "https://i1.sndcdn.com/avatars-000031664596-r06vh2-large.jpg",
+          "followers_count": 20,
+          "id": 33660914,
+          "kind": "user",
+          "last_modified": "2015-08-29T21:30:40Z",
+          "permalink": "non-site_records",
+          "permalink_url": "https://soundcloud.com/non-site_records",
+          "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A33660914",
+          "urn": "soundcloud:users:33660914",
+          "username": "Non-Site Records",
+          "verified": false,
+          "badges": {
+            "pro": false,
+            "creator_mid_tier": false,
+            "pro_unlimited": false,
+            "verified": false
+          },
+          "station_urn": "soundcloud:system-playlists:artist-stations:33660914",
+          "station_permalink": "artist-stations:33660914"
+        }
+      },
+      {
+        "artwork_url": "https://i1.sndcdn.com/artworks-000043060010-34hrpg-large.jpg",
+        "caption": null,
+        "commentable": true,
+        "comment_count": 0,
+        "created_at": "2013-03-16T02:42:32Z",
+        "description": "Track 03 from \"Bowery Poetry Club, August '03\", TILT Brass' second Non-Site Records \"SoundCloud Releases (SCR)\" series release. \"Coney Island Baby\" is found on Tom Waits' then-contemporary LP \"Blood Money\". Our illustrious trumpeter/composer Dave Ballou selected it as one of 3 to air out as brass band pieces that August. This one, a waltz, oozes a real sense of hometown (if bittersweet) nostalgia.\r\n\r\nDave Ballou, Russ Johnson, Jon Nelson - trumpet \r\nGreg Evans, Tom Varner – French horn \r\nCurtis Hasselbring, Christopher McIntyre – trombone \r\nJulie Kalu – bass trombone  \r\nDave Hofstra – tuba  \r\nKevin Norton – percussion",
+        "downloadable": false,
+        "download_count": 0,
+        "duration": 264722,
+        "full_duration": 264722,
+        "embeddable_by": "all",
+        "genre": "Downtown",
+        "has_downloads_left": false,
+        "id": 83460399,
+        "kind": "track",
+        "label_name": "Non-Site Records",
+        "last_modified": "2015-07-07T03:10:47Z",
+        "license": "all-rights-reserved",
+        "likes_count": 3,
+        "permalink": "waits_coney-island-baby_030812",
+        "permalink_url": "https://soundcloud.com/non-site_records/waits_coney-island-baby_030812",
+        "playback_count": 5569,
+        "public": true,
+        "publisher_metadata": null,
+        "purchase_title": null,
+        "purchase_url": "https://www.artspire.org/Donations/DonatetoFiscalSponsorship/Donate.aspx?view=donateNow&pid=T4300",
+        "release_date": "2013-03-16T00:00:00Z",
+        "reposts_count": 0,
+        "sharing": "public",
+        "state": "finished",
+        "streamable": true,
+        "tag_list": "\"Non-Site Records\" \"TILT Brass\" \"TILT Creative Brass Band\" \"Bowery Poetry Club\" \"Tom Waits\" \"Dave Ballou\"",
+        "title": "Tom Waits - Coney Island Baby (2002) [arr. D. Ballou]",
+        "uri": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A83460399",
+        "urn": "soundcloud:tracks:83460399",
+        "user_id": 33660914,
+        "visuals": null,
+        "waveform_url": "https://wave.sndcdn.com/Pnfr0uwHVuhs_m.json",
+        "display_date": "2013-03-16T02:42:32Z",
+        "media": {
+          "transcodings": [
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:83460399/b1c929b3-2c32-4bfa-9c6a-a7a8bf984a1a/stream/hls",
+              "preset": "mp3_0_0",
+              "duration": 264722,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mpeg"
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": true
+            },
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:83460399/b1c929b3-2c32-4bfa-9c6a-a7a8bf984a1a/stream/progressive",
+              "preset": "mp3_0_0",
+              "duration": 264722,
+              "snipped": false,
+              "format": {
+                "protocol": "progressive",
+                "mime_type": "audio/mpeg"
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": true
+            }
+          ]
+        },
+        "station_urn": "soundcloud:system-playlists:track-stations:83460399",
+        "station_permalink": "track-stations:83460399",
+        "monetization_model": "BLACKBOX",
+        "policy": "MONETIZE",
+        "user": {
+          "avatar_url": "https://i1.sndcdn.com/avatars-000031664596-r06vh2-large.jpg",
+          "followers_count": 20,
+          "id": 33660914,
+          "kind": "user",
+          "last_modified": "2015-08-29T21:30:40Z",
+          "permalink": "non-site_records",
+          "permalink_url": "https://soundcloud.com/non-site_records",
+          "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A33660914",
+          "urn": "soundcloud:users:33660914",
+          "username": "Non-Site Records",
+          "verified": false,
+          "badges": {
+            "pro": false,
+            "creator_mid_tier": false,
+            "pro_unlimited": false,
+            "verified": false
+          },
+          "station_urn": "soundcloud:system-playlists:artist-stations:33660914",
+          "station_permalink": "artist-stations:33660914"
+        }
+      },
+      {
+        "artwork_url": "https://i1.sndcdn.com/artworks-000043060045-t9n9a9-large.jpg",
+        "caption": null,
+        "commentable": true,
+        "comment_count": 0,
+        "created_at": "2013-03-16T02:49:35Z",
+        "description": "Track 04 from \"Bowery Poetry Club, August '03\", TILT Brass' second Non-Site Records \"SoundCloud Releases (SCR)\" series release. \"Knife Chase\" is found on Tom Waits' then-contemporary LP \"Blood Money\". Our illustrious trumpeter/composer Dave Ballou selected it as one of 3 to air out as brass band pieces that August. This one lives up to its narrative-drenched title. \r\n\r\nPersonnel:\r\nDave Ballou, Russ Johnson, Jon Nelson - trumpet \r\nGreg Evans, Tom Varner – French horn \r\nCurtis Hasselbring, Christopher McIntyre – trombone \r\nJulie Kalu – bass trombone  \r\nDave Hofstra – tuba  \r\nKevin Norton – percussion",
+        "downloadable": false,
+        "download_count": 0,
+        "duration": 155902,
+        "full_duration": 155965,
+        "embeddable_by": "all",
+        "genre": "Downtown",
+        "has_downloads_left": false,
+        "id": 83460998,
+        "kind": "track",
+        "label_name": "Non-Site Records",
+        "last_modified": "2015-07-07T03:10:47Z",
+        "license": "all-rights-reserved",
+        "likes_count": 12,
+        "permalink": "waits_knife-chase_030812",
+        "permalink_url": "https://soundcloud.com/non-site_records/waits_knife-chase_030812",
+        "playback_count": 5348,
+        "public": true,
+        "publisher_metadata": null,
+        "purchase_title": null,
+        "purchase_url": "https://www.artspire.org/Donations/DonatetoFiscalSponsorship/Donate.aspx?view=donateNow&pid=T4300",
+        "release_date": "2013-03-16T00:00:00Z",
+        "reposts_count": 0,
+        "sharing": "public",
+        "state": "finished",
+        "streamable": true,
+        "tag_list": "\"Non-Site Records\" \"TILT Brass\" \"TILT Creative Brass Band\" \"Bowery Poetry Club\" \"Tom Waits\" \"Dave Ballou\"",
+        "title": "Tom Waits - Knife Chase (2002) [arr. D. Ballou]",
+        "uri": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A83460998",
+        "urn": "soundcloud:tracks:83460998",
+        "user_id": 33660914,
+        "visuals": null,
+        "waveform_url": "https://wave.sndcdn.com/YCBJ4PUu7o4E_m.json",
+        "display_date": "2013-03-16T02:49:35Z",
+        "media": {
+          "transcodings": [
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:83460998/a113aa75-d1c7-4a82-883c-dc718b2ac1f5/stream/hls",
+              "preset": "aac_96k",
+              "duration": 155902,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+              },
+              "quality": "lq",
+              "is_legacy_transcoding": false
+            },
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:83460998/45d889cd-fed2-451a-bea4-a643ade66669/stream/hls",
+              "preset": "abr_sq",
+              "duration": 155902,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mpegurl"
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": false
+            }
+          ]
+        },
+        "station_urn": "soundcloud:system-playlists:track-stations:83460998",
+        "station_permalink": "track-stations:83460998",
+        "monetization_model": "BLACKBOX",
+        "policy": "MONETIZE",
+        "user": {
+          "avatar_url": "https://i1.sndcdn.com/avatars-000031664596-r06vh2-large.jpg",
+          "followers_count": 20,
+          "id": 33660914,
+          "kind": "user",
+          "last_modified": "2015-08-29T21:30:40Z",
+          "permalink": "non-site_records",
+          "permalink_url": "https://soundcloud.com/non-site_records",
+          "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A33660914",
+          "urn": "soundcloud:users:33660914",
+          "username": "Non-Site Records",
+          "verified": false,
+          "badges": {
+            "pro": false,
+            "creator_mid_tier": false,
+            "pro_unlimited": false,
+            "verified": false
+          },
+          "station_urn": "soundcloud:system-playlists:artist-stations:33660914",
+          "station_permalink": "artist-stations:33660914"
+        }
+      },
+      {
+        "artwork_url": "https://i1.sndcdn.com/artworks-000043060061-cf171z-large.jpg",
+        "caption": null,
+        "commentable": true,
+        "comment_count": 0,
+        "created_at": "2013-03-16T03:05:25Z",
+        "description": "Track 05 from \"Bowery Poetry Club, August '03\", TILT Brass' second Non-Site Records \"SoundCloud Releases (SCR)\" series release. Elliott Sharp's 1998 \"SyndaKit\", written for his Orchestra Carbon project, is a tour de force of open form composition meant to groove incessantly hard. From the program note:\r\n\r\n\"The essence of SyndaKit is a transformative groove composed of 144 'Cores' divided among the... players and manifested through processes of imitation, addition, recombination, transposition, and improvisation.\" \r\n\r\nThis was TILT's first of 3 performances of the piece. We had only just begun to learn the process which would be obvious to initiated E# listeners. Regardless, a great deal of fascinating improvisative activity rises forth as only this group of TILT family members could manifest. \r\n\r\nPersonnel:\r\nDave Ballou, Russ Johnson, Jon Nelson - trumpet \r\nGreg Evans, Tom Varner – French horn \r\nCurtis Hasselbring, Christopher McIntyre – trombone \r\nJulie Kalu – bass trombone  \r\nDave Hofstra – tuba  \r\nKevin Norton – percussion",
+        "downloadable": false,
+        "download_count": 0,
+        "duration": 875383,
+        "full_duration": 875445,
+        "embeddable_by": "all",
+        "genre": "Downtown",
+        "has_downloads_left": false,
+        "id": 83462427,
+        "kind": "track",
+        "label_name": "Non-Site Records",
+        "last_modified": "2015-07-07T03:10:47Z",
+        "license": "all-rights-reserved",
+        "likes_count": 2,
+        "permalink": "sharp_syndakit_030812",
+        "permalink_url": "https://soundcloud.com/non-site_records/sharp_syndakit_030812",
+        "playback_count": 5412,
+        "public": true,
+        "publisher_metadata": null,
+        "purchase_title": null,
+        "purchase_url": "https://www.artspire.org/Donations/DonatetoFiscalSponsorship/Donate.aspx?view=donateNow&pid=T4300",
+        "release_date": "2013-03-16T00:00:00Z",
+        "reposts_count": 0,
+        "sharing": "public",
+        "state": "finished",
+        "streamable": true,
+        "tag_list": "\"Non-Site Records\" \"TILT Brass\" \"TILT Creative Brass Band\" \"Bowery Poetry Club\" \"Elliott Sharp\"",
+        "title": "Elliott Sharp - SyndaKit (1998)",
+        "uri": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A83462427",
+        "urn": "soundcloud:tracks:83462427",
+        "user_id": 33660914,
+        "visuals": null,
+        "waveform_url": "https://wave.sndcdn.com/zRCXdETi1eA6_m.json",
+        "display_date": "2013-03-16T03:05:25Z",
+        "media": {
+          "transcodings": [
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:83462427/18c768b3-fc6f-4d36-bcda-fba32993b521/stream/hls",
+              "preset": "aac_160k",
+              "duration": 875383,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": false
+            },
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:83462427/d29f6290-df30-48af-bed0-140e434d63e0/stream/hls",
+              "preset": "aac_96k",
+              "duration": 875383,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+              },
+              "quality": "lq",
+              "is_legacy_transcoding": false
+            },
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:83462427/e0adc816-cfd0-4f12-a17c-e4388b8820bc/stream/hls",
+              "preset": "abr_sq",
+              "duration": 875383,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mpegurl"
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": false
+            }
+          ]
+        },
+        "station_urn": "soundcloud:system-playlists:track-stations:83462427",
+        "station_permalink": "track-stations:83462427",
+        "monetization_model": "BLACKBOX",
+        "policy": "MONETIZE",
+        "user": {
+          "avatar_url": "https://i1.sndcdn.com/avatars-000031664596-r06vh2-large.jpg",
+          "followers_count": 20,
+          "id": 33660914,
+          "kind": "user",
+          "last_modified": "2015-08-29T21:30:40Z",
+          "permalink": "non-site_records",
+          "permalink_url": "https://soundcloud.com/non-site_records",
+          "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A33660914",
+          "urn": "soundcloud:users:33660914",
+          "username": "Non-Site Records",
+          "verified": false,
+          "badges": {
+            "pro": false,
+            "creator_mid_tier": false,
+            "pro_unlimited": false,
+            "verified": false
+          },
+          "station_urn": "soundcloud:system-playlists:artist-stations:33660914",
+          "station_permalink": "artist-stations:33660914"
+        }
+      },
+      {
+        "id": 83463843,
+        "kind": "track",
+        "monetization_model": "BLACKBOX",
+        "policy": "MONETIZE"
+      }
+    ],
+    "track_count": 6
+  },
+  "api_error": null
+}

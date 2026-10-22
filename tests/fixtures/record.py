@@ -1,7 +1,9 @@
 """Record SoundCloud fixtures, and replay them in tests without the network.
 
-Each fixture holds yt-dlp's info dict and api-v2's /resolve answer for one track, or the error
-each gave. Tokens, the client_id and signed-URL parameters are scrubbed before anything is saved.
+Each fixture holds yt-dlp's info dict and api-v2's /resolve answer for one track or set, or the
+error each gave. A set's info dict is yt-dlp's quick listing, which doesn't resolve its tracks,
+and sets are saved in their own folder. Tokens, the client_id and signed-URL parameters are
+scrubbed before anything is saved.
 
     uv run python tests/fixtures/record.py NAME=URL [NAME=URL ...]
 """
@@ -13,9 +15,10 @@ import io
 import json
 import re
 import sys
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from yt_dlp import YoutubeDL
@@ -26,10 +29,30 @@ from yt_dlp.utils import DownloadError, ExtractorError, GeoRestrictedError
 from scmp3.core import engine
 from scmp3.core.errors import ScmpError
 from scmp3.core.log import MASK, redact
-from scmp3.core.sources import soundcloud
-from scmp3.core.urls import normalize_soundcloud
+from scmp3.core.sources import soundcloud, soundcloud_sets
+from scmp3.core.urls import UnsupportedInput, classify_link, normalize_soundcloud
 
 FIXTURES_DIR = Path(__file__).parent / "soundcloud"
+# Sets are kept apart, since the tests that read every fixture in FIXTURES_DIR read tracks.
+SETS_DIR = FIXTURES_DIR / "sets"
+
+# The api-v2 call a fixture records, like soundcloud.api_track.
+ApiCall = Callable[[YoutubeDL, str], dict[str, Any]]
+
+
+# A NamedTuple, since test files load this module without registering it, which dataclasses need.
+class Recorder(NamedTuple):
+    """How one kind of link is recorded, and where its fixtures go."""
+
+    options: Mapping[str, Any]  # the yt-dlp options it's read with
+    api_call: ApiCall
+    folder: Path
+
+
+RECORDERS: dict[str, Recorder] = {
+    "soundcloud_track": Recorder({}, soundcloud.api_track, FIXTURES_DIR),
+    "soundcloud_set": Recorder(soundcloud_sets.LISTING_OPTIONS, soundcloud_sets.api_set, SETS_DIR),
+}
 
 # What replays hand out as the client_id: 32 characters, like the real ones, but not one.
 FAKE_CLIENT_ID = "0" * 32
@@ -101,8 +124,11 @@ def _keeps_key(key: str) -> bool:
     return not _SECRET_KEY.search(key) and key not in PERSONAL_KEYS
 
 
-def record(url: str, ydl: YoutubeDL) -> dict[str, Any]:
-    """Resolve one track the way soundcloud.resolve does, and return the scrubbed fixture."""
+def record(url: str, ydl: YoutubeDL, api_call: ApiCall = soundcloud.api_track) -> dict[str, Any]:
+    """Read one track or set the way sc-mp3 does, and return the scrubbed fixture.
+
+    Pass RECORDERS' api call for the link's kind, and a `ydl` built with its options.
+    """
     link = normalize_soundcloud(url)
     fixture: dict[str, Any] = {
         "url": link,
@@ -119,7 +145,7 @@ def record(url: str, ydl: YoutubeDL) -> dict[str, Any]:
     except DownloadError as error:
         fixture["info_error"] = describe_download_error(error)
     try:
-        fixture["api"] = soundcloud.api_track(ydl, link)
+        fixture["api"] = api_call(ydl, link)
     except ScmpError as error:
         fixture["api_error"] = {"kind": str(error.kind), "status": _http_status(error.__cause__)}
     return scrub(fixture)
@@ -214,16 +240,30 @@ def http_error(status: int, url: str = soundcloud.API_RESOLVE) -> HTTPError:
 
 
 def main(argv: list[str]) -> int:
-    """Record each NAME=URL pair into tests/fixtures/soundcloud/NAME.json."""
+    """Record each NAME=URL pair, a track or a set, into tests/fixtures/soundcloud/NAME.json."""
     pairs = [arg.partition("=") for arg in argv]
     if not pairs or any(not sep or not _NAME.fullmatch(name) for name, sep, _ in pairs):
         print(__doc__, file=sys.stderr)
         return 2
-    with soundcloud.make_ydl() as ydl:
-        for name, _, url in pairs:
-            path = save(name, record(url, ydl))
-            print(f"Saved {path.name}")
+    kinds = [_link_kind(url) for _, _, url in pairs]
+    if any(kind not in RECORDERS for kind in kinds):
+        print("Each URL must be a SoundCloud track or set link.", file=sys.stderr)
+        return 2
+    for (name, _, url), kind in zip(pairs, kinds, strict=True):
+        recorder = RECORDERS[kind]
+        with soundcloud.make_ydl(extra=recorder.options) as ydl:
+            fixture = record(url, ydl, recorder.api_call)
+        path = save(name, fixture, recorder.folder)
+        print(f"Saved {path.relative_to(FIXTURES_DIR)}")
     return 0
+
+
+def _link_kind(url: str) -> str | None:
+    """The kind of link `url` is, or None when it isn't one sc-mp3 reads."""
+    try:
+        return classify_link(url)[0]
+    except UnsupportedInput:
+        return None
 
 
 if __name__ == "__main__":

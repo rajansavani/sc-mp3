@@ -207,11 +207,18 @@ def test_replay_answers_from_the_fixture() -> None:
     assert ydl.cache.load("soundcloud", "client_id") == record.FAKE_CLIENT_ID
 
 
-@pytest.mark.parametrize("name", record.names())
-def test_every_committed_fixture_is_already_scrubbed(name: str) -> None:
-    fixture = record.load(name)
+COMMITTED = [(record.FIXTURES_DIR, name) for name in record.names()] + [
+    (record.SETS_DIR, name) for name in record.names(record.SETS_DIR)
+]
+
+
+@pytest.mark.parametrize(
+    ("folder", "name"), COMMITTED, ids=[f"{folder.name}/{name}" for folder, name in COMMITTED]
+)
+def test_every_committed_fixture_is_already_scrubbed(folder: Path, name: str) -> None:
+    fixture = record.load(name, folder)
     assert record.scrub(fixture) == fixture
-    text = (record.FIXTURES_DIR / f"{name}.json").read_text(encoding="utf-8")
+    text = (folder / f"{name}.json").read_text(encoding="utf-8")
     assert redact(text) == text
     # A JWT, and CloudFront's Policy, both start with base64 for '{"'.
     assert "eyJ" not in text
@@ -233,3 +240,9 @@ def test_the_fixture_set_covers_every_case_the_ticket_lists() -> None:
         "not_found",
     }
     assert expected <= set(record.names())
+
+
+def test_the_set_fixtures_are_an_album_and_a_plain_playlist() -> None:
+    assert record.names(record.SETS_DIR) == ["album", "playlist"]
+    assert record.load("album", record.SETS_DIR)["api"]["set_type"] == "album"
+    assert record.load("playlist", record.SETS_DIR)["api"]["set_type"] == ""

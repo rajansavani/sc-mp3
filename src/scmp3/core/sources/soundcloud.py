@@ -1,4 +1,5 @@
-"""SoundCloud tracks: resolve a link into a SourceInfo. soundcloud_formats picks what to download.
+"""SoundCloud tracks: resolve a link into a SourceInfo. soundcloud_formats picks what to download,
+soundcloud_sets lists the tracks of a set, and soundcloud_fields maps single values.
 
 yt-dlp extracts the track, and one extra api-v2 call adds the fields it leaves out (TECH_SPEC §6).
 """
@@ -6,10 +7,8 @@ yt-dlp extracts the track, and one extra api-v2 call adds the fields it leaves o
 from __future__ import annotations
 
 import logging
-import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode, urlsplit
 
@@ -18,13 +17,25 @@ from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.log import register_secret
 from scmp3.core.models import Availability, FormatOption, OriginalDownload, SourceInfo
 from scmp3.core.sources import ytdlp_errors
+from scmp3.core.sources.soundcloud_fields import (
+    codec,
+    first,
+    is_avatar,
+    iso_date,
+    pick_artwork,
+    seconds,
+    t500x500,
+    yyyymmdd,
+)
 from scmp3.core.sources.soundcloud_formats import is_preview, original_format
-from scmp3.core.urls import LinkKind, classify_link, resolve_short_link
+from scmp3.core.urls import LinkKind, UnsupportedInput, classify_link, resolve_short_link
 
 if TYPE_CHECKING:
     from yt_dlp import YoutubeDL
 
 API_RESOLVE = "https://api-v2.soundcloud.com/resolve"
+# The host every api link is normalized to.
+API_HOST = "api.soundcloud.com"
 
 # Each format yt-dlp lists costs one API request, against a limit of about 600 per 10 minutes.
 # So only AAC and MP3 are asked for, named in full so encrypted HLS (hls-aes) never is.
@@ -46,14 +57,6 @@ REFUSED_AVAILABILITY: dict[ErrorKind, Availability] = {
 # A preview lasts 30 seconds; this much either side still counts.
 PREVIEW_SECONDS = 30.0
 PREVIEW_TOLERANCE = 1.0
-
-# Cover sizes in order of preference. Larger ones such as t3000x3000 are upscaled, so never used.
-ARTWORK_IDS = ("original", "t500x500")
-# The size suffix of a SoundCloud image URL, as in artworks-000243916348-ktoo7d-large.jpg.
-_IMAGE_SIZE = re.compile(r"-[0-9a-z]+\.(?:jpg|png)$")
-
-# Codec names for the start of yt-dlp's acodec, such as mp4a.40.2.
-CODECS = {"mp4a": "aac", "mp3": "mp3", "opus": "opus", "alac": "alac", "flac": "flac"}
 
 log = logging.getLogger(__name__)
 
@@ -104,7 +107,7 @@ def resolve_track(url: str, ydl: YoutubeDL, token: str | None = None) -> Resolve
     except yt_dlp.utils.YoutubeDLError as error:
         return ResolvedTrack(_resolve_refused(link, ydl, token, error), None)
     track = _try_api_track(ydl, link, token)
-    source = _from_info(link, info)
+    source = _from_info(_page_link(link, info), info)
     if track is not None:
         _add_api_fields(source, track)
     source.original = _original(source.formats, track, signed_in=bool(token))
@@ -135,8 +138,29 @@ def _track_link(url: str) -> str:
     return link
 
 
+def _page_link(link: str, info: Mapping[str, Any]) -> str:
+    """The track's own page in place of a public api link, which sets list some tracks by.
+
+    So the tags and the history hold the page. A secret api link stays, since its page would need
+    the token too.
+    """
+    parts = urlsplit(link)
+    if parts.hostname != API_HOST or parts.query:
+        return link
+    try:
+        kind, page = classify_link(str(info.get("webpage_url") or ""))
+    except UnsupportedInput:
+        return link
+    return page if kind == "soundcloud_track" else link
+
+
 def api_track(ydl: YoutubeDL, url: str, token: str | None = None) -> dict[str, Any]:
     """api-v2's /resolve answer for a track link, which holds the fields yt-dlp leaves out."""
+    return api_resolve(ydl, url, "track", token)
+
+
+def api_resolve(ydl: YoutubeDL, url: str, kind: str, token: str | None = None) -> dict[str, Any]:
+    """api-v2's /resolve answer for a link, refused unless it describes a `kind`, like "track"."""
     # yt-dlp stores the client_id it finds, and the advanced setting overrides it there too.
     client_id = ydl.cache.load("soundcloud", "client_id")
     if not client_id:
@@ -147,12 +171,12 @@ def api_track(ydl: YoutubeDL, url: str, token: str | None = None) -> dict[str, A
         # On this request only: set on yt-dlp itself, it breaks extraction (yt-dlp #12249).
         headers["Authorization"] = f"OAuth {token}"
     query = urlencode({"url": url, "client_id": client_id})
-    track = engine.api_get_json(
+    answer = engine.api_get_json(
         ydl, f"{API_RESOLVE}?{query}", headers, status_kinds=RESOLVE_STATUS_KINDS
     )
-    if track.get("kind") != "track":
-        raise ScmpError(ErrorKind.engine_outdated, "api-v2 /resolve didn't return a track")
-    return track
+    if answer.get("kind") != kind:
+        raise ScmpError(ErrorKind.engine_outdated, f"api-v2 /resolve didn't return a {kind}")
+    return answer
 
 
 def _resolve_refused(
@@ -183,8 +207,8 @@ def _try_api_track(ydl: YoutubeDL, link: str, token: str | None) -> dict[str, An
 
 def _from_info(link: str, info: Mapping[str, Any]) -> SourceInfo:
     """The SourceInfo fields yt-dlp's info dict gives."""
-    artwork_url = _artwork_url(info.get("thumbnails") or [])
-    upload_date = _yyyymmdd(info.get("upload_date"))
+    artwork_url = pick_artwork(info.get("thumbnails") or [])
+    upload_date = yyyymmdd(info.get("upload_date"))
     return SourceInfo(
         kind="soundcloud",
         id=f"soundcloud:tracks:{info['id']}",
@@ -193,13 +217,13 @@ def _from_info(link: str, info: Mapping[str, Any]) -> SourceInfo:
         uploader=info.get("uploader") or "",
         # Never `artist`: yt-dlp swaps the commas in it for FULLWIDTH COMMA (yt-dlp #16295).
         artists=list(info.get("artists") or []),
-        release_date=_yyyymmdd(info.get("release_date")) or upload_date,
+        release_date=yyyymmdd(info.get("release_date")) or upload_date,
         upload_date=upload_date,
-        genre=_first(info.get("genres")),
+        genre=first(info.get("genres")),
         description=info.get("description") or None,
         duration=info.get("duration"),
         artwork_url=artwork_url,
-        artwork_is_avatar=_is_avatar(artwork_url),
+        artwork_is_avatar=is_avatar(artwork_url),
         formats=[_format_option(fmt) for fmt in info.get("formats") or []],
     )
 
@@ -207,9 +231,9 @@ def _from_info(link: str, info: Mapping[str, Any]) -> SourceInfo:
 def _from_api(link: str, track: Mapping[str, Any]) -> SourceInfo:
     """The SourceInfo fields api-v2 gives for a track yt-dlp refused. It has no formats."""
     user = track.get("user") or {}
-    artwork_url = _t500x500(track.get("artwork_url") or user.get("avatar_url"))
+    artwork_url = t500x500(track.get("artwork_url") or user.get("avatar_url"))
     publisher = track.get("publisher_metadata") or {}
-    upload_date = _iso_date(track.get("created_at"))
+    upload_date = iso_date(track.get("created_at"))
     return SourceInfo(
         kind="soundcloud",
         id=f"soundcloud:tracks:{track['id']}",
@@ -221,9 +245,9 @@ def _from_api(link: str, track: Mapping[str, Any]) -> SourceInfo:
         upload_date=upload_date,
         genre=track.get("genre") or None,
         description=track.get("description") or None,
-        duration=_seconds(track.get("duration")),
+        duration=seconds(track.get("duration")),
         artwork_url=artwork_url,
-        artwork_is_avatar=_is_avatar(artwork_url),
+        artwork_is_avatar=is_avatar(artwork_url),
     )
 
 
@@ -236,9 +260,9 @@ def _add_api_fields(source: SourceInfo, track: Mapping[str, Any]) -> None:
     source.explicit = explicit if isinstance(explicit, bool) else None
     # The label sits beside the publisher details on the track, not inside them.
     source.label = publisher.get("label_name") or track.get("label_name") or None
-    source.release_date = _iso_date(track.get("release_date")) or source.release_date
+    source.release_date = iso_date(track.get("release_date")) or source.release_date
     source.description = track.get("description") or source.description
-    source.full_duration = _seconds(track.get("full_duration"))
+    source.full_duration = seconds(track.get("full_duration"))
 
 
 def _original(
@@ -283,75 +307,9 @@ def _format_option(fmt: Mapping[str, Any]) -> FormatOption:
     return FormatOption(
         format_id=format_id,
         ext=fmt.get("ext") or "",
-        codec=_codec(fmt.get("acodec"), format_id),
+        codec=codec(fmt.get("acodec"), format_id),
         bitrate=fmt.get("abr") or fmt.get("tbr"),
         # yt-dlp names previews ..._preview and ranks them at -10.
         is_preview="_preview" in format_id or fmt.get("preference") == -10,
         is_original=format_id == "download",
     )
-
-
-def _codec(acodec: str | None, format_id: str) -> str | None:
-    """A plain codec name, from yt-dlp's acodec or else from the format_id, as in hls_mp3_0_0."""
-    if acodec and acodec != "none":
-        prefix = acodec.split(".", 1)[0].lower()
-        return CODECS.get(prefix, prefix)
-    parts = format_id.split("_")
-    if len(parts) > 1 and parts[1] in CODECS.values():
-        return parts[1]
-    return None
-
-
-def _artwork_url(thumbnails: Sequence[Mapping[str, Any]]) -> str | None:
-    """The first of ARTWORK_IDS among yt-dlp's thumbnails."""
-    by_id = {thumb.get("id"): thumb.get("url") for thumb in thumbnails}
-    return next((by_id[size] for size in ARTWORK_IDS if by_id.get(size)), None)
-
-
-def _t500x500(image: str | None) -> str | None:
-    """The t500x500 size of an api-v2 image URL. The original's type would take a request to find.
-
-    An image without a size in its name, like SoundCloud's default avatar, gives None, as it gives
-    yt-dlp no sized thumbnails.
-    """
-    if not image or not _IMAGE_SIZE.search(image):
-        return None
-    return _IMAGE_SIZE.sub("-t500x500.jpg", image)
-
-
-def _is_avatar(artwork_url: str | None) -> bool:
-    """Whether the cover is the uploader's profile picture, which yt-dlp falls back to."""
-    if artwork_url is None:
-        return False
-    name = urlsplit(artwork_url).path.rsplit("/", 1)[-1]
-    return name.startswith("avatars-")
-
-
-def _first(values: Sequence[str] | None) -> str | None:
-    return values[0] if values else None
-
-
-def _yyyymmdd(value: str | None) -> date | None:
-    """A date from yt-dlp's YYYYMMDD form."""
-    if not value:
-        return None
-    try:
-        return datetime.strptime(value, "%Y%m%d").date()
-    except ValueError:
-        log.warning("Ignoring a date yt-dlp gave in an unexpected form: %r", value)
-        return None
-
-
-def _iso_date(value: str | None) -> date | None:
-    """The date part of an api-v2 timestamp such as 2017-09-26T00:00:00Z."""
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value).date()
-    except ValueError:
-        log.warning("Ignoring a date api-v2 gave in an unexpected form: %r", value)
-        return None
-
-
-def _seconds(milliseconds: float | None) -> float | None:
-    return milliseconds / 1000 if isinstance(milliseconds, int | float) else None

@@ -7,7 +7,7 @@ from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 from scmp3.core import download
 from scmp3.core.convert import AudioInfo
@@ -15,7 +15,17 @@ from scmp3.core.engine import ProgressHook
 from scmp3.core.errors import Cancelled, ErrorKind, ErrorPlace, ScmpError
 from scmp3.core.history import History
 from scmp3.core.history import default_path as default_history_path
-from scmp3.core.models import FormatOption, HistoryEntry, Settings, SourceInfo, TagSuggestion
+from scmp3.core.models import (
+    AlbumMode,
+    ArtworkChoice,
+    FormatOption,
+    HistoryEntry,
+    PlaylistInfo,
+    Settings,
+    SourceInfo,
+    TagSuggestion,
+    TitleStyle,
+)
 from scmp3.core.sources import soundcloud, ytdlp_errors
 from scmp3.core.tagger import FileFormat
 from scmp3.core.urls import UnsupportedInput
@@ -83,6 +93,58 @@ class Saved:
     @property
     def cover_missing(self) -> bool:
         return self.cover_error is not None
+
+
+@dataclass
+class PreparedSet:
+    """A listed set: its details and its tracks in order, before any track is resolved."""
+
+    url: str  # the normalized set link
+    playlist: PlaylistInfo
+    default_mode: AlbumMode  # what the set's type suggests
+    settings: Settings  # what prepare_set ran with; its tracks resolve with it too
+    token: str | None = field(default=None, repr=False)  # the SoundCloud sign-in, if any
+    tools: Tools = field(default_factory=Tools, repr=False)
+
+
+@dataclass
+class SetTrack:
+    """One track of a set when the set is saved. Saving it records what became of it."""
+
+    prepared: Prepared | None  # None when the track couldn't be resolved
+    error: ScmpError | None = None  # why it couldn't
+    included: bool = True
+    # Downloaded when it's saved, if it isn't yet, and kept after a failed save for a retry.
+    staged: Staged | None = None
+    suggestion: TagSuggestion | None = None  # the reviewed suggestion; prepare's by default
+    style: TitleStyle | None = None
+    overrides: dict[str, str] = field(default_factory=dict)  # this track's own hand edits
+    cover: ArtworkChoice = field(default_factory=ArtworkChoice)  # for singles; an album shares one
+    saved: Saved | None = None  # set once it's saved, so saving the set again skips it
+
+    @property
+    def to_save(self) -> bool:
+        """Whether it's included and resolved, which is what gives it a number in an album.
+
+        A track that's already saved still counts, so the others keep their numbers.
+        """
+        return self.included and self.prepared is not None
+
+
+# What saving a set did with a track. "name_taken" means the name was taken and the answer was skip.
+TrackOutcome = Literal["saved", "name_taken", "failed", "left_out"]
+
+
+@dataclass(frozen=True)
+class TrackResult:
+    """What saving a set did with one of its tracks."""
+
+    outcome: TrackOutcome
+    saved: Saved | None = None  # the file, when it was saved
+    error: ScmpError | None = None  # why not, when it failed
+    # Its number in the album, kept when it fails; None for a single or a track left out.
+    track_no: int | None = None
+    track_total: int | None = None
 
 
 def expected_duration(source: SourceInfo) -> float | None:

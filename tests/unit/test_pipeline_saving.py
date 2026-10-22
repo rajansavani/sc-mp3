@@ -370,3 +370,25 @@ def test_an_album_that_is_only_the_base_title_counts_as_a_single(
     assert prepared.suggestion.base_title == "The Following"
     saved = save_with_overrides(prepared, subfolders, {"title": "Following"})
     assert saved.parent == subfolders.library_dir
+
+
+def test_a_track_saved_from_an_album_set_gets_the_album_folder_whatever_its_tags(
+    world: FakeSoundCloud, settings: Settings, history: History
+) -> None:
+    # Alone, "The Following" on the album "The Following" counts as a single and stays flat.
+    subfolders = replace(settings, album_subfolders=True)
+    prepared = prepare(world, subfolders, history)
+    staged = pipeline.fetch(prepared)
+    edits = {"album": "The Following", "track_no": "1"}
+    tags = pipeline.render_tags(prepared.source, prepared.suggestion, subfolders, overrides=edits)
+    suggestion = prepared.suggestion
+    planned = pipeline.destination(
+        prepared.source, suggestion, staged, tags, subfolders, overrides=edits, in_album_set=True
+    )
+    no_cover = ArtworkChoice("none")
+    saved = pipeline.finalize(
+        prepared, staged, tags, no_cover, subfolders, overrides=edits, in_album_set=True
+    )
+    assert saved is not None
+    folder = subfolders.library_dir / "80M" / "The Following"
+    assert saved.path == planned == folder / "01 80M - The Following.mp3"

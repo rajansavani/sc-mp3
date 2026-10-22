@@ -105,6 +105,19 @@ def test_the_link_is_normalized_before_yt_dlp_sees_it() -> None:
     assert source.url == TYPICAL_URL
 
 
+def test_a_public_api_link_resolves_to_the_tracks_own_page() -> None:
+    # Sets list some tracks by their api link, and the tags and history should hold the page.
+    ydl = replay("aac_typical")
+    source = soundcloud.resolve("https://api-v2.soundcloud.com/tracks/343609555", ydl)
+    assert ydl.extracted == ["https://api.soundcloud.com/tracks/343609555"]
+    assert source.url == TYPICAL_URL
+
+
+def test_a_secret_api_link_is_kept_since_its_page_would_need_the_token() -> None:
+    link = "https://api.soundcloud.com/tracks/343609555?secret_token=s-AbCdE"
+    assert soundcloud.resolve(link, replay("aac_typical")).url == link
+
+
 def test_one_api_call_asks_resolve_for_the_link_with_the_cached_client_id() -> None:
     ydl = replay("aac_typical")
     resolve(ydl)

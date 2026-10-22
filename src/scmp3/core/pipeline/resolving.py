@@ -1,5 +1,5 @@
 """The pipeline's first stage: resolve an input, refuse a track that can't be saved, look it up in
-the history and suggest its tags."""
+the history and suggest its tags. A set is listed first, then each of its tracks resolves alone."""
 
 from __future__ import annotations
 
@@ -10,10 +10,10 @@ from typing import TYPE_CHECKING
 
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.history import History
-from scmp3.core.inputs import ParsedInput
-from scmp3.core.models import HistoryEntry, Settings, SourceInfo
-from scmp3.core.pipeline.common import Prepared, Tools, only_scmp_errors
-from scmp3.core.sources import soundcloud
+from scmp3.core.inputs import ParsedInput, classify
+from scmp3.core.models import HistoryEntry, PlaylistEntry, Settings, SourceInfo
+from scmp3.core.pipeline.common import Prepared, PreparedSet, SetTrack, Tools, only_scmp_errors
+from scmp3.core.sources import soundcloud, soundcloud_sets
 from scmp3.core.sources.soundcloud_formats import AVAILABILITY_KINDS
 from scmp3.core.suggest import suggest
 from scmp3.core.urls import NOT_SUPPORTED, UnsupportedInput
@@ -95,6 +95,67 @@ def prepare(
             token=token,
             tools=tools,
         )
+
+
+def prepare_set(
+    parsed: ParsedInput,
+    *,
+    settings: Settings,
+    token: str | None = None,
+    tools: Tools | None = None,
+) -> PreparedSet:
+    """List a set's tracks and pick its default mode. Each track resolves with prepare_set_track.
+
+    Takes a SoundCloud set link; the caller sends tracks to prepare. Raises ScmpError when the set
+    can't be read or holds no tracks.
+    """
+    if parsed.kind != "soundcloud_set" or not parsed.url:
+        raise ValueError(f"prepare_set takes a SoundCloud set link, not a {parsed.kind} input")
+    tools = tools or Tools()
+    options = soundcloud_sets.LISTING_OPTIONS
+    # The YoutubeDL is made inside the error mapping, as prepare's is.
+    with only_scmp_errors(where="data"), tools.make_ydl(token, extra=options) as ydl:
+        playlist = soundcloud_sets.list_set(parsed.url, ydl, token)
+    if not playlist.entries:
+        # SoundCloud keeps a set whose tracks were all removed or made private.
+        raise ScmpError(ErrorKind.unavailable, "the set has no tracks")
+    return PreparedSet(
+        url=parsed.url,
+        playlist=playlist,
+        default_mode=soundcloud_sets.default_mode(playlist),
+        settings=settings,
+        token=token,
+        tools=tools,
+    )
+
+
+def prepare_set_track(
+    prepared_set: PreparedSet, entry: PlaylistEntry, *, job_id: str | None = None
+) -> Prepared:
+    """Resolve one track of a set the way prepare resolves a track link. Raises as prepare does.
+
+    Each call resolves one track, so the app runs them in its resolve pool.
+    """
+    return prepare(
+        classify(entry.url),
+        settings=prepared_set.settings,
+        token=prepared_set.token,
+        tools=prepared_set.tools,
+        job_id=job_id,
+    )
+
+
+def prepare_set_tracks(prepared_set: PreparedSet) -> list[SetTrack]:
+    """Resolve every track of a set in order, one after another. A failure stays with its track."""
+    return [_resolve_set_track(prepared_set, entry) for entry in prepared_set.playlist.entries]
+
+
+def _resolve_set_track(prepared_set: PreparedSet, entry: PlaylistEntry) -> SetTrack:
+    try:
+        return SetTrack(prepare_set_track(prepared_set, entry))
+    except ScmpError as error:
+        log.warning("Couldn't resolve a track of the set: %s", error)
+        return SetTrack(None, error=error)
 
 
 def _check_availability(source: SourceInfo) -> None:

@@ -1,0 +1,877 @@
+{
+  "url": "https://soundcloud.com/leviryan/sets/out-of-spite",
+  "recorded": "2026-10-20",
+  "yt_dlp": "2026.08.19",
+  "hand_built": null,
+  "info": {
+    "album": "out of spite",
+    "album_artist": "Levi Ryan",
+    "album_type": "album",
+    "uploader": "Levi Ryan",
+    "uploader_id": "229146182",
+    "uploader_url": "https://soundcloud.com/leviryan",
+    "timestamp": 1667935849,
+    "release_timestamp": 1667865600,
+    "modified_timestamp": 1667935903,
+    "duration": 1531.376,
+    "license": "all-rights-reserved",
+    "like_count": 191,
+    "repost_count": 39,
+    "genres": [
+      "Hip-hop & Rap"
+    ],
+    "tags": [
+      "Drum & Bass",
+      "Alternative",
+      "Ambient"
+    ],
+    "thumbnails": [
+      {
+        "id": "mini",
+        "url": "https://i1.sndcdn.com/artworks-2hmuDCrcvCzzCaXZ-1rztZA-mini.jpg",
+        "width": 16,
+        "height": 16,
+        "resolution": "16x16"
+      },
+      {
+        "id": "tiny",
+        "url": "https://i1.sndcdn.com/artworks-2hmuDCrcvCzzCaXZ-1rztZA-tiny.jpg",
+        "width": 20,
+        "height": 20,
+        "resolution": "20x20"
+      },
+      {
+        "id": "small",
+        "url": "https://i1.sndcdn.com/artworks-2hmuDCrcvCzzCaXZ-1rztZA-small.jpg",
+        "width": 32,
+        "height": 32,
+        "resolution": "32x32"
+      },
+      {
+        "id": "badge",
+        "url": "https://i1.sndcdn.com/artworks-2hmuDCrcvCzzCaXZ-1rztZA-badge.jpg",
+        "width": 47,
+        "height": 47,
+        "resolution": "47x47"
+      },
+      {
+        "id": "t67x67",
+        "url": "https://i1.sndcdn.com/artworks-2hmuDCrcvCzzCaXZ-1rztZA-t67x67.jpg",
+        "width": 67,
+        "height": 67,
+        "resolution": "67x67"
+      },
+      {
+        "id": "large",
+        "url": "https://i1.sndcdn.com/artworks-2hmuDCrcvCzzCaXZ-1rztZA-large.jpg",
+        "width": 100,
+        "height": 100,
+        "resolution": "100x100"
+      },
+      {
+        "id": "t300x300",
+        "url": "https://i1.sndcdn.com/artworks-2hmuDCrcvCzzCaXZ-1rztZA-t300x300.jpg",
+        "width": 300,
+        "height": 300,
+        "resolution": "300x300"
+      },
+      {
+        "id": "crop",
+        "url": "https://i1.sndcdn.com/artworks-2hmuDCrcvCzzCaXZ-1rztZA-crop.jpg",
+        "width": 400,
+        "height": 400,
+        "resolution": "400x400"
+      },
+      {
+        "id": "t500x500",
+        "url": "https://i1.sndcdn.com/artworks-2hmuDCrcvCzzCaXZ-1rztZA-t500x500.jpg",
+        "width": 500,
+        "height": 500,
+        "resolution": "500x500"
+      },
+      {
+        "id": "original",
+        "url": "https://i1.sndcdn.com/artworks-2hmuDCrcvCzzCaXZ-1rztZA-original.jpg",
+        "preference": 10
+      }
+    ],
+    "id": "1524158182",
+    "title": "out of spite",
+    "description": "",
+    "_type": "playlist",
+    "entries": [
+      {
+        "album": "out of spite",
+        "album_artist": "Levi Ryan",
+        "album_type": "album",
+        "ie_key": "Soundcloud",
+        "id": "1378985008",
+        "_type": "url_transparent",
+        "url": "https://soundcloud.com/leviryan/crackshot-wgl0wrm",
+        "__x_forwarded_for_ip": null
+      },
+      {
+        "album": "out of spite",
+        "album_artist": "Levi Ryan",
+        "album_type": "album",
+        "ie_key": "Soundcloud",
+        "id": "1378983277",
+        "_type": "url_transparent",
+        "url": "https://soundcloud.com/leviryan/matrix-wdavid-shawty",
+        "__x_forwarded_for_ip": null
+      },
+      {
+        "album": "out of spite",
+        "album_artist": "Levi Ryan",
+        "album_type": "album",
+        "ie_key": "Soundcloud",
+        "id": "1378981744",
+        "_type": "url_transparent",
+        "url": "https://soundcloud.com/leviryan/silkroad-wlonewolfprie",
+        "__x_forwarded_for_ip": null
+      },
+      {
+        "album": "out of spite",
+        "album_artist": "Levi Ryan",
+        "album_type": "album",
+        "ie_key": "Soundcloud",
+        "id": "1378980004",
+        "_type": "url_transparent",
+        "url": "https://soundcloud.com/leviryan/purextc",
+        "__x_forwarded_for_ip": null
+      },
+      {
+        "album": "out of spite",
+        "album_artist": "Levi Ryan",
+        "album_type": "album",
+        "ie_key": "Soundcloud",
+        "id": "1378978405",
+        "_type": "url_transparent",
+        "url": "https://soundcloud.com/leviryan/bright-eyes-wfuneral",
+        "__x_forwarded_for_ip": null
+      },
+      {
+        "album": "out of spite",
+        "album_artist": "Levi Ryan",
+        "album_type": "album",
+        "ie_key": "Soundcloud",
+        "id": "1378976746",
+        "_type": "url_transparent",
+        "url": "https://api-v2.soundcloud.com/tracks/1378976746",
+        "__x_forwarded_for_ip": null
+      },
+      {
+        "album": "out of spite",
+        "album_artist": "Levi Ryan",
+        "album_type": "album",
+        "ie_key": "Soundcloud",
+        "id": "1378973569",
+        "_type": "url_transparent",
+        "url": "https://api-v2.soundcloud.com/tracks/1378973569",
+        "__x_forwarded_for_ip": null
+      },
+      {
+        "album": "out of spite",
+        "album_artist": "Levi Ryan",
+        "album_type": "album",
+        "ie_key": "Soundcloud",
+        "id": "1378971022",
+        "_type": "url_transparent",
+        "url": "https://api-v2.soundcloud.com/tracks/1378971022",
+        "__x_forwarded_for_ip": null
+      }
+    ],
+    "webpage_url": "https://soundcloud.com/leviryan/sets/out-of-spite",
+    "original_url": "https://soundcloud.com/leviryan/sets/out-of-spite",
+    "webpage_url_basename": "out-of-spite",
+    "webpage_url_domain": "soundcloud.com",
+    "extractor": "soundcloud:set",
+    "extractor_key": "SoundcloudSet",
+    "duration_string": "25:31",
+    "upload_date": "20221108",
+    "release_date": "20221108",
+    "modified_date": "20221108",
+    "release_year": 2022,
+    "album_artists": [
+      "Levi Ryan"
+    ],
+    "genre": "Hip-hop & Rap",
+    "playlist_count": 8,
+    "epoch": 1792465771,
+    "_version": {
+      "version": "2026.08.19",
+      "current_git_head": null,
+      "release_git_head": "594bd50c2c78ac432f81600d309fdc4e0a92d82c",
+      "repository": "yt-dlp/yt-dlp"
+    }
+  },
+  "info_error": null,
+  "api": {
+    "artwork_url": "https://i1.sndcdn.com/artworks-2hmuDCrcvCzzCaXZ-1rztZA-large.jpg",
+    "created_at": "2022-11-08T19:30:49Z",
+    "description": "",
+    "duration": 1531376,
+    "embeddable_by": "all",
+    "genre": "Hip-hop & Rap",
+    "id": 1524158182,
+    "kind": "playlist",
+    "label_name": "",
+    "last_modified": "2022-11-08T19:31:43Z",
+    "license": "all-rights-reserved",
+    "likes_count": 191,
+    "managed_by_feeds": false,
+    "permalink": "out-of-spite",
+    "permalink_url": "https://soundcloud.com/leviryan/sets/out-of-spite",
+    "public": true,
+    "purchase_title": null,
+    "purchase_url": null,
+    "release_date": "2022-11-08T00:00:00Z",
+    "reposts_count": 39,
+    "sharing": "public",
+    "tag_list": "\"Drum & Bass\" Alternative Ambient",
+    "title": "out of spite",
+    "uri": "https://api.soundcloud.com/playlists/soundcloud%3Aplaylists%3A1524158182",
+    "user_id": 229146182,
+    "set_type": "album",
+    "is_album": true,
+    "published_at": "2022-11-08T19:31:41Z",
+    "display_date": "2022-11-08T19:31:41Z",
+    "user": {
+      "avatar_url": "https://i1.sndcdn.com/avatars-umNAne7XDae7hZ2B-4Vopsw-large.jpg",
+      "comments_count": 0,
+      "created_at": null,
+      "creator_subscriptions": [
+        {
+          "product": {
+            "id": "creator-pro-unlimited"
+          }
+        }
+      ],
+      "creator_subscription": {
+        "product": {
+          "id": "creator-pro-unlimited"
+        }
+      },
+      "description": "tx",
+      "followers_count": 4400,
+      "followings_count": 42,
+      "groups_count": 0,
+      "id": 229146182,
+      "kind": "user",
+      "last_modified": "2026-07-20T01:51:40Z",
+      "likes_count": 2353,
+      "playlist_likes_count": 69,
+      "permalink": "leviryan",
+      "permalink_url": "https://soundcloud.com/leviryan",
+      "playlist_count": 5,
+      "reposts_count": null,
+      "track_count": 127,
+      "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A229146182",
+      "urn": "soundcloud:users:229146182",
+      "username": "Levi Ryan",
+      "verified": false,
+      "visuals": {
+        "urn": "soundcloud:users:229146182",
+        "enabled": true,
+        "visuals": [
+          {
+            "urn": "soundcloud:visuals:239414610",
+            "entry_time": 0,
+            "visual_url": "https://i1.sndcdn.com/visuals-000229146182-jcXTEJ-original.jpg"
+          }
+        ],
+        "tracking": null
+      },
+      "badges": {
+        "pro": false,
+        "creator_mid_tier": false,
+        "pro_unlimited": true,
+        "verified": false
+      },
+      "station_urn": "soundcloud:system-playlists:artist-stations:229146182",
+      "station_permalink": "artist-stations:229146182"
+    },
+    "tracks": [
+      {
+        "artwork_url": "https://i1.sndcdn.com/artworks-2hmuDCrcvCzzCaXZ-1rztZA-large.jpg",
+        "caption": null,
+        "commentable": true,
+        "comment_count": 12,
+        "created_at": "2022-11-08T19:28:23Z",
+        "description": "ft https://soundcloud.com/gl0wrm\n\nlove it when love dies \nfuck round w a glock 9\nu hate it when i deal  \nu hate it when im broke  \nshut up when i get high \ntell you u how a soul dies\nhold it up to your eyes\ncoulda been a good life \n\ncrack shot dead\nall of what u wanted \n\n(gl0)\n\nhow it feels to die i forget how to say \nhow it feels to fly i got mdma \nhow it feels to love i got bitches who could say \nim pissed \nall day \non x \nalright \nok",
+        "downloadable": true,
+        "download_count": 173,
+        "duration": 207614,
+        "full_duration": 207595,
+        "embeddable_by": "all",
+        "genre": "Hip-hop & Rap",
+        "has_downloads_left": true,
+        "id": 1378985008,
+        "kind": "track",
+        "label_name": null,
+        "last_modified": "2022-11-08T19:29:34Z",
+        "license": "all-rights-reserved",
+        "likes_count": 503,
+        "permalink": "crackshot-wgl0wrm",
+        "permalink_url": "https://soundcloud.com/leviryan/crackshot-wgl0wrm",
+        "playback_count": 29170,
+        "public": true,
+        "publisher_metadata": {
+          "id": 1378985008,
+          "urn": "soundcloud:tracks:1378985008",
+          "artist": "Levi Ryan",
+          "contains_music": true,
+          "isrc": "QZJRB2293695"
+        },
+        "purchase_title": null,
+        "purchase_url": null,
+        "release_date": null,
+        "reposts_count": 26,
+        "sharing": "public",
+        "state": "finished",
+        "streamable": true,
+        "tag_list": "Ambient",
+        "title": "crackshot w/gl0wrm",
+        "uri": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A1378985008",
+        "urn": "soundcloud:tracks:1378985008",
+        "user_id": 229146182,
+        "visuals": null,
+        "waveform_url": "https://wave.sndcdn.com/7a6WStQz37aY_m.json",
+        "display_date": "2022-11-08T19:29:34Z",
+        "media": {
+          "transcodings": [
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1378985008/3d24464f-b375-44a2-9c2b-2cc2d991c3b1/stream/hls",
+              "preset": "aac_160k",
+              "duration": 207614,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": false
+            },
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1378985008/b28c7303-4ecd-4bb4-a301-d84f12570ee2/stream/hls",
+              "preset": "aac_96k",
+              "duration": 207614,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+              },
+              "quality": "lq",
+              "is_legacy_transcoding": false
+            },
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1378985008/aacf7e98-9e45-4746-8f9b-8ad1587158dd/stream/hls",
+              "preset": "abr_sq",
+              "duration": 207614,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mpegurl"
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": false
+            }
+          ]
+        },
+        "station_urn": "soundcloud:system-playlists:track-stations:1378985008",
+        "station_permalink": "track-stations:1378985008",
+        "monetization_model": "AD_SUPPORTED",
+        "policy": "MONETIZE",
+        "user": {
+          "avatar_url": "https://i1.sndcdn.com/avatars-umNAne7XDae7hZ2B-4Vopsw-large.jpg",
+          "followers_count": 4400,
+          "id": 229146182,
+          "kind": "user",
+          "last_modified": "2026-07-20T01:51:40Z",
+          "permalink": "leviryan",
+          "permalink_url": "https://soundcloud.com/leviryan",
+          "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A229146182",
+          "urn": "soundcloud:users:229146182",
+          "username": "Levi Ryan",
+          "verified": false,
+          "badges": {
+            "pro": false,
+            "creator_mid_tier": false,
+            "pro_unlimited": true,
+            "verified": false
+          },
+          "station_urn": "soundcloud:system-playlists:artist-stations:229146182",
+          "station_permalink": "artist-stations:229146182"
+        }
+      },
+      {
+        "artwork_url": "https://i1.sndcdn.com/artworks-2hmuDCrcvCzzCaXZ-1rztZA-large.jpg",
+        "caption": null,
+        "commentable": true,
+        "comment_count": 16,
+        "created_at": "2022-11-08T19:24:48Z",
+        "description": "ft https://soundcloud.com/davidshawty\n\ni wake up with xos \nmy place look like death row \nall black like the matrix and my heart and glock are twins\npills right off the wifi \nill sleep when i die \nall my friends are dead and all my guns light up red\ncreeps up like september \neats you like december \nim so fucking sick and tired cathing up to u \ng3c \necstasy\neats you like december",
+        "downloadable": true,
+        "download_count": 160,
+        "duration": 183969,
+        "full_duration": 183954,
+        "embeddable_by": "all",
+        "genre": "Drum & Bass",
+        "has_downloads_left": true,
+        "id": 1378983277,
+        "kind": "track",
+        "label_name": null,
+        "last_modified": "2022-11-08T20:48:03Z",
+        "license": "all-rights-reserved",
+        "likes_count": 446,
+        "permalink": "matrix-wdavid-shawty",
+        "permalink_url": "https://soundcloud.com/leviryan/matrix-wdavid-shawty",
+        "playback_count": 23633,
+        "public": true,
+        "publisher_metadata": {
+          "id": 1378983277,
+          "urn": "soundcloud:tracks:1378983277",
+          "artist": "Levi Ryan",
+          "contains_music": true,
+          "isrc": "QZJRB2293676"
+        },
+        "purchase_title": null,
+        "purchase_url": null,
+        "release_date": null,
+        "reposts_count": 29,
+        "sharing": "public",
+        "state": "finished",
+        "streamable": true,
+        "tag_list": "Alternative",
+        "title": "matrix w/david shawty",
+        "uri": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A1378983277",
+        "urn": "soundcloud:tracks:1378983277",
+        "user_id": 229146182,
+        "visuals": null,
+        "waveform_url": "https://wave.sndcdn.com/dvXs500wCHpH_m.json",
+        "display_date": "2022-11-08T19:29:27Z",
+        "media": {
+          "transcodings": [
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1378983277/5951a7ac-fc13-4260-8cf2-659fcdfcf9e4/stream/hls",
+              "preset": "aac_160k",
+              "duration": 183969,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": false
+            },
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1378983277/e65e55e5-0eec-4e1d-b27e-f2d0bec6ad5a/stream/hls",
+              "preset": "aac_96k",
+              "duration": 183969,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+              },
+              "quality": "lq",
+              "is_legacy_transcoding": false
+            },
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1378983277/3f919b04-f55d-4aa0-b0af-d9b6826dbb5e/stream/hls",
+              "preset": "abr_sq",
+              "duration": 183969,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mpegurl"
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": false
+            }
+          ]
+        },
+        "station_urn": "soundcloud:system-playlists:track-stations:1378983277",
+        "station_permalink": "track-stations:1378983277",
+        "monetization_model": "AD_SUPPORTED",
+        "policy": "MONETIZE",
+        "user": {
+          "avatar_url": "https://i1.sndcdn.com/avatars-umNAne7XDae7hZ2B-4Vopsw-large.jpg",
+          "followers_count": 4400,
+          "id": 229146182,
+          "kind": "user",
+          "last_modified": "2026-07-20T01:51:40Z",
+          "permalink": "leviryan",
+          "permalink_url": "https://soundcloud.com/leviryan",
+          "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A229146182",
+          "urn": "soundcloud:users:229146182",
+          "username": "Levi Ryan",
+          "verified": false,
+          "badges": {
+            "pro": false,
+            "creator_mid_tier": false,
+            "pro_unlimited": true,
+            "verified": false
+          },
+          "station_urn": "soundcloud:system-playlists:artist-stations:229146182",
+          "station_permalink": "artist-stations:229146182"
+        }
+      },
+      {
+        "artwork_url": "https://i1.sndcdn.com/artworks-2hmuDCrcvCzzCaXZ-1rztZA-large.jpg",
+        "caption": null,
+        "commentable": true,
+        "comment_count": 6,
+        "created_at": "2022-11-08T19:21:23Z",
+        "description": "ft https://soundcloud.com/prie\n\ncant decide on a fit \ncant decide on a bitch\ncant decide on a fit \ncant decide on a bitch\ni got x in this bitch \ni got fried off the shit \nwho done pressed all the shit \ni get high off the risk\nlook me in my eyes yeah id die for this shit \ngotta keep my image cant be fuckin w you bitch \nstick it in my side it was never love\nstick it in my side it was never love \nskidrow had enough of this shit \nsilkroad i aint had enough of the shit \ndesigner bags \ndrum mags \nwe in heaven yet \nwe heaven yet \nthink i wanna die for this shit \n\n\nLONEWOLFPRIE:\nbloody tears oh my god,\nshit then got bad, \ncreepin in the cut, \nokay we had to make it back, \nspin yo block,\nkill the opps,\nthen we spin right back,\nJohn madden baby,\ni step back,\nrun up the play bitch,\ncheck the stats,\ndo what i want, \n& i know they can’t last,\noff of these drugs,\n& i pray I don’t crash,\nscreamin fuck 12,\n& i just did the dash,\njudging me crazy,\nyou stuck in the past,\nWanting the things,\nyou never could have,\ndie for this shit,\ncause u want it so bad.",
+        "downloadable": true,
+        "download_count": 145,
+        "duration": 165344,
+        "full_duration": 165329,
+        "embeddable_by": "all",
+        "genre": "Hip-hop & Rap",
+        "has_downloads_left": true,
+        "id": 1378981744,
+        "kind": "track",
+        "label_name": null,
+        "last_modified": "2022-11-08T19:29:19Z",
+        "license": "all-rights-reserved",
+        "likes_count": 176,
+        "permalink": "silkroad-wlonewolfprie",
+        "permalink_url": "https://soundcloud.com/leviryan/silkroad-wlonewolfprie",
+        "playback_count": 10011,
+        "public": true,
+        "publisher_metadata": {
+          "id": 1378981744,
+          "urn": "soundcloud:tracks:1378981744",
+          "artist": "Levi Ryan",
+          "contains_music": true,
+          "isrc": "QZJRB2293669"
+        },
+        "purchase_title": null,
+        "purchase_url": null,
+        "release_date": null,
+        "reposts_count": 8,
+        "sharing": "public",
+        "state": "finished",
+        "streamable": true,
+        "tag_list": "",
+        "title": "silkroad w/LONEWOLFPRIE",
+        "uri": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A1378981744",
+        "urn": "soundcloud:tracks:1378981744",
+        "user_id": 229146182,
+        "visuals": null,
+        "waveform_url": "https://wave.sndcdn.com/dqZ1KR6Rfukd_m.json",
+        "display_date": "2022-11-08T19:29:19Z",
+        "media": {
+          "transcodings": [
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1378981744/4af54e4a-ad9f-4a21-b355-35ff2608fe40/stream/hls",
+              "preset": "aac_160k",
+              "duration": 165344,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": false
+            },
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1378981744/b841256b-bfe0-42ba-b905-1c9a2893d428/stream/hls",
+              "preset": "aac_96k",
+              "duration": 165344,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+              },
+              "quality": "lq",
+              "is_legacy_transcoding": false
+            },
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1378981744/07a5c71d-12e7-48e1-9a48-3bf81fe6aa54/stream/hls",
+              "preset": "abr_sq",
+              "duration": 165344,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mpegurl"
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": false
+            }
+          ]
+        },
+        "station_urn": "soundcloud:system-playlists:track-stations:1378981744",
+        "station_permalink": "track-stations:1378981744",
+        "monetization_model": "AD_SUPPORTED",
+        "policy": "MONETIZE",
+        "user": {
+          "avatar_url": "https://i1.sndcdn.com/avatars-umNAne7XDae7hZ2B-4Vopsw-large.jpg",
+          "followers_count": 4400,
+          "id": 229146182,
+          "kind": "user",
+          "last_modified": "2026-07-20T01:51:40Z",
+          "permalink": "leviryan",
+          "permalink_url": "https://soundcloud.com/leviryan",
+          "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A229146182",
+          "urn": "soundcloud:users:229146182",
+          "username": "Levi Ryan",
+          "verified": false,
+          "badges": {
+            "pro": false,
+            "creator_mid_tier": false,
+            "pro_unlimited": true,
+            "verified": false
+          },
+          "station_urn": "soundcloud:system-playlists:artist-stations:229146182",
+          "station_permalink": "artist-stations:229146182"
+        }
+      },
+      {
+        "artwork_url": "https://i1.sndcdn.com/artworks-2hmuDCrcvCzzCaXZ-1rztZA-large.jpg",
+        "caption": null,
+        "commentable": true,
+        "comment_count": 11,
+        "created_at": "2022-11-08T19:17:48Z",
+        "description": "you need an opioid saving your life \nyou need a gun cus the hills have eyes \nthey got girls in the city of lights \ntheyll get your mind off the love of your life \n\ni got x got a drug of your life \ni got a bullet w our name on the side \nyou get a car you get out of la \nwe split apart but were sharing the grave \n\ng3c \necstasy \nall i see\n\nyou love me  \nyoure lying \nits just one life \none lonely life \n\nplease \nwe're dying",
+        "downloadable": true,
+        "download_count": 141,
+        "duration": 171546,
+        "full_duration": 171546,
+        "embeddable_by": "all",
+        "genre": "Dance & EDM",
+        "has_downloads_left": true,
+        "id": 1378980004,
+        "kind": "track",
+        "label_name": null,
+        "last_modified": "2022-11-09T02:01:15Z",
+        "license": "all-rights-reserved",
+        "likes_count": 307,
+        "permalink": "purextc",
+        "permalink_url": "https://soundcloud.com/leviryan/purextc",
+        "playback_count": 19302,
+        "public": true,
+        "publisher_metadata": {
+          "id": 1378980004,
+          "urn": "soundcloud:tracks:1378980004",
+          "artist": "Levi Ryan",
+          "contains_music": true,
+          "isrc": "QZJRB2293661"
+        },
+        "purchase_title": null,
+        "purchase_url": null,
+        "release_date": null,
+        "reposts_count": 13,
+        "sharing": "public",
+        "state": "finished",
+        "streamable": true,
+        "tag_list": "Ambient",
+        "title": "purextc",
+        "uri": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A1378980004",
+        "urn": "soundcloud:tracks:1378980004",
+        "user_id": 229146182,
+        "visuals": null,
+        "waveform_url": "https://wave.sndcdn.com/cQYDTnvo05DH_m.json",
+        "display_date": "2022-11-08T19:29:12Z",
+        "media": {
+          "transcodings": [
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1378980004/6fa23d34-89a6-4700-8799-fe7f64022d14/stream/hls",
+              "preset": "aac_160k",
+              "duration": 171546,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": false
+            },
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1378980004/27bd8fac-3001-4ab0-a90b-70e7499f85fb/stream/hls",
+              "preset": "aac_96k",
+              "duration": 171546,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+              },
+              "quality": "lq",
+              "is_legacy_transcoding": false
+            },
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1378980004/01421ad6-0416-4074-9de1-a7c0f4a73425/stream/hls",
+              "preset": "abr_sq",
+              "duration": 171546,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mpegurl"
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": false
+            }
+          ]
+        },
+        "station_urn": "soundcloud:system-playlists:track-stations:1378980004",
+        "station_permalink": "track-stations:1378980004",
+        "monetization_model": "AD_SUPPORTED",
+        "policy": "MONETIZE",
+        "user": {
+          "avatar_url": "https://i1.sndcdn.com/avatars-umNAne7XDae7hZ2B-4Vopsw-large.jpg",
+          "followers_count": 4400,
+          "id": 229146182,
+          "kind": "user",
+          "last_modified": "2026-07-20T01:51:40Z",
+          "permalink": "leviryan",
+          "permalink_url": "https://soundcloud.com/leviryan",
+          "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A229146182",
+          "urn": "soundcloud:users:229146182",
+          "username": "Levi Ryan",
+          "verified": false,
+          "badges": {
+            "pro": false,
+            "creator_mid_tier": false,
+            "pro_unlimited": true,
+            "verified": false
+          },
+          "station_urn": "soundcloud:system-playlists:artist-stations:229146182",
+          "station_permalink": "artist-stations:229146182"
+        }
+      },
+      {
+        "artwork_url": "https://i1.sndcdn.com/artworks-2hmuDCrcvCzzCaXZ-1rztZA-large.jpg",
+        "caption": null,
+        "commentable": true,
+        "comment_count": 7,
+        "created_at": "2022-11-08T19:14:36Z",
+        "description": "ft https://soundcloud.com/funeral\n\ntell about your life outside \nwhat you saying with those eyes\ntalk about your bright eyes \n\nwhos my baddest bitch why you crying  \ni think every heart need some mileage\ni think every gun need some mileage \nbitch i get stoned feel like dying\n\ntell about your life outside \nima bring the gun outside\nwhat you saying with those eyes\ntalk about your bright eyes  \n\nthink the body knows when its dying\nknow ill be in hell i quit trying \nhow the fuck i love off of skidrow \ntake you down the road bitch silkroad\n\ni know its forever \n\nFuneral:\nhow the fuck i make it out, i'm still alive\nlay me down, i'm laying down i wanna die\nhow did i get stuck up in my own mind\nhow am i gon make it out, tonight\nlet me let it go, i get cold\ni think i know things that no one else will ever know\noh, no, it's alright\ni'm stuck with these demons we forever tied\n\nall these bitches bite yeah and they all gotta price \ngotta sleep in flashing lights all my guns they got lights \ngot nothin to eat i got fucking ecstasy \nthe sun dont ever hit yeah on this side of the street",
+        "downloadable": true,
+        "download_count": 148,
+        "duration": 204846,
+        "full_duration": 204826,
+        "embeddable_by": "all",
+        "genre": "Hip-hop & Rap",
+        "has_downloads_left": true,
+        "id": 1378978405,
+        "kind": "track",
+        "label_name": null,
+        "last_modified": "2024-02-21T19:22:07Z",
+        "license": "all-rights-reserved",
+        "likes_count": 311,
+        "permalink": "bright-eyes-wfuneral",
+        "permalink_url": "https://soundcloud.com/leviryan/bright-eyes-wfuneral",
+        "playback_count": 14538,
+        "public": true,
+        "publisher_metadata": {
+          "id": 1378978405,
+          "urn": "soundcloud:tracks:1378978405",
+          "artist": "Levi Ryan",
+          "contains_music": true,
+          "isrc": "QZJRB2293653"
+        },
+        "purchase_title": null,
+        "purchase_url": null,
+        "release_date": null,
+        "reposts_count": 21,
+        "sharing": "public",
+        "state": "finished",
+        "streamable": true,
+        "tag_list": "Ambient",
+        "title": "bright eyes w/funeral",
+        "uri": "https://api.soundcloud.com/tracks/soundcloud%3Atracks%3A1378978405",
+        "urn": "soundcloud:tracks:1378978405",
+        "user_id": 229146182,
+        "visuals": null,
+        "waveform_url": "https://wave.sndcdn.com/HceUTy1VQjgK_m.json",
+        "display_date": "2022-11-08T19:29:04Z",
+        "media": {
+          "transcodings": [
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1378978405/f03cb351-f21b-4c07-b206-3ef54048df4f/stream/hls",
+              "preset": "aac_160k",
+              "duration": 204846,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": false
+            },
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1378978405/7cd9ab0d-298a-4f7f-81a1-a8a332573a70/stream/hls",
+              "preset": "aac_96k",
+              "duration": 204846,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mp4; codecs=\"mp4a.40.2\""
+              },
+              "quality": "lq",
+              "is_legacy_transcoding": false
+            },
+            {
+              "url": "https://api-v2.soundcloud.com/media/soundcloud:tracks:1378978405/5ecdd0cd-4478-4835-af5a-4d72d02b5f3a/stream/hls",
+              "preset": "abr_sq",
+              "duration": 204846,
+              "snipped": false,
+              "format": {
+                "protocol": "hls",
+                "mime_type": "audio/mpegurl"
+              },
+              "quality": "sq",
+              "is_legacy_transcoding": false
+            }
+          ]
+        },
+        "station_urn": "soundcloud:system-playlists:track-stations:1378978405",
+        "station_permalink": "track-stations:1378978405",
+        "monetization_model": "AD_SUPPORTED",
+        "policy": "MONETIZE",
+        "user": {
+          "avatar_url": "https://i1.sndcdn.com/avatars-umNAne7XDae7hZ2B-4Vopsw-large.jpg",
+          "followers_count": 4400,
+          "id": 229146182,
+          "kind": "user",
+          "last_modified": "2026-07-20T01:51:40Z",
+          "permalink": "leviryan",
+          "permalink_url": "https://soundcloud.com/leviryan",
+          "uri": "https://api.soundcloud.com/users/soundcloud%3Ausers%3A229146182",
+          "urn": "soundcloud:users:229146182",
+          "username": "Levi Ryan",
+          "verified": false,
+          "badges": {
+            "pro": false,
+            "creator_mid_tier": false,
+            "pro_unlimited": true,
+            "verified": false
+          },
+          "station_urn": "soundcloud:system-playlists:artist-stations:229146182",
+          "station_permalink": "artist-stations:229146182"
+        }
+      },
+      {
+        "id": 1378976746,
+        "kind": "track",
+        "monetization_model": "AD_SUPPORTED",
+        "policy": "MONETIZE"
+      },
+      {
+        "id": 1378973569,
+        "kind": "track",
+        "monetization_model": "AD_SUPPORTED",
+        "policy": "MONETIZE"
+      },
+      {
+        "id": 1378971022,
+        "kind": "track",
+        "monetization_model": "AD_SUPPORTED",
+        "policy": "MONETIZE"
+      }
+    ],
+    "track_count": 8
+  },
+  "api_error": null
+}
