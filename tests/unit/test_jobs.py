@@ -215,7 +215,8 @@ def test_a_save_into_a_library_that_cant_be_listed_warns_once(
     list_folder = os.scandir
 
     def refuse_the_library(path: Any) -> Any:
-        if Path(path) == jobs.library:
+        # shutil.rmtree lists folders by file descriptor on macOS and Linux.
+        if not isinstance(path, int) and Path(path) == jobs.library:
             raise PermissionError(13, "Permission denied")
         return list_folder(path)
 

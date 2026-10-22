@@ -78,8 +78,13 @@ def test_a_quoted_link_is_offered_as_adding_would_take_it() -> None:
 class FakeWindowsClipboard:
     """The Win32 clipboard calls, backed by a buffer instead of the real clipboard."""
 
-    def __init__(self, text: str | None, *, busy_for: int = 0) -> None:
-        self.buffer = ctypes.create_unicode_buffer(text) if text is not None else None
+    def __init__(self, text: str | None, *, busy_for: int = 0, after_end: str = "") -> None:
+        # UTF-16 on every OS, as Windows keeps it, then whatever the memory held after the end.
+        self.buffer = (
+            ctypes.create_string_buffer(f"{text}\0{after_end}".encode("utf-16-le"))
+            if text is not None
+            else None
+        )
         self.busy_for = busy_for
         self.opens = 0
         self.closed = 0
@@ -117,10 +122,16 @@ def no_sleep(seconds: float) -> None:
 
 
 def test_windows_text_is_read_up_to_its_end_and_the_clipboard_is_closed() -> None:
-    calls = FakeWindowsClipboard(f"{TRACK} Ã¼nÃ¯code")
-    assert read_windows(calls, no_sleep) == f"{TRACK} Ã¼nÃ¯code"
+    calls = FakeWindowsClipboard(f"{TRACK} ünïcode", after_end="old text")
+    assert read_windows(calls, no_sleep) == f"{TRACK} ünïcode"
     assert calls.closed == 1
     assert calls.unlocked == 1
+
+
+def test_windows_text_outside_the_basic_plane_is_read_whole() -> None:
+    # The wave is two UTF-16 units, which make one character.
+    calls = FakeWindowsClipboard(f"{TRACK} Low Tide 🌊")
+    assert read_windows(calls, no_sleep) == f"{TRACK} Low Tide 🌊"
 
 
 def test_a_windows_clipboard_without_text_isnt_opened() -> None:

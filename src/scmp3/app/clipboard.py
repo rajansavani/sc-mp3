@@ -135,7 +135,9 @@ def _locked_text(calls: WindowsClipboard, handle: int) -> str | None:
     try:
         # The size is in bytes, two per UTF-16 unit, and the text ends at its first NUL.
         units = min(calls.size(handle) // 2, MAX_CHARACTERS)
-        return ctypes.wstring_at(pointer, units).split("\0", 1)[0]
+        # Decoded as UTF-16 rather than as wchar_t, which is 4 bytes off Windows.
+        text = ctypes.string_at(pointer, units * 2).decode("utf-16-le", errors="replace")
+        return text.split("\0", 1)[0]
     finally:
         calls.unlock(handle)
 
