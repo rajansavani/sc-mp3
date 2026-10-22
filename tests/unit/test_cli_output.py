@@ -2,12 +2,13 @@
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import get_args
 
 import pytest
 
 from scmp3 import cli_output
 from scmp3.core import paths
-from scmp3.core.errors import ErrorKind, ScmpError
+from scmp3.core.errors import ErrorKind, ErrorReason, ScmpError
 from scmp3.core.log import LOG_FILE
 from scmp3.core.models import HistoryEntry, Settings
 
@@ -34,6 +35,24 @@ def test_every_error_kind_has_a_message_with_nothing_left_to_fill_in(kind: Error
     message = cli_output.error_message(ScmpError(kind), Settings(library_dir=Path("/music")))
     assert message
     assert "{" not in message
+
+
+@pytest.mark.parametrize(
+    ("reason", "start"),
+    [
+        ("file_in_use", "The file is open in another program"),
+        ("path_too_long", "The folder path is too long"),
+    ],
+)
+def test_a_disk_error_with_a_reason_gets_its_own_message(reason: ErrorReason, start: str) -> None:
+    error = ScmpError(ErrorKind.disk, "can't write", where="library", reason=reason)
+    message = cli_output.error_message(error, Settings(library_dir=Path("/music")))
+    assert message.startswith(start)
+    assert "/music" not in message
+
+
+def test_every_reason_has_a_message() -> None:
+    assert set(cli_output.REASON_MESSAGES) == set(get_args(ErrorReason))
 
 
 def test_messages_that_need_the_log_name_it() -> None:

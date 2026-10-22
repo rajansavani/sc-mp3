@@ -29,6 +29,11 @@ from scmp3.core.sources import soundcloud
 
 # States a skip leaves alone, since nothing is left to skip.
 FINISHED_STATES = frozenset({JobState.saved, JobState.skipped})
+# Errors no retry can fix, so closing loses nothing a save could still make. With no sign-in in
+# v0.1, a Go+ preview is one of them.
+UNSAVABLE_KINDS = frozenset(
+    {ErrorKind.drm, ErrorKind.preview_only, ErrorKind.unavailable, ErrorKind.geo_blocked}
+)
 # How long closing the window waits for a save that's placing its file, in seconds.
 SHUTDOWN_SAVE_WAIT = 5.0
 
@@ -71,6 +76,16 @@ class JobManager(JobEditing):
         """Every job as the UI gets it, in queue order."""
         with self._flow.lock:
             return self._flow.views()
+
+    def is_queued(self, url: str) -> bool:
+        """Whether a job for this normalized link is in the queue already."""
+        with self._flow.lock:
+            return self._flow.queued_with_link(url) is not None
+
+    def unsaved_count(self) -> int:
+        """How many jobs in the queue could still be saved, which closing would lose."""
+        with self._flow.lock:
+            return sum(_could_still_save(record) for record in self._flow.records.values())
 
     # Adding
 
@@ -310,3 +325,11 @@ def _drop_stale_question(record: JobRecord, settings: Settings) -> None:
     if tags is None or planned_path(record, tags, settings) != record.collision:
         record.collision = None
         record.collision_answer = None
+
+
+def _could_still_save(record: JobRecord) -> bool:
+    """Whether the job is still on its way to a save, or failed in a way Retry can fix."""
+    job = record.job
+    if job.state in FINISHED_STATES:
+        return False
+    return job.error is None or job.error.kind not in UNSAVABLE_KINDS

@@ -172,7 +172,11 @@ def plan_destination(
     room = _path_room(folder, ext)
     if room is not None and utf16_units(stem) > room:
         if room < MIN_STEM_UNITS:
-            raise ScmpError(ErrorKind.disk, "the library folder path is too long for any file name")
+            raise ScmpError(
+                ErrorKind.disk,
+                "the library folder path is too long for any file name",
+                reason="path_too_long",
+            )
         stem = _render(template, tags, limits.with_utf16_at_most(room))
     return folder / f"{stem}{ext}"
 
@@ -196,15 +200,22 @@ def _artist_folder_name(album_artist: str) -> str:
     return safe_stem(album_artist, ARTIST_FOLDER_LIMITS, fallback=UNKNOWN_ARTIST)
 
 
-def reuse_folders_by_case(path: Path, library_dir: Path) -> Path:
+def reuse_folders_by_case(path: Path, library_dir: Path, *, warn: bool = True) -> Path:
     """`path` with each of its folders in the library swapped for one there that differs by case.
 
     This lists folders on disk, so it runs when saving, just before the collision check.
-    plan_destination never reads the disk.
+    plan_destination never reads the disk. A folder that can't be listed keeps its planned name,
+    with one warning unless `warn` is False.
     """
     folder = library_dir
+    unlisted: OSError | None = None
     for name in path.parent.relative_to(library_dir).parts:
-        folder = folder / folder_name_to_reuse(name, _folder_names(folder))
+        names, error = _folder_names(folder)
+        unlisted = unlisted or error
+        folder = folder / folder_name_to_reuse(name, names)
+    if unlisted is not None and warn:
+        # Moving the file reports a folder it can't use, so here the planned name is good enough.
+        log.warning("Couldn't look for a folder to reuse: %s", unlisted.strerror or unlisted)
     return folder / path.name
 
 
@@ -220,18 +231,16 @@ def folder_name_to_reuse(name: str, existing: Sequence[str]) -> str:
     return name
 
 
-def _folder_names(parent: Path) -> list[str]:
-    """The names of the folders in `parent`, sorted, or none when it can't be listed."""
+def _folder_names(parent: Path) -> tuple[list[str], OSError | None]:
+    """The folder names in `parent`, sorted, or none and the error when it can't be listed."""
     try:
         with os.scandir(parent) as entries:
-            return sorted(entry.name for entry in entries if entry.is_dir())
+            return sorted(entry.name for entry in entries if entry.is_dir()), None
     except (FileNotFoundError, NotADirectoryError):
         # Nothing has been saved there yet.
-        return []
+        return [], None
     except OSError as error:
-        # Moving the file reports a folder it can't use, so here the planned name is good enough.
-        log.warning("Couldn't look for a folder to reuse: %s", error.strerror or error)
-        return []
+        return [], error
 
 
 def _caseless(name: str) -> str:

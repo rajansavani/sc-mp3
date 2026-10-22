@@ -1,5 +1,7 @@
 // The mock API for --dev-ui: the same calls as window.pywebview.api, backed by sample data.
 // Calls that succeed and have nothing to return answer {}, and failures answer {error: kind}.
+import "./drops.js";
+
 import * as account from "./account.js";
 import * as components from "./components.js";
 import * as files from "./files.js";

@@ -23,6 +23,7 @@ from scmp3.app.main import WEB_DIR
 from scmp3.core import library, paths
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.history import History
+from scmp3.core.log import short_path
 from scmp3.core.models import Settings
 from scmp3.core.settings import SettingsStore
 
@@ -590,6 +591,58 @@ def test_the_preview_reports_a_folder_too_deep_for_any_name(
 ) -> None:
     monkeypatch.setattr(library, "MAX_PATH_UNITS", 10)
     assert api.preview_render() == {"error": "disk"}
+
+
+@pytest.mark.parametrize("own", [paths.config_dir, paths.data_dir, paths.cache_dir, paths.log_dir])
+def test_a_library_inside_sc_mp3s_own_folders_is_refused(api: Api, own: Any) -> None:
+    # sc-mp3 deletes files in its own folders, such as the window's data in the cache.
+    folder = own() / "webview" / "songs"
+    assert problem(api, {"library_dir": str(folder)}, "library_dir") == {
+        "reason": "INSIDE_APP_FOLDERS",
+        "folder": str(folder),
+    }
+    assert (
+        problem(api, {"library_dir": str(own())}, "library_dir")["reason"] == "INSIDE_APP_FOLDERS"
+    )
+    assert not folder.exists()
+
+
+def link_to(target: Path, link: Path) -> None:
+    """A junction on Windows, where symlinks need Developer Mode, or a symlink elsewhere."""
+    if sys.platform == "win32":
+        import _winapi
+
+        _winapi.CreateJunction(str(target), str(link))
+    else:
+        link.symlink_to(target, target_is_directory=True)
+
+
+def test_a_link_to_sc_mp3s_own_folder_is_refused(api: Api, tmp_path: Path) -> None:
+    paths.cache_dir().mkdir(parents=True, exist_ok=True)
+    link = tmp_path / "songs-link"
+    link_to(paths.cache_dir(), link)
+    folder = link / "songs"
+    assert (
+        problem(api, {"library_dir": str(folder)}, "library_dir")["reason"] == "INSIDE_APP_FOLDERS"
+    )
+
+
+def test_a_short_spelling_of_sc_mp3s_own_folder_is_refused(api: Api) -> None:
+    folder = paths.cache_dir() / "a-folder-with-a-long-name"
+    folder.mkdir(parents=True)
+    short = short_path(folder)
+    if short is None:
+        pytest.skip("this drive doesn't make 8.3 short names")
+    assert (
+        problem(api, {"library_dir": str(short)}, "library_dir")["reason"] == "INSIDE_APP_FOLDERS"
+    )
+
+
+def test_a_folder_that_only_starts_like_sc_mp3s_own_is_fine(api: Api) -> None:
+    folder = Path(f"{paths.cache_dir()}-songs")
+    assert api.update_settings({"library_dir": str(folder)})["settings"]["library_dir"] == str(
+        folder
+    )
 
 
 def test_every_problem_the_bridge_names_has_text_in_the_ui() -> None:

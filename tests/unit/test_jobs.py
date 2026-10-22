@@ -4,6 +4,8 @@ Each runs step by step on the fakes, so the order of every transition in TECH_SP
 """
 
 import importlib.util
+import logging
+import os
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -203,6 +205,30 @@ def test_saving_downloaded_audio_saves_it_into_the_library(jobs: Harness) -> Non
     assert not staging(job_id).exists()
     assert jobs.events.job_states(job_id)[-2:] == ["saving", "saved"]
     assert job["cover_missing"] is False
+
+
+def test_a_save_into_a_library_that_cant_be_listed_warns_once(
+    jobs: Harness, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    # The name check and the move both look for folders to reuse (T-019).
+    jobs.library.mkdir(parents=True)
+    list_folder = os.scandir
+
+    def refuse_the_library(path: Any) -> Any:
+        if Path(path) == jobs.library:
+            raise PermissionError(13, "Permission denied")
+        return list_folder(path)
+
+    monkeypatch.setattr(os, "scandir", refuse_the_library)
+    job_id = jobs.add_and_resolve()
+    jobs.pools.run_all()
+    with caplog.at_level(logging.WARNING, logger="scmp3.core.library"):
+        jobs.manager.save([job_id])
+        jobs.pools.run_all()
+    assert jobs.job(job_id)["state"] == "saved"
+    assert [record.getMessage() for record in caplog.records] == [
+        "Couldn't look for a folder to reuse: Permission denied"
+    ]
 
 
 def test_a_save_without_its_cover_says_so_on_the_saved_job(jobs: Harness) -> None:
@@ -607,3 +633,46 @@ def test_cancel_while_the_file_is_being_placed_changes_nothing(jobs: Harness) ->
     jobs.pools.run_all()
     assert answers == [{}]
     assert jobs.job(job_id)["state"] == "saved"
+
+
+def test_jobs_still_on_their_way_to_a_save_count_as_unsaved(jobs: Harness) -> None:
+    # Closing loses them, since nothing brings the queue back yet (T-050).
+    first = jobs.add_and_resolve()
+    second = jobs.add_and_resolve(OTHER)
+    jobs.add("https://soundcloud.com/kaia/still-resolving")
+    assert jobs.manager.unsaved_count() == 3
+    jobs.manager.skip(second)
+    jobs.manager.save([first])
+    jobs.pools.run_all()
+    assert jobs.job(first)["state"] == "saved"
+    assert jobs.manager.unsaved_count() == 1
+
+
+@pytest.mark.parametrize(
+    "kind", [ErrorKind.drm, ErrorKind.preview_only, ErrorKind.unavailable, ErrorKind.geo_blocked]
+)
+def test_a_job_no_retry_can_save_doesnt_count_as_unsaved(jobs: Harness, kind: ErrorKind) -> None:
+    jobs.steps.prepare_errors.append(ScmpError(kind, "x"))
+    job_id = jobs.add_and_resolve()
+    assert jobs.job(job_id)["state"] == "error"
+    assert jobs.manager.unsaved_count() == 0
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [ErrorKind.offline, ErrorKind.service_down, ErrorKind.engine_outdated, ErrorKind.internal],
+)
+def test_a_job_retry_could_still_save_counts_as_unsaved(jobs: Harness, kind: ErrorKind) -> None:
+    jobs.steps.prepare_errors.append(ScmpError(kind, "x"))
+    job_id = jobs.add_and_resolve()
+    assert jobs.job(job_id)["state"] == "error"
+    assert jobs.manager.unsaved_count() == 1
+
+
+def test_a_save_that_failed_on_the_disk_counts_as_unsaved(jobs: Harness) -> None:
+    jobs.steps.finalize_errors.append(ScmpError(ErrorKind.disk))
+    job_id = jobs.add_and_resolve()
+    jobs.manager.save([job_id])
+    jobs.pools.run_all()
+    assert jobs.job(job_id)["error"]["kind"] == "disk"
+    assert jobs.manager.unsaved_count() == 1

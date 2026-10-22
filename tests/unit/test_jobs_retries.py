@@ -63,8 +63,26 @@ def test_a_resolve_failure_puts_the_job_in_error(jobs: Harness) -> None:
     job_id = jobs.add_and_resolve()
     job = jobs.job(job_id)
     assert job["state"] == "error"
-    assert job["error"] == {"kind": "unavailable", "detail": "404", "where": None}
+    assert job["error"] == {"kind": "unavailable", "detail": "404", "where": None, "reason": None}
     assert job["tags"] is None
+
+
+@pytest.mark.parametrize("kind", [ErrorKind.drm, ErrorKind.unavailable, ErrorKind.offline])
+def test_the_ui_hears_when_resolving_fails(jobs: Harness, kind: ErrorKind) -> None:
+    # Without this event the queue kept saying "Fetching info…" (found in T-025's live run).
+    jobs.steps.prepare_errors.append(ScmpError(kind, "x"))
+    job_id = jobs.add_and_resolve()
+    assert jobs.events.job_states(job_id) == ["queued", "resolving", "error"]
+    assert jobs.events.last_job(job_id) == jobs.job(job_id)
+
+
+def test_the_ui_hears_when_an_automatic_retry_fails_again(jobs: Harness) -> None:
+    jobs.steps.prepare_errors.extend([ScmpError(ErrorKind.offline), ScmpError(ErrorKind.offline)])
+    job_id = jobs.add_and_resolve()
+    jobs.timers.fire_all()
+    jobs.pools.run("resolve")
+    assert jobs.events.job_states(job_id)[-3:] == ["queued", "resolving", "error"]
+    assert jobs.events.last_job(job_id) == jobs.job(job_id)
 
 
 @pytest.mark.parametrize("where", ["library", "data"])
@@ -73,7 +91,19 @@ def test_a_disk_error_says_which_folder_it_was_about(jobs: Harness, where: str) 
     job_id = jobs.add_and_resolve()
     jobs.manager.save([job_id])
     jobs.pools.run_all()
-    assert jobs.job(job_id)["error"] == {"kind": "disk", "detail": "can't write", "where": where}
+    error = jobs.job(job_id)["error"]
+    assert error == {"kind": "disk", "detail": "can't write", "where": where, "reason": None}
+
+
+@pytest.mark.parametrize("reason", ["file_in_use", "path_too_long"])
+def test_a_disk_error_says_what_went_wrong_when_it_knows(jobs: Harness, reason: str) -> None:
+    jobs.steps.finalize_errors.append(
+        ScmpError(ErrorKind.disk, "can't write", where="library", reason=reason)
+    )
+    job_id = jobs.add_and_resolve()
+    jobs.manager.save([job_id])
+    jobs.pools.run_all()
+    assert jobs.job(job_id)["error"]["reason"] == reason
 
 
 def test_retry_after_a_resolve_failure_resolves_again(jobs: Harness) -> None:

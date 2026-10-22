@@ -1,12 +1,15 @@
-"""Logging to a rotating file in the logs folder, with tokens masked in every record."""
+"""Logging to a rotating file in the logs folder, with tokens masked in every record.
+
+The home folder shows as ~ in every record too, so a shared log never names the user.
+"""
 
 import logging
 import re
 import sys
 import threading
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
-from urllib.parse import urlsplit
+from pathlib import Path, PurePath
+from urllib.parse import quote, urlsplit
 
 from scmp3.core import paths
 from scmp3.core.errors import ErrorKind, ScmpError
@@ -55,9 +58,68 @@ TOKEN_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"(?<![A-Za-z0-9])2-\d+-\d+-[A-Za-z0-9]{4,}"), MASK),
 )
 
+# What the home folder becomes in logs.
+HOME_MARK = "~"
+# A slash or backslash, or a run of them, as a repr's doubled backslashes give.
+_SEPARATORS = r"[\\/]+"
+# What can't follow the home folder's last part, so C:\Users\kai never matches C:\Users\kaia.
+_NAME_GOES_ON = r"(?![\w.-])"
+_DRIVE_LETTER = re.compile(r"[A-Za-z]:")
+_NEVER = re.compile(r"(?!)")
+
 # Exact values to mask, longest first, so a secret that contains another is masked whole.
 _secrets: tuple[str, ...] = ()
 _secrets_lock = threading.Lock()
+
+
+def home_pattern(
+    home: PurePath,
+    *,
+    ignore_case: bool = sys.platform == "win32",
+    short_home: PurePath | None = None,
+) -> re.Pattern[str]:
+    """A pattern for `home` in text, with either slash, doubled backslashes, or no drive letter.
+
+    It also matches the folder names URL-encoded, as in a file: link, and Windows' 8.3 short form
+    when there is one, such as JOHNSM~1. Windows ignores case in paths, so the pattern does too
+    there.
+    """
+    anchor, *names = home.parts
+    if not names:
+        # A home at the root of a drive would turn every path into ~.
+        return _NEVER
+    spellings = [names, [quote(name) for name in names]]
+    if short_home is not None:
+        spellings.append(list(short_home.parts[1:]))
+    bodies = dict.fromkeys(
+        "".join(_SEPARATORS + re.escape(name) for name in spelling) for spelling in spellings
+    )
+    body = f"(?:{'|'.join(bodies)})"
+    root = anchor.rstrip("\\/")
+    # A drive letter can be left out, as in \Users\kaia, but a network share can't.
+    if _DRIVE_LETTER.fullmatch(root):
+        body = f"(?:{re.escape(root)})?{body}"
+    elif root:
+        body = re.escape(root) + body
+    flags = re.IGNORECASE if ignore_case else 0
+    return re.compile(body + _NAME_GOES_ON, flags)
+
+
+def short_path(path: Path) -> PurePath | None:
+    """Windows' 8.3 short form of a path, or None elsewhere or when it's the same."""
+    if sys.platform != "win32":
+        return None
+    import ctypes
+
+    buffer = ctypes.create_unicode_buffer(32_768)
+    length = ctypes.windll.kernel32.GetShortPathNameW(str(path), buffer, len(buffer))
+    if not 0 < length < len(buffer) or buffer.value == str(path):
+        return None
+    return PurePath(buffer.value)
+
+
+# Set once, from the user running sc-mp3. Tests replace it with a home of their own.
+_home: re.Pattern[str] = home_pattern(Path.home(), short_home=short_path(Path.home()))
 
 # Formats exception text the same way logging.Formatter does by default.
 _traceback_formatter = logging.Formatter()
@@ -77,12 +139,15 @@ def register_secret(value: str) -> None:
 
 
 def redact(text: str) -> str:
-    """Mask registered secrets, auth headers, token values, share links and token shapes."""
+    """Mask secrets, auth headers, token values, share links and token shapes, and the home folder.
+
+    The home folder becomes ~, so a path keeps the folders below it.
+    """
     for secret in _secrets:
         text = text.replace(secret, MASK)
     for pattern, replacement in TOKEN_PATTERNS:
         text = pattern.sub(replacement, text)
-    return text
+    return _home.sub(HOME_MARK, text)
 
 
 def safe_url(url: str) -> str:

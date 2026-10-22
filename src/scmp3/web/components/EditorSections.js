@@ -86,7 +86,7 @@ export function OutputStrip({ job, settings }) {
             <span>${audio}</span>
           </span>
         `}
-        <span>${text.tagsEmbedded}</span>
+        <span>${job.cover_url ? text.tagsEmbedded : text.tagsWithoutCover}</span>
       </div>
     </section>
   `;
@@ -153,7 +153,10 @@ function SavedBanner({ job }) {
     <div class="banner" data-tone="ok" role="status">
       <span class="banner-message saved-message">
         <${Icon} name="check" size=${20} weight=${2.2} className="tone-icon" />
-        <span>${text.savedTo(folder)}</span>
+        <span>
+          <span>${text.savedTo(folder)}</span>
+          ${job.cover_missing && html`<span class="banner-hint">${text.savedWithoutCover}</span>`}
+        </span>
       </span>
       <div class="banner-actions">
         <button type="button" class="control-button" onClick=${() => revealPath(job.output_path)}>
@@ -184,7 +187,11 @@ function RetagSavedBanner({ job }) {
         </span>
       </span>
       <div class="banner-actions">
-        <button type="button" class="control-button" onClick=${() => openDialog("spotify_help")}>
+        <button
+          type="button"
+          class="control-button"
+          onClick=${() => openDialog("spotify_help", { tab: "stale" })}
+        >
           ${text.spotifyHelp}
         </button>
       </div>

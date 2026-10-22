@@ -4,11 +4,14 @@ import importlib.metadata
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 
+from scmp3.app.clipboard import ClipboardReader, read_clipboard
 from scmp3.app.desktop import Desktop
 from scmp3.app.events import EventBus
 from scmp3.app.jobs import JobManager
 from scmp3.app.settings_watch import WatchedSettingsStore
+from scmp3.app.spotify_files import local_files_location
 from scmp3.core import history, settings
 from scmp3.core.components import Components
 from scmp3.core.errors import ScmpError
@@ -49,6 +52,10 @@ class AppContext:
     components: Components = field(default_factory=Components)
     # File dialogs, the file manager and opening Spotify.
     desktop: Desktop = field(default_factory=Desktop)
+    # Reads the system clipboard, for the offer to add a copied link.
+    clipboard: ClipboardReader = read_clipboard
+    # Finds Spotify's local-files.bnk, or its folder, for the Spotify help.
+    find_local_files: Callable[[], Path | None] = local_files_location
     # Builds the job manager from the fields above. Tests pass one with a fake pipeline.
     make_jobs: Callable[["AppContext"], JobManager] = field(default=app_job_manager, repr=False)
     jobs: JobManager = field(init=False, repr=False)

@@ -41,6 +41,11 @@ export function makeJob(fields) {
     children: [],
     album_mode: null,
     included: true,
+    // What T-022's bridge adds: a taken file name to ask about, a save without its cover, and
+    // why the last cover picked couldn't be used.
+    collision: null,
+    cover_missing: false,
+    cover_problem: null,
     ...fields,
   };
 }

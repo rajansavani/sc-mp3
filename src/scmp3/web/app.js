@@ -3,6 +3,7 @@ import { html, render } from "htm/preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 
 import { api, onEvent } from "./api.js";
+import { copyDiagnostics } from "./components/diagnostics.js";
 import { FirstRun } from "./components/FirstRun.js";
 import { Queue } from "./components/Queue.js";
 import { SetEditor } from "./components/SetEditor.js";
@@ -24,8 +25,12 @@ import { strings } from "./strings/index.js";
 // Full-window views that replace the main layout, by the name the store keeps in `view`.
 const VIEWS = { settings: Settings };
 
-// Dialogs the layer can show, by the name the store keeps in `dialog`.
-const DIALOGS = { sign_in: SignInDialog, spotify_help: SpotifyHelp };
+// Dialogs the layer can show, by the name the store keeps in `dialog`, with the frame each sits
+// in: the centered dialog, or the side panel on the right.
+const DIALOGS = {
+  sign_in: { Content: SignInDialog, frame: "dialog" },
+  spotify_help: { Content: SpotifyHelp, frame: "side-panel" },
+};
 
 // The editor for each kind of job.
 const EDITORS = { track: TrackEditor, retag: TrackEditor, set: SetEditor };
@@ -103,10 +108,12 @@ function CurrentView({ state }) {
   return html`<${MainLayout} state=${state} />`;
 }
 
-// A native modal <dialog>, which keeps focus inside it and closes on Esc. `children` go in too.
-function DialogLayer({ name, children }) {
+// A native modal <dialog>, which keeps focus inside it and closes on Esc. `props` go to the
+// dialog's content, and `children` go in after it.
+function DialogLayer({ name, props, children }) {
   const ref = useRef(null);
-  const Content = DIALOGS[name] ?? null;
+  const entry = DIALOGS[name] ?? null;
+  const Content = entry?.Content ?? null;
   useEffect(() => {
     const dialog = ref.current;
     if (Content && !dialog.open) dialog.showModal();
@@ -122,12 +129,12 @@ function DialogLayer({ name, children }) {
   return html`
     <dialog
       ref=${ref}
-      class="dialog"
+      class=${entry?.frame ?? "dialog"}
       aria-labelledby="dialog-title"
       onCancel=${onCancel}
       onClose=${closeDialog}
     >
-      ${Content && html`<${Content} />`} ${Content && children}
+      ${Content && html`<${Content} ...${props} />`} ${Content && children}
     </dialog>
   `;
 }
@@ -140,22 +147,11 @@ function App() {
   // Nothing renders before the snapshot, so first-run setup doesn't follow a flash of the queue.
   return html`
     ${state.ready && html`<${CurrentView} state=${state} />`}
-    <${DialogLayer} name=${state.dialog}>${dialogOpen && toasts}<//>
+    <${DialogLayer} name=${state.dialog} props=${state.dialog_props}>
+      ${dialogOpen && toasts}
+    <//>
     ${!dialogOpen && toasts}
   `;
-}
-
-// Copies the diagnostics for a bug report, and says whether that worked.
-async function copyDiagnostics() {
-  try {
-    const result = await api.diagnostics();
-    if (result?.error) return false;
-    await navigator.clipboard.writeText(result.text);
-    return true;
-  } catch (error) {
-    console.error("The diagnostics couldn't be copied", error);
-    return false;
-  }
 }
 
 // What the window shows when it couldn't start, so it's never left blank.

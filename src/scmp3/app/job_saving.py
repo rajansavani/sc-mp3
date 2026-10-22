@@ -88,7 +88,8 @@ def save(order: SaveOrder, steps: Steps) -> pipeline.Saved | CollisionQuestion |
         overrides=order.overrides,
     )
     # So the question is about the file finalize would replace, as in "kaia" planned as "Kaia".
-    planned = reuse_folders_by_case(planned, order.settings.library_dir)
+    # Finalize looks again and warns about a folder it can't list, so the save warns once.
+    planned = reuse_folders_by_case(planned, order.settings.library_dir, warn=False)
     policy = answered_policy(order, planned)
     if policy == "ask" and planned.exists():
         return CollisionQuestion(planned)

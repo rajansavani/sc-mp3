@@ -6,7 +6,7 @@ export default {
 
   // The top bar and the clipboard offer under it.
   pasteLabel: "Add links",
-  pastePlaceholder: "Paste SoundCloud or YouTube links, or drop audio files to re-tag",
+  pastePlaceholder: "Paste SoundCloud track links",
   add: "Add",
   signIn: "Sign in to SoundCloud",
   settings: "Settings",
@@ -16,33 +16,37 @@ export default {
   notAddedOne: (input, reason) => `${input} wasn't added. ${reason}`,
   notAddedMany: (count, reason) => `${count} items weren't added. ${reason}`,
   alreadyQueuedMany: (count) => `${count} of these are already in the queue.`,
-  // TODO(T-025): Remove this once a Python drop handler reads the files' full paths.
-  dropFilesNotYet: "Dropped files can't be added yet. Use Open audio files instead.",
 
   // Why an added item was rejected, by the reason code add_inputs returns. The codes are the
-  // constant names in core/urls.py and core/inputs.py.
+  // constant names in core/urls.py and core/inputs.py. Worded for v0.1, which saves SoundCloud
+  // tracks only; T-051, T-061 and T-062 widen them.
   rejectReasons: {
-    NOT_SUPPORTED: "Not a supported link. Paste a SoundCloud or YouTube link, or add an MP3 or M4A file.",
-    SOUNDCLOUD_NOT_TRACK: "This SoundCloud link isn't a track or a set. Open the track or set and copy its link.",
+    NOT_SUPPORTED: "Not a link sc-mp3 can save. Paste a SoundCloud track link.",
+    SOUNDCLOUD_NOT_TRACK: "This SoundCloud link isn't a track. Open the track and copy its link.",
     SHORT_LINK_DEAD_END:
-      "This SoundCloud short link doesn't lead to a track or a set. Open it in a browser and copy the full link.",
-    YOUTUBE_PLAYLIST: "YouTube playlists aren't supported yet.",
-    YOUTUBE_NOT_VIDEO: "This YouTube link isn't a video. Open the video and copy its link.",
-    FILE_NOT_FOUND: "File not found. Check the path.",
-    FOLDER_NOT_FILE: "Folders can't be added. Add the MP3 or M4A files inside the folder instead.",
-    NOT_RETAGGABLE: "Only MP3 and M4A files can be re-tagged.",
+      "This SoundCloud short link doesn't lead to a track. Open it in a browser and copy the track's link.",
+    YOUTUBE_PLAYLIST: "YouTube links can't be saved yet. Paste a SoundCloud track link instead.",
+    YOUTUBE_NOT_VIDEO: "YouTube links can't be saved yet. Paste a SoundCloud track link instead.",
+    FILE_NOT_FOUND: "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead.",
+    FOLDER_NOT_FILE: "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead.",
+    NOT_RETAGGABLE: "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead.",
     PASTE_TOO_LONG:
-      "Only the first 2,000 links and files, up to 1,000,000 characters, were read. Add the rest in another paste.",
+      "Only the first 2,000 links, up to 1,000,000 characters, were read. Add the rest in another paste.",
     ALREADY_IN_QUEUE: "Already in the queue.",
-    SETS_NOT_SUPPORTED: "SoundCloud sets and albums can't be saved yet. Add each track's own link.",
-    YOUTUBE_NOT_SUPPORTED: "YouTube links can't be saved yet.",
-    FILES_NOT_SUPPORTED: "Fixing the tags of files you already have isn't possible yet.",
+    SETS_NOT_SUPPORTED: "SoundCloud sets and albums can't be saved yet. Paste each track's own link instead.",
+    YOUTUBE_NOT_SUPPORTED: "YouTube links can't be saved yet. Paste a SoundCloud track link instead.",
+    FILES_NOT_SUPPORTED:
+      "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead.",
+    // From the drop handler: two dropped files with the same name could get each other's paths.
+    // Worded like the other file refusals until T-062, which can bring back "Add them one at a time".
+    SAME_NAME_DROP:
+      "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead.",
   },
 
   // The queue.
   queueTitle: (count) => `Queue · ${count}`,
   clearFinished: "Clear finished",
-  queueEmpty: "Nothing queued yet. Links you add show up here, and unsaved ones stay after you quit.",
+  queueEmpty: "Nothing queued yet. Links you add show up here.",
   sources: { soundcloud: "SoundCloud", youtube: "YouTube", file: "File" },
   itemLine: (artist, source) => (artist ? `${artist} · ${source}` : source),
   setLine: (owner, count) => `${owner} · SoundCloud set · ${count} tracks`,
@@ -68,13 +72,10 @@ export default {
   },
 
   // The editor with nothing selected.
-  emptyTitle: "Paste a SoundCloud or YouTube link to start",
-  emptyBody:
-    "You check the title, artist and cover, then it saves as an MP3 ready for Spotify. To fix the tags of songs you already have, drop the MP3 or M4A files here.",
+  emptyTitle: "Paste a SoundCloud track link to start",
+  emptyBody: "You check the title, artist and cover, then it saves as an MP3 ready for Spotify.",
   pasteKeys: { mac: "⌘V", other: "Ctrl+V" },
   pasteHint: "anywhere adds the links on your clipboard",
-  setsToo: "Sets and albums work too",
-  openAudioFiles: "Open audio files",
   spotifyHelp: "Spotify help",
 
   // The editor while info is still coming.
@@ -135,6 +136,7 @@ export default {
   outputLabel: "Output",
   savesAs: "Saves as",
   tagsEmbedded: "Tags and cover embedded",
+  tagsWithoutCover: "Tags embedded, no cover",
   retagAudio: "Only the tags change. The audio stays as it is.",
   // The audio line, such as "AAC 160 kbps stream → MP3 320 kbps".
   audioStream: (codec, bitrate) => (bitrate ? `${codec} ${bitrate} kbps stream` : `${codec} stream`),
@@ -154,12 +156,21 @@ export default {
   savesWhenDownloaded: "Saves when the download finishes",
   savingNow: "Tagging and moving into your library…",
   savedTo: (folder) => `Saved to ${folder}`,
+  savedWithoutCover: "Saved without a cover: the cover couldn't be downloaded.",
   retagSavedTitle: (name) => `Tags updated in ${name}`,
   retagSavedHint: "Spotify can take a moment to notice. If it doesn't, the Spotify help has three things to try.",
   showInFolder: "Show in folder",
   openSpotify: "Open Spotify",
   backToReview: "Back to review",
   skippedNote: "Skipped. Nothing was saved, and the downloaded audio was deleted.",
+
+  // The question when a file with the same name is already there, under the "Ask me" setting.
+  collisionTitle: "A file with this name is already in your library",
+  collisionBody:
+    "Replace the file that's there, keep both, or skip this track. Keeping both adds a number to the new file's name.",
+  collisionReplace: "Replace",
+  collisionKeepBoth: "Keep both",
+  collisionSkip: "Skip this track",
 
   // The duplicate warning, from the history of saved files.
   duplicateTitle: (date) => `Already in your library, saved ${date}`,
@@ -221,6 +232,23 @@ export default {
       status: "Couldn't save",
       headline: ({ folder }) => `Can't save to ${folder}.`,
       detail: () => "Check that the drive is connected, or choose another folder.",
+      // By the error's reason, or "data" for sc-mp3's own folders, as errorVariant() names them.
+      variants: {
+        data: {
+          headline: () => "sc-mp3 couldn't write to its own data folder.",
+          detail: () => "Check that the drive has free space, then retry.",
+        },
+        file_in_use: {
+          status: "File in use",
+          headline: () => "The file is open in another program or is read-only.",
+          detail: () => "Close it and try again.",
+        },
+        path_too_long: {
+          status: "Folder path too long",
+          headline: () => "The folder path is too long for this file.",
+          detail: () => "Choose a folder closer to the top of the drive.",
+        },
+      },
     },
     duplicate: {
       status: "Already saved",

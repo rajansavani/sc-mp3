@@ -3,12 +3,17 @@
 import ctypes
 from collections.abc import Callable
 
-# Windows MessageBox flags, and the answer for its Yes button.
+# Windows MessageBox flags, and the answers for its Yes and No buttons.
 MB_OK = 0x00
 MB_YESNO = 0x04
 MB_ICONWARNING = 0x30
 MB_ICONINFORMATION = 0x40
+# The second button, No, is the one Enter presses.
+MB_DEFBUTTON2 = 0x100
+# The box keeps the app's own windows from taking clicks while it's up.
+MB_TASKMODAL = 0x2000
 IDYES = 6
+IDNO = 7
 
 # Shows text with a title and flags, and returns the button pressed.
 MessageBox = Callable[[str, str, int], int]

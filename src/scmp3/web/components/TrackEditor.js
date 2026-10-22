@@ -1,10 +1,11 @@
 // The editor for one track or re-tagged file: the cover, the fields, the cleanups and the actions.
 import { html } from "htm/preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 import { api } from "../api.js";
 import { reportError, useStore } from "../store.js";
 import { strings } from "../strings/index.js";
+import { CollisionDialog } from "./CollisionDialog.js";
 import { CoverPanel } from "./CoverPanel.js";
 import { DuplicateBanner, ErrorBanner, ErrorView } from "./EditorBanners.js";
 import { EditorFields, fieldId, renderedValue } from "./EditorFields.js";
@@ -59,16 +60,27 @@ function useEnterToSave(onSave) {
 
 // Sends what's still being typed, then saves. A refused field gets focus instead. The fields
 // lock while saving, so focus moves to the queue item rather than falling to the page.
-function useSave(job, drafts) {
+// `beforeSave` runs first, so a question closed without an answer can come up again.
+function useSave(job, drafts, beforeSave) {
   return async () => {
     if (!canSave(job)) return;
     if (!(await drafts.flush())) {
       document.getElementById(fieldId(drafts.firstRefused()))?.focus();
       return;
     }
+    beforeSave();
     if (reportError(await api.save([job.id]))) return;
     focusSelectedItem();
   };
+}
+
+// The question about a file with the same name, shown until it's answered or closed. Closing it
+// keeps it away until the next save asks again, even for the same file.
+function useCollisionQuestion(job) {
+  const [closedFor, setClosedFor] = useState(null);
+  const path = job.collision?.path ?? null;
+  const open = path !== null && closedFor !== path && job.state === "needs_review";
+  return { open, close: () => setClosedFor(path), reopen: () => setClosedFor(null) };
 }
 
 function EditorHeader({ job, jobs }) {
@@ -117,7 +129,8 @@ function TopBanner({ job, settings, onSave }) {
 
 function ReviewForm({ job, jobs, settings }) {
   const drafts = useFieldDrafts(job, renderedValue);
-  const save = useSave(job, drafts);
+  const question = useCollisionQuestion(job);
+  const save = useSave(job, drafts, question.reopen);
   useEnterToSave(save);
   // Once saving starts, the tags are settled. A failed save can still be fixed and retried.
   const editable = job.state === "needs_review" || job.state === "error";
@@ -134,6 +147,7 @@ function ReviewForm({ job, jobs, settings }) {
       </fieldset>
       <${OutputStrip} job=${job} settings=${settings} />
       <${ActionBar} job=${job} onSave=${save} />
+      ${question.open && html`<${CollisionDialog} job=${job} onClose=${question.close} />`}
     </div>
   `;
 }

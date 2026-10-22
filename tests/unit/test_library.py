@@ -445,17 +445,41 @@ def test_a_library_folder_that_doesnt_exist_yet_still_gets_artist_folders(tmp_pa
     assert destination == library_dir / "Kaia" / f"{SAMPLE_NAME}.mp3"
 
 
-def test_a_library_that_cant_be_listed_gets_a_new_artist_folder_and_a_warning(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
+def refuse_listing(monkeypatch: pytest.MonkeyPatch) -> None:
     def refuse(path: object) -> None:
         raise PermissionError(13, "Permission denied")
 
     monkeypatch.setattr(library.os, "scandir", refuse)
+
+
+def test_a_library_that_cant_be_listed_gets_a_new_artist_folder_and_a_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    refuse_listing(monkeypatch)
     with caplog.at_level(logging.WARNING, logger="scmp3.core.library"):
         destination = planned_and_reused(tmp_path, SAMPLE, Settings())
     assert destination == tmp_path / "Kaia" / f"{SAMPLE_NAME}.mp3"
     assert "Couldn't look for a folder to reuse: Permission denied" in caplog.text
+
+
+def test_folders_that_cant_be_listed_give_one_warning_between_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    # The artist's folder and the album's inside it are both looked for.
+    refuse_listing(monkeypatch)
+    with caplog.at_level(logging.WARNING, logger="scmp3.core.library"):
+        planned_and_reused(tmp_path, SAMPLE, Settings(album_subfolders=True))
+    assert len(caplog.records) == 1
+
+
+def test_a_look_for_folders_to_reuse_can_leave_the_warning_to_a_later_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    refuse_listing(monkeypatch)
+    planned = plan_destination(tmp_path, SAMPLE, Settings(), "mp3")
+    with caplog.at_level(logging.WARNING, logger="scmp3.core.library"):
+        assert reuse_folders_by_case(planned, tmp_path, warn=False) == planned
+    assert caplog.records == []
 
 
 def test_with_album_folders_an_album_goes_inside_its_artists_folder(tmp_path: Path) -> None:
@@ -537,6 +561,8 @@ def test_a_name_is_never_shortened_below_20_characters(
     assert error_info.value.kind is ErrorKind.disk
     assert error_info.value.detail is not None
     assert "library folder path is too long" in error_info.value.detail
+    # The UI says to choose a shorter folder, rather than to check the drive.
+    assert error_info.value.reason == "path_too_long"
 
 
 def test_a_short_name_still_fits_a_folder_with_little_room(

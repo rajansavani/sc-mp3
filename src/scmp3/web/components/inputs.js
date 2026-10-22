@@ -1,8 +1,8 @@
 // Adding links and files to the queue, from the paste field, a paste anywhere, a drop or a picker.
 import { useState } from "preact/hooks";
 
-import { api, usesMock } from "../api.js";
-import { addToast, getState, reportError, reportRejected, selectJob } from "../store.js";
+import { api } from "../api.js";
+import { getState, reportError, reportRejected, selectJob } from "../store.js";
 import { strings } from "../strings/index.js";
 
 const text = strings.main;
@@ -23,21 +23,10 @@ export async function addInputs(textOrPaths) {
   return true;
 }
 
-// The app's page never learns a dropped file's full path. The mock makes do with its name.
-// TODO(T-025): Add a Python drop handler, which gets the full paths, and drop this.
-function droppedFilePaths(files) {
-  const paths = files.map((file) => file.pywebviewFullPath ?? (usesMock() ? file.name : null));
-  if (paths.includes(null)) {
-    addToast("error", text.dropFilesNotYet);
-    return [];
-  }
-  return paths;
-}
-
-// Dropped items arrive one by one, so they're joined with newlines to keep paths with spaces whole.
+// The links in a drop, one a line. Dropped files are left to Python's drop handler on the page's
+// body, since only it learns their full paths (TECH_SPEC §16).
 export function droppedInputs(dataTransfer) {
-  const files = [...dataTransfer.files];
-  if (files.length > 0) return droppedFilePaths(files).join("\n");
+  if (dataTransfer.files.length > 0) return "";
   const uriList = dataTransfer.getData("text/uri-list");
   // uri-list lines starting with # are comments.
   const links = uriList.split(/\r?\n/).filter((line) => line.trim() && !line.startsWith("#"));

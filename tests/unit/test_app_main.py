@@ -1,4 +1,5 @@
-"""Tests for opening the window, the MSHTML fallback, and routing pywebview's logs."""
+"""Tests for opening the window, its ready and closing hooks, the MSHTML fallback, and routing
+pywebview's logs."""
 
 import html
 import logging
@@ -11,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from scmp3.app import instance, main
+from scmp3.app import instance, main, page_loading
 from scmp3.app.bridge import Api
 from scmp3.app.context import AppContext
 from scmp3.app.events import EventBus
@@ -64,7 +65,7 @@ class FakeWindow:
 
     def __init__(self, loads: list[Any]) -> None:
         self.events = SimpleNamespace(
-            initialized=FakeEvent(), loaded=FakeEvent(), closed=FakeEvent()
+            initialized=FakeEvent(), loaded=FakeEvent(), closing=FakeEvent(), closed=FakeEvent()
         )
         self.real_url = APP_URL
         self._loads = list(loads)
@@ -80,7 +81,7 @@ class FakeWindow:
         self.events.loaded.set(self)
 
     def evaluate_js(self, script: str) -> Any:
-        if script == main.PAGE_CHECK:
+        if script == page_loading.PAGE_CHECK:
             if isinstance(self.page, Exception):
                 raise self.page
             return list(self.page)
@@ -256,7 +257,7 @@ def test_a_second_failed_load_shows_the_plain_page_and_exits_with_1(api: Api) ->
     assert code == 1
     assert toolkit.window.reloads == [RETRY_URL]
     [page] = toolkit.window.html_pages
-    assert html.escape(main.PAGE_DIDNT_LOAD) in page
+    assert html.escape(page_loading.PAGE_DIDNT_LOAD) in page
     assert html.escape(str(paths.log_dir())) in page
     # The events never started, since the UI never loaded.
     assert toolkit.window.scripts == []
@@ -264,7 +265,7 @@ def test_a_second_failed_load_shows_the_plain_page_and_exits_with_1(api: Api) ->
 
 def test_the_retry_goes_to_a_new_address_for_the_same_page() -> None:
     # WebView2 doesn't navigate when told to load the address it's already on.
-    assert main.retry_address(APP_URL) == RETRY_URL
+    assert page_loading.retry_address(APP_URL) == RETRY_URL
 
 
 def test_a_window_that_loads_the_first_time_isnt_reloaded(api: Api) -> None:
@@ -310,6 +311,60 @@ def test_the_window_is_handed_over_once_it_exists(api: Api) -> None:
     assert created == [toolkit.window]
 
 
+def test_webview2_keeps_its_data_in_the_folder_it_is_given(api: Api, tmp_path: Path) -> None:
+    toolkit = FakeToolkit()
+    main.open_window(toolkit, api, EventBus(), page=PAGE, data_folder=tmp_path / "webview")
+    assert toolkit.start_options == {
+        "http_server": True,
+        "private_mode": True,
+        "storage_path": str(tmp_path / "webview"),
+    }
+
+
+def test_pywebviews_early_delete_warning_doesnt_reach_the_log(logging_to_file: Path) -> None:
+    main.route_pywebview_logging()
+    main.route_pywebview_logging()
+    logger = logging.getLogger(main.PYWEBVIEW_LOGGER)
+    assert sum(isinstance(item, main.EarlyDeleteFilter) for item in logger.filters) == 1
+    logger.warning("Failed to delete user data folder: [WinError 32] in use")
+    logger.warning("Something else")
+    for handler in logging.getLogger().handlers:
+        handler.flush()
+    text = logging_to_file.read_text(encoding="utf-8")
+    assert "Failed to delete user data folder" not in text
+    assert "Something else" in text
+
+
+def test_the_ready_hook_gets_the_window_once_the_ui_has_loaded(api: Api) -> None:
+    # The drop handler is bound there, since pywebview binds it to the page's own body.
+    toolkit = FakeToolkit()
+    ready: list[Any] = []
+    main.open_window(toolkit, api, EventBus(), page=PAGE, on_ready=ready.append)
+    assert ready == [toolkit.window]
+
+
+def test_the_ready_hook_waits_for_the_ui_after_a_failed_first_load(api: Api) -> None:
+    toolkit = FakeToolkit(loads=[ERROR_PAGE, UI_PAGE])
+    ready: list[Any] = []
+    main.open_window(toolkit, api, EventBus(), page=PAGE, on_ready=ready.append)
+    assert ready == [toolkit.window]
+    assert toolkit.window.reloads == [RETRY_URL]
+
+
+def test_the_ready_hook_never_runs_when_the_ui_never_loads(api: Api) -> None:
+    toolkit = FakeToolkit(loads=[ERROR_PAGE, ERROR_PAGE])
+    ready: list[Any] = []
+    main.open_window(toolkit, api, EventBus(), page=PAGE, on_ready=ready.append)
+    assert ready == []
+
+
+def test_the_closing_hook_decides_whether_the_window_closes(api: Api) -> None:
+    toolkit = FakeToolkit()
+    main.open_window(toolkit, api, EventBus(), page=PAGE, on_closing=lambda: False)
+    # pywebview cancels the close when a closing handler returns False.
+    assert toolkit.window.events.closing.set() == [False]
+
+
 def test_a_second_copy_exits_without_opening_a_window(monkeypatch: pytest.MonkeyPatch) -> None:
     held = instance.instance_lock()
     held.acquire()
@@ -334,7 +389,7 @@ def test_the_first_copy_lets_go_of_the_lock_when_it_closes(monkeypatch: pytest.M
 
 
 @pytest.mark.parametrize(
-    "text", [main.WEBVIEW2_MISSING, main.FOLDER_WITH_HASH, main.PAGE_DIDNT_LOAD]
+    "text", [main.WEBVIEW2_MISSING, main.FOLDER_WITH_HASH, page_loading.PAGE_DIDNT_LOAD]
 )
 def test_the_messages_follow_the_writing_rules(text: str) -> None:
     assert "!" not in text

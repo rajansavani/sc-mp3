@@ -1,4 +1,5 @@
-"""Bridge calls that open file dialogs, show files in the file manager, and open Spotify."""
+"""Bridge calls that open file dialogs, show files in the file manager, and open Spotify and its
+folder for local files."""
 
 import logging
 import os
@@ -13,6 +14,7 @@ from scmp3.core.errors import ScmpError
 INTERNAL = "internal"
 FILE_MISSING = "file_missing"
 SPOTIFY_MISSING = "spotify_missing"
+SPOTIFY_FOLDER_MISSING = "spotify_folder_missing"
 SPOTIFY_LINK = "spotify:"
 MAX_PATH_CHARACTERS = 8_000
 
@@ -81,4 +83,11 @@ class FilesApi:
         """Open the Spotify app."""
         if not self._context.desktop.open_link(SPOTIFY_LINK):
             return {"error": SPOTIFY_MISSING}
+        return {}
+
+    def open_local_files_folder(self) -> dict[str, Any]:
+        """Show Spotify's local-files.bnk in the file manager, so it can be deleted."""
+        location = self._context.find_local_files()
+        if location is None or not self._context.desktop.reveal(location):
+            return {"error": SPOTIFY_FOLDER_MISSING}
         return {}

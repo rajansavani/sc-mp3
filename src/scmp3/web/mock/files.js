@@ -25,3 +25,8 @@ export function open_spotify() {
   console.info("Mock API: this would open Spotify.");
   return {};
 }
+
+export function open_local_files_folder() {
+  console.info("Mock API: this would show Spotify's local-files.bnk in the file manager.");
+  return {};
+}

@@ -1,12 +1,13 @@
-"""Tests for the log file and for masking tokens in it."""
+"""Tests for the log file and for masking tokens and the home folder in it."""
 
 import base64
 import json
 import logging
 import secrets
+import sys
 from collections.abc import Callable, Iterator
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import pytest
 
@@ -320,6 +321,102 @@ def test_an_unwritable_log_folder_is_a_disk_error(
     with pytest.raises(ScmpError) as error_info:
         setup_logging()
     assert error_info.value.kind is ErrorKind.disk
+
+
+WINDOWS_HOME = PureWindowsPath("C:/Users/Kaia Lou")
+
+
+@pytest.fixture
+def windows_home(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A made-up Windows home folder in place of the real one."""
+    monkeypatch.setattr(log, "_home", log.home_pattern(WINDOWS_HOME, ignore_case=True))
+
+
+@pytest.mark.parametrize(
+    ("text", "masked"),
+    [
+        (r"Saved C:\Users\Kaia Lou\Music\song.mp3", r"Saved ~\Music\song.mp3"),
+        ("Saved C:/Users/Kaia Lou/Music/song.mp3", "Saved ~/Music/song.mp3"),
+        # A repr doubles each backslash.
+        (r"No such file: 'C:\\Users\\Kaia Lou\\x.mp3'", r"No such file: '~\\x.mp3'"),
+        (r"c:\users\kaia lou\Music", r"~\Music"),
+        (r"In \Users\Kaia Lou\AppData", r"In ~\AppData"),
+        ("file:///C:/Users/Kaia Lou/x.mp3", "file:///~/x.mp3"),
+        (r"C:\Users\Kaia Lou", "~"),
+    ],
+    ids=["backslashes", "slashes", "repr", "other case", "no drive", "file link", "home itself"],
+)
+def test_the_home_folder_shows_as_a_tilde(windows_home: None, text: str, masked: str) -> None:
+    assert redact(text) == masked
+
+
+@pytest.mark.parametrize(
+    "text",
+    [r"C:\Users\Kaia Louise\Music", r"C:\Users\Kaia Lou.old\Music", r"D:\Shared\Kaia Lou"],
+)
+def test_a_folder_that_only_starts_like_the_home_folder_is_left_alone(
+    windows_home: None, text: str
+) -> None:
+    assert redact(text) == text
+
+
+def test_the_home_folders_short_and_url_encoded_forms_show_as_a_tilde(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = log.home_pattern(
+        PureWindowsPath("C:/Users/John Smith"),
+        ignore_case=True,
+        short_home=PureWindowsPath("C:/Users/JOHNSM~1"),
+    )
+    monkeypatch.setattr(log, "_home", home)
+    assert (
+        redact(r"Temp is C:\Users\JOHNSM~1\AppData\Local\Temp") == r"Temp is ~\AppData\Local\Temp"
+    )
+    assert redact("file:///C:/Users/John%20Smith/x.mp3") == "file:///~/x.mp3"
+    assert redact(r"C:\Users\John Smith\x.mp3") == r"~\x.mp3"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="8.3 names are Windows' own")
+def test_windows_gives_the_short_form_of_a_long_folder(tmp_path: Path) -> None:
+    folder = tmp_path / "A Folder With A Long Name"
+    folder.mkdir()
+    short = log.short_path(folder)
+    # Volumes can turn 8.3 names off, and then there's no short form to mask.
+    assert short is None or "~" in short.name
+
+
+def test_case_matters_in_a_home_folder_where_the_os_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = log.home_pattern(PurePosixPath("/home/kaia"), ignore_case=False)
+    monkeypatch.setattr(log, "_home", home)
+    assert redact("/home/kaia/Music and /home/Kaia/Music") == "~/Music and /home/Kaia/Music"
+
+
+def test_a_home_folder_at_the_root_of_a_drive_masks_nothing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(log, "_home", log.home_pattern(PurePosixPath("/")))
+    assert redact("/music/song.mp3 and / alone") == "/music/song.mp3 and / alone"
+
+
+def test_a_traceback_in_the_log_shows_the_home_folder_as_a_tilde(
+    log_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The repo stands in for the home folder, since the traceback names this file in it.
+    repo = Path(__file__).resolve().parents[2]
+    monkeypatch.setattr(log, "_home", log.home_pattern(repo))
+    missing = repo / "music" / "gone.mp3"
+    try:
+        missing.read_bytes()
+    except FileNotFoundError:
+        logging.getLogger("scmp3.test").exception("Saving %s failed", missing)
+    text = read_log(log_file)
+    assert "Traceback" in text
+    assert str(repo) not in text
+    assert str(repo).replace("\\", "\\\\") not in text
+    assert f"Saving {Path('~', 'music', 'gone.mp3')} failed" in text
+    assert str(Path("~", "tests", "unit", "test_log.py")) in text
 
 
 @pytest.mark.parametrize(

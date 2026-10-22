@@ -1,10 +1,12 @@
 """Tests for moving files into the library, re-tagging in place, and cleaning up after a crash."""
 
 import errno
+import getpass
 import logging
 import os
 import shutil
 import stat
+import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -208,6 +210,136 @@ def test_a_lock_that_doesnt_clear_is_a_disk_error_after_about_2_seconds(
     assert len(tries) == 6
     assert len(sleep.waits) == 5
     assert sum(sleep.waits) == pytest.approx(2.0)
+    assert dest.read_bytes() == OLD
+    assert src.read_bytes() == NEW
+
+
+@pytest.mark.parametrize("winerror", [5, 32])
+def test_a_file_still_locked_after_the_retries_is_called_in_use(
+    winerror: int, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sleep: RecordingSleep
+) -> None:
+    src = make_file(tmp_path / "staging" / "out.mp3", NEW)
+    dest = make_file(tmp_path / "library" / "Kaia - Song.mp3", OLD)
+
+    def locked_replace(source: str | Path, target: str | Path) -> None:
+        raise lock_error(winerror)
+
+    monkeypatch.setattr(placing.os, "replace", locked_replace)
+    with pytest.raises(ScmpError) as error_info:
+        atomic_place(src, dest, sleep=sleep)
+    assert error_info.value.kind is ErrorKind.disk
+    # The UI says to close the file, rather than to choose another folder.
+    assert error_info.value.reason == "file_in_use"
+    assert (
+        error_info.value.detail == "can't write Kaia - Song.mp3: The process cannot access the file"
+    )
+
+
+def test_a_lock_in_a_folder_that_refuses_new_files_is_about_the_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sleep: RecordingSleep
+) -> None:
+    # Windows denies a denied folder as it does an open file; only a new file tells them apart.
+    src = make_file(tmp_path / "staging" / "out.mp3", NEW)
+    dest = make_file(tmp_path / "library" / "Kaia - Song.mp3", OLD)
+
+    def locked_replace(source: str | Path, target: str | Path) -> None:
+        raise lock_error(5)
+
+    def refused(folder: Path, prefix: str, suffix: str = "") -> tuple[int, Path]:
+        raise PermissionError(13, "Access is denied")
+
+    monkeypatch.setattr(placing.os, "replace", locked_replace)
+    monkeypatch.setattr(placing.paths, "create_temp_file", refused)
+    with pytest.raises(ScmpError) as error_info:
+        atomic_place(src, dest, sleep=sleep)
+    assert error_info.value.reason is None
+    assert dest.read_bytes() == OLD
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows denies with the same code for both")
+def test_replacing_a_file_in_a_folder_that_refuses_writes_is_about_the_folder(
+    tmp_path: Path, sleep: RecordingSleep
+) -> None:
+    src = make_file(tmp_path / "staging" / "out.mp3", NEW)
+    dest = make_file(tmp_path / "library" / "Kaia - Song.mp3", OLD)
+    user = getpass.getuser()
+    icacls = ["icacls", str(dest.parent)]
+    subprocess.run([*icacls, "/deny", f"{user}:(OI)(CI)(W,AD)"], check=True, capture_output=True)
+    try:
+        with pytest.raises(ScmpError) as error_info:
+            atomic_place(src, dest, sleep=sleep)
+    finally:
+        subprocess.run([*icacls, "/remove:d", user], check=True, capture_output=True)
+    assert error_info.value.reason is None
+    assert names_in(dest.parent) == ["Kaia - Song.mp3"]
+    assert dest.read_bytes() == OLD
+
+
+def test_the_folder_probe_leaves_nothing_and_is_named_like_a_leftover(tmp_path: Path) -> None:
+    dest = make_file(tmp_path / "library" / "Kaia - Song.mp3", OLD)
+    assert placing._is_locked_file(dest) is True
+    assert names_in(dest.parent) == ["Kaia - Song.mp3"]
+    # One that couldn't be deleted is cleared later with the other temp files.
+    assert placing.LEFTOVER_NAME.fullmatch(f"{placing.PROBE_PREFIX}0123abcd{placing.PROBE_SUFFIX}")
+
+
+def test_access_denied_to_a_new_file_is_about_the_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sleep: RecordingSleep
+) -> None:
+    # Windows says the same when the folder refuses new files, which keeps the folder's advice.
+    src = make_file(tmp_path / "staging" / "out.mp3", NEW)
+    dest = tmp_path / "library" / "Kaia - Song.mp3"
+
+    def denied_replace(source: str | Path, target: str | Path) -> None:
+        raise lock_error(5)
+
+    monkeypatch.setattr(placing.os, "replace", denied_replace)
+    with pytest.raises(ScmpError) as error_info:
+        atomic_place(src, dest, sleep=sleep)
+    assert error_info.value.kind is ErrorKind.disk
+    assert error_info.value.reason is None
+
+
+def test_a_permission_error_that_isnt_a_lock_has_no_reason(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    src = make_file(tmp_path / "staging" / "out.mp3", NEW)
+    dest = make_file(tmp_path / "library" / "Kaia - Song.mp3", OLD)
+
+    def denied_replace(source: str | Path, target: str | Path) -> None:
+        raise access_denied()
+
+    monkeypatch.setattr(placing.os, "replace", denied_replace)
+    with pytest.raises(ScmpError) as error_info:
+        atomic_place(src, dest)
+    assert error_info.value.reason is None
+
+
+def test_retagging_a_file_open_in_another_program_is_called_in_use(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, sleep: RecordingSleep
+) -> None:
+    path = make_file(tmp_path / "library" / "Kaia - Song.mp3", OLD)
+
+    def locked_replace(source: str | Path, target: str | Path) -> None:
+        raise lock_error(32)
+
+    monkeypatch.setattr(placing.os, "replace", locked_replace)
+    with pytest.raises(ScmpError) as error_info:
+        retag_in_place(path, lambda copy: None, sleep=sleep)
+    assert error_info.value.reason == "file_in_use"
+    assert path.read_bytes() == OLD
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows locks a file another program has open")
+def test_a_file_another_program_holds_open_is_called_in_use(
+    tmp_path: Path, sleep: RecordingSleep
+) -> None:
+    src = make_file(tmp_path / "staging" / "out.mp3", NEW)
+    dest = make_file(tmp_path / "library" / "Kaia - Song.mp3", OLD)
+    # A plain open() lets others read and write, but not delete or rename, as a player does.
+    with dest.open("rb"), pytest.raises(ScmpError) as error_info:
+        atomic_place(src, dest, sleep=sleep)
+    assert error_info.value.reason == "file_in_use"
     assert dest.read_bytes() == OLD
     assert src.read_bytes() == NEW
 
@@ -484,6 +616,7 @@ def test_a_read_only_file_on_windows_is_left_as_it_was(
         with pytest.raises(ScmpError) as error_info:
             retag_in_place(song, lambda copy: copy.write_bytes(NEW), sleep=sleep)
         assert error_info.value.kind is ErrorKind.disk
+        assert error_info.value.reason == "file_in_use"
         assert song.read_bytes() == OLD
         assert names_in(tmp_path) == ["Kaia - Song.mp3"]
     finally:

@@ -37,6 +37,12 @@ STATUS_KINDS: dict[int, ErrorKind] = {
 
 ProgressHook = Callable[[dict[str, Any]], None]
 
+# Warnings from yt-dlp that are harmless, so they go to DEBUG.
+QUIET_WARNINGS = (
+    # Parallel resolves race to write the client_id cache, and the winner's copy is kept.
+    "Writing cache to ",
+)
+
 log = logging.getLogger(__name__)
 
 
@@ -76,7 +82,10 @@ class YtDlpLogger:
         self._logger.debug(message)
 
     def warning(self, message: str) -> None:
-        """Log a warning, such as "Continuing as guest"."""
+        """Log a warning, such as "Continuing as guest". The harmless ones go to DEBUG."""
+        if message.startswith(QUIET_WARNINGS):
+            self._logger.debug(message)
+            return
         self._logger.warning(message)
 
     def error(self, message: str) -> None:

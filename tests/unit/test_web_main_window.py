@@ -11,7 +11,7 @@ from typing import get_args
 import pytest
 
 from scmp3.app.main import WEB_DIR
-from scmp3.core.errors import ErrorKind
+from scmp3.core.errors import ErrorKind, ErrorReason
 from scmp3.core.models import AudioFormat, ChangeKind, SourceKind, TitleStyle
 
 # The colors T-020 added for banners, notes and dialogs.
@@ -62,6 +62,14 @@ def test_every_error_kind_has_its_status_and_headline() -> None:
     assert keys_in_block(text, "errors") >= error_kinds()
     for kind in error_kinds():
         assert {"status", "headline"} <= keys_in_block(text, kind), kind
+
+
+def test_every_error_reason_and_the_data_folder_have_their_own_words() -> None:
+    # The variants under the disk error, by the names job-view.js's errorVariant() gives.
+    variants = keys_in_block(strings_text(), "variants")
+    assert variants == {*get_args(ErrorReason), "data"}
+    for variant in variants:
+        assert "headline" in keys_in_block(strings_text(), variant), variant
 
 
 def test_every_error_kind_has_a_banner_with_a_tone() -> None:

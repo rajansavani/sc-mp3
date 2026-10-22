@@ -1,20 +1,13 @@
-// The editor with nothing in the queue: how to start, and a zone that takes dropped files.
+// The editor with nothing in the queue: how to start, and a zone that takes dropped links.
+// v0.1 saves SoundCloud tracks only; T-051 and T-062 add sets and re-tagging back here.
 import { html } from "htm/preact";
 
-import { api } from "../api.js";
-import { openDialog, reportError } from "../store.js";
+import { openDialog } from "../store.js";
 import { strings } from "../strings/index.js";
 import { Icon } from "./icons.js";
-import { addInputs, pasteKeys, useInputDrop } from "./inputs.js";
+import { pasteKeys, useInputDrop } from "./inputs.js";
 
 const text = strings.main;
-
-async function openAudioFiles() {
-  const picked = await api.pick_audio_files();
-  if (reportError(picked) || !picked?.paths?.length) return;
-  // Paths go one per line, so spaces inside them don't split them.
-  await addInputs(picked.paths.join("\n"));
-}
 
 export function EmptyEditor() {
   const drop = useInputDrop();
@@ -31,12 +24,8 @@ export function EmptyEditor() {
             <kbd class="empty-key">${pasteKeys()}</kbd>
             <span>${text.pasteHint}</span>
           </span>
-          <span>${text.setsToo}</span>
         </div>
         <div class="empty-actions">
-          <button type="button" class="control-button" onClick=${openAudioFiles}>
-            ${text.openAudioFiles}
-          </button>
           <button
             type="button"
             class="control-button is-ghost"

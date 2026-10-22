@@ -19,6 +19,8 @@ export default {
     invalid_artwork: "That cover can't be used. Choose an image file, or a link that starts with https://.",
     file_missing: "That file isn't there anymore. It may have been moved or deleted.",
     spotify_missing: "Spotify didn't open. Check that the Spotify app is installed, then try again.",
+    spotify_folder_missing:
+      "sc-mp3 couldn't find Spotify's folder on this computer. Open Spotify once, then try again.",
     internal:
       "sc-mp3 hit an unexpected error. Try again, and if it keeps happening, copy the diagnostics from Settings and include them in a bug report.",
   },

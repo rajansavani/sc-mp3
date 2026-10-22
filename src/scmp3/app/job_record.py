@@ -15,7 +15,7 @@ from scmp3.app.workers import Cancellable
 from scmp3.core import pipeline
 from scmp3.core.conversion_choice import choose_conversion
 from scmp3.core.convert import AudioInfo
-from scmp3.core.errors import ErrorPlace, ScmpError
+from scmp3.core.errors import ErrorPlace, ErrorReason, ScmpError
 from scmp3.core.inputs import ParsedInput
 from scmp3.core.library import CollisionChoice
 from scmp3.core.models import (
@@ -71,6 +71,7 @@ class JobRecord:
     wants_save: bool = False  # Save was pressed, or the job saves without review
     failed_step: Step | None = None
     error_where: ErrorPlace | None = None  # which folder a disk error was about
+    error_reason: ErrorReason | None = None  # what went wrong more exactly, as with a file in use
     cover_error: ScmpError | None = None  # why a saved file has no cover
     toggles: dict[str, bool] = field(default_factory=dict)  # cleanups switched by hand
     source_cover: CoverView = NO_COVER
@@ -191,6 +192,7 @@ def job_view(record: JobRecord, settings: Settings) -> dict[str, Any]:
     if view["error"] is not None:
         # The UI offers "Choose another folder" only for the library (TECH_SPEC §9).
         view["error"]["where"] = record.error_where
+        view["error"]["reason"] = record.error_reason
     return view
 
 

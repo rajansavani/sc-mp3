@@ -13,7 +13,8 @@ import time
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
-from scmp3.core.errors import ErrorKind, ScmpError
+from scmp3.core import paths
+from scmp3.core.errors import ErrorKind, ErrorReason, ScmpError
 from scmp3.core.library import PARTIAL_SUFFIX, RETAG_SUFFIX
 
 log = logging.getLogger(__name__)
@@ -33,6 +34,10 @@ LOCK_RETRY_DELAYS = (0.1, 0.2, 0.4, 0.6, 0.7)
 LEFTOVER_NAME = re.compile(r"\.[^.].*\.[0-9A-Za-z]{1,5}(?:\.partial|\.retag\.tmp)")
 # Older than this, a temp file can't belong to a save that's still running.
 LEFTOVER_AGE = 10 * 60  # seconds
+# The probe that checks whether a folder takes new files, named so remove_leftovers finds one
+# that couldn't be deleted.
+PROBE_PREFIX = ".write-check-"
+PROBE_SUFFIX = ".tmp" + PARTIAL_SUFFIX
 
 
 def atomic_place(src: Path, dest: Path, *, sleep: Sleep = time.sleep) -> Path:
@@ -86,6 +91,10 @@ def _is_other_drive(error: OSError) -> bool:
     return getattr(error, "winerror", None) == ERROR_NOT_SAME_DEVICE
 
 
+class _FileInUse(OSError):
+    """A rename onto a file that stayed locked through every retry: it's open or read-only."""
+
+
 def _replace(src: Path, dest: Path, sleep: Sleep) -> None:
     """os.replace, tried again for about 2 seconds while Windows says a file is briefly locked."""
     for delay in LOCK_RETRY_DELAYS:
@@ -93,11 +102,38 @@ def _replace(src: Path, dest: Path, sleep: Sleep) -> None:
             os.replace(src, dest)
             return
         except OSError as error:
-            if getattr(error, "winerror", None) not in BRIEF_LOCK_ERRORS:
+            if not _is_brief_lock(error):
                 raise
         log.debug("%s is locked, so the rename is tried again", dest.name)
         sleep(delay)
-    os.replace(src, dest)
+    try:
+        os.replace(src, dest)
+    except OSError as error:
+        if _is_brief_lock(error) and _is_locked_file(dest):
+            raise _FileInUse(error.errno, error.strerror) from error
+        raise
+
+
+def _is_brief_lock(error: OSError) -> bool:
+    return getattr(error, "winerror", None) in BRIEF_LOCK_ERRORS
+
+
+def _is_locked_file(dest: Path) -> bool:
+    """Whether a refused rename was about the file at `dest`, rather than its folder.
+
+    Windows says access denied for an open or read-only file and for a folder that refuses
+    writes alike. Only the folder also refuses a new file, and nothing there is about the folder.
+    """
+    if not os.path.isfile(dest):
+        return False
+    try:
+        handle, probe = paths.create_temp_file(dest.parent, PROBE_PREFIX, PROBE_SUFFIX)
+    except OSError as error:
+        log.debug("The folder refuses new files too: %s", error.strerror or error)
+        return False
+    os.close(handle)
+    _remove_or_warn(probe)
+    return True
 
 
 def retag_in_place(
@@ -196,4 +232,6 @@ def _remove_or_warn(path: Path) -> bool:
 
 def _disk_error(path: Path, error: OSError) -> ScmpError:
     # The detail names the file only; full paths stay in DEBUG logs.
-    return ScmpError(ErrorKind.disk, f"can't write {path.name}: {error.strerror or error}")
+    reason: ErrorReason | None = "file_in_use" if isinstance(error, _FileInUse) else None
+    detail = f"can't write {path.name}: {error.strerror or error}"
+    return ScmpError(ErrorKind.disk, detail, reason=reason)

@@ -127,10 +127,23 @@ function Preview({ job, image, editable }) {
   `;
 }
 
+// Why the last cover picked couldn't be used, as Python reports it with the job. Choosing another
+// cover clears it.
+function CoverProblem({ problem }) {
+  const message = text.coverProblems[problem] ?? text.coverProblems.internal;
+  return html`
+    <div class="note" data-tone="danger" role="status">
+      <${Icon} name="error" className="tone-icon" />
+      <span>${message}</span>
+    </div>
+  `;
+}
+
 function Notes({ job, side }) {
   const avatar = job.source?.artwork_is_avatar && job.artwork?.kind === "source";
   const small = side != null && side < SMALL_COVER_PX;
   return html`
+    ${job.cover_problem && html`<${CoverProblem} problem=${job.cover_problem} />`}
     ${small &&
     html`
       <div class="note" data-tone="warn">

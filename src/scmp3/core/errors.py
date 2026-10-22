@@ -8,6 +8,14 @@ from typing import Literal
 
 # Which folder a disk error was about: the library, or sc-mp3's own data, cache and staging.
 ErrorPlace = Literal["library", "data"]
+# What went wrong more exactly, for errors whose kind alone would give the wrong advice. The UI
+# has text for each.
+ErrorReason = Literal[
+    # The file being replaced is open in another program, or is read-only.
+    "file_in_use",
+    # The library folder's path leaves no room for a file name under Windows' path limit.
+    "path_too_long",
+]
 
 
 class ErrorKind(StrEnum):
@@ -36,11 +44,17 @@ class ErrorKind(StrEnum):
 class ScmpError(Exception):
     """A failure of a known kind, with an optional detail for the logs.
 
-    `where` says which folder a disk error was about. None counts as the library.
+    `where` says which folder a disk error was about. None counts as the library. `reason` says
+    more exactly what went wrong, when the kind's own advice wouldn't fit.
     """
 
     def __init__(
-        self, kind: ErrorKind | str, detail: str | None = None, *, where: ErrorPlace | None = None
+        self,
+        kind: ErrorKind | str,
+        detail: str | None = None,
+        *,
+        where: ErrorPlace | None = None,
+        reason: ErrorReason | None = None,
     ) -> None:
         # Converting here rejects a misspelled kind at the point it's raised.
         kind = ErrorKind(kind)
@@ -48,6 +62,7 @@ class ScmpError(Exception):
         self.kind = kind
         self.detail = detail
         self.where = where
+        self.reason = reason
 
     def __str__(self) -> str:
         if self.detail:

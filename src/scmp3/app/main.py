@@ -1,24 +1,30 @@
-"""Opens the sc-mp3 window, which shows the web UI in web/ through pywebview's built-in server."""
+"""Opens the sc-mp3 window, which shows the web UI in web/ through pywebview's built-in server.
 
-import html
+page_loading.py gets the page into the window.
+"""
+
 import logging
 import mimetypes
-import os
-import socket
-import threading
-import time
 import webbrowser
 from collections.abc import Callable, MutableMapping
 from pathlib import Path
 from typing import Any, Protocol
-from urllib.parse import urlsplit, urlunsplit
 
-from scmp3.app import instance
+from scmp3.app import instance, webview_data
 from scmp3.app.bridge import Api
+from scmp3.app.closing import close_guard
 from scmp3.app.context import AppContext
+from scmp3.app.drops import FileDrops
 from scmp3.app.events import EventBus
 from scmp3.app.message_box import IDYES, MB_ICONWARNING, MB_YESNO, MessageBox, windows_message_box
-from scmp3.core import paths
+from scmp3.app.page_loading import (
+    PageWatch,
+    is_servable,
+    page_location,
+    plain_page,
+    start_page_server,
+)
+from scmp3.app.webview_data import EarlyDeleteFilter
 from scmp3.core.log import setup_logging
 
 WINDOW_TITLE = "sc-mp3"
@@ -57,27 +63,6 @@ FOLDER_WITH_HASH = (
     "sc-mp3 can't open from a folder that has # in its path. Move sc-mp3 to a folder without #,"
     " then open it again."
 )
-# Shown when the UI didn't load twice in a row.
-PAGE_DIDNT_LOAD = "sc-mp3's window didn't load. Close it and open sc-mp3 again."
-# A page that needs neither the server nor the UI's files, for when those are what failed.
-PLAIN_PAGE = """<!doctype html>
-<meta charset="utf-8">
-<body style="margin:0;padding:32px;background:#121110;color:#F4F1EC;
-font:15px/1.45 'Segoe UI',system-ui,sans-serif">
-<p>{message}</p>
-<p style="color:#ABA59C">{label} <code>{path}</code></p>
-</body>"""
-
-# Where the window is, and whether the UI's scripts ran there; api.js defines window.scmp3.
-PAGE_CHECK = "[window.location.href, typeof window.scmp3]"
-# Added to the page's address for the one retry. The UI ignores it.
-RETRY_QUERY = "retry"
-
-# How long to wait for pywebview's server to take connections, and how long each try may take.
-# Each try is short, since Windows takes 2 s to refuse a connection to a closed local port.
-SERVER_WAIT_SECONDS = 5.0
-SERVER_TRY_SECONDS = 0.1
-SERVER_PAUSE_SECONDS = 0.05
 
 log = logging.getLogger(__name__)
 
@@ -136,59 +121,9 @@ def route_pywebview_logging() -> None:
     for handler in list(logger.handlers):
         logger.removeHandler(handler)
     logger.propagate = True
-
-
-def page_location(page: Path, app_root: Path) -> str:
-    """The page as pywebview should get it: relative to its app root, or absolute across drives.
-
-    pywebview's server cuts a local path at its first #, so a relative path keeps a # in the
-    install folder out of its way.
-    """
-    try:
-        return os.path.relpath(page, app_root)
-    except ValueError:
-        # Windows can't express a path on another drive relative to this one.
-        return str(page)
-
-
-def is_servable(page: str) -> bool:
-    """Whether pywebview's server can serve the page; it cuts a local path at its first #."""
-    return "#" not in page
-
-
-def wait_for_server(address: str, timeout: float = SERVER_WAIT_SECONDS) -> bool:
-    """Wait until the server at `address` takes connections. Returns False if it doesn't in time."""
-    parts = urlsplit(address)
-    target = (parts.hostname, parts.port)
-    deadline = time.monotonic() + timeout
-    while True:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            return False
-        try:
-            with socket.create_connection(target, timeout=min(remaining, SERVER_TRY_SECONDS)):
-                return True
-        except OSError:
-            time.sleep(SERVER_PAUSE_SECONDS)
-
-
-def start_page_server(start_server: Callable[..., tuple[str, Any, Any]], page: str) -> str:
-    """Start the page's server and wait until it takes connections. Returns the server's address.
-
-    pywebview marks its server as running before its thread has bound the port, so a window that
-    loads at once can get an error page. On macOS, that fires no `loaded` event to retry on.
-    """
-    address, _, _ = start_server(urls=[page])
-    if not wait_for_server(address):
-        log.warning("pywebview's server didn't take connections within %s s", SERVER_WAIT_SECONDS)
-    return address
-
-
-def plain_page(message: str, label: str, path: Path) -> str:
-    """A self-contained page with a message and the folder it's about."""
-    return PLAIN_PAGE.format(
-        message=html.escape(message), label=html.escape(label), path=html.escape(str(path))
-    )
+    # Its warning about a data folder still in use is answered by deleting it later.
+    if not any(isinstance(item, EarlyDeleteFilter) for item in logger.filters):
+        logger.addFilter(EarlyDeleteFilter())
 
 
 def show_folder_problem(toolkit: Toolkit, folder: Path) -> int:
@@ -204,60 +139,6 @@ def show_folder_problem(toolkit: Toolkit, folder: Path) -> int:
     return 1
 
 
-def shows_the_ui(window: Any) -> bool:
-    """Whether the window is on the UI's own page and its scripts ran, not on an error page."""
-    try:
-        location, scmp3_type = window.evaluate_js(PAGE_CHECK)
-    except Exception:
-        log.warning("Couldn't check which page the window shows", exc_info=True)
-        return False
-    expected = urlsplit(window.real_url or "")
-    actual = urlsplit(str(location))
-    same_page = (actual.scheme, actual.netloc, actual.path) == (
-        expected.scheme,
-        expected.netloc,
-        expected.path,
-    )
-    return same_page and scmp3_type == "object"
-
-
-def retry_address(url: str) -> str:
-    """The same page under a new address, since WebView2 ignores a load of the address it's on."""
-    return urlunsplit(urlsplit(url)._replace(query=RETRY_QUERY))
-
-
-class PageWatch:
-    """Handles pywebview's `loaded` event, which also fires for error pages.
-
-    Once the UI is up, events start. A failed first load is retried once, and a second failure
-    shows a plain page instead, so the window is never left on a browser error page.
-    """
-
-    def __init__(self, events: EventBus) -> None:
-        self._events = events
-        # pywebview runs each `loaded` handler on a thread of its own.
-        self._lock = threading.Lock()
-        self._retried = False
-        self.failed = False
-
-    def loaded(self, window: Any) -> None:
-        if self.failed:
-            return
-        if shows_the_ui(window):
-            self._events.attach(window)
-            return
-        with self._lock:
-            retry = not self._retried
-            self._retried = True
-            self.failed = not retry
-        if retry:
-            log.warning("The window's first load didn't reach the UI, so it's loading it again")
-            window.load_url(retry_address(window.real_url))
-            return
-        log.warning("The UI didn't load on the second try either, so the window explains that")
-        window.load_html(plain_page(PAGE_DIDNT_LOAD, "The log is in", paths.log_dir()))
-
-
 def open_window(
     toolkit: Toolkit,
     api: Api,
@@ -266,10 +147,15 @@ def open_window(
     page: str,
     report_missing_webview2: Callable[[], None] = ask_to_install_webview2,
     on_created: Callable[[Any], None] | None = None,
+    on_ready: Callable[[Any], None] | None = None,
+    on_closing: Callable[[], bool] | None = None,
+    data_folder: Path | None = None,
 ) -> int:
     """Show the window until it's closed. Returns 1 when the UI couldn't be shown.
 
     That's when the renderer is MSHTML, when `page` has a #, or when the page failed to load twice.
+    `on_ready` gets the window each time the UI has loaded, and `on_closing` can keep it open by
+    returning False. `data_folder` is where WebView2 keeps its data, instead of the temp folder.
     """
     # The app never loads files from disk into the window, so a dropped or linked file can't either.
     toolkit.settings["ALLOW_FILE_URLS"] = False
@@ -293,11 +179,14 @@ def open_window(
     renderer = RendererCheck()
     window.events.initialized += renderer.accept
     # Events wait until pywebview has injected its bridge into the UI's page.
-    watch = PageWatch(events)
+    watch = PageWatch(events, on_ready)
     window.events.loaded += watch.loaded
+    if on_closing is not None:
+        window.events.closing += on_closing
     window.events.closed += events.close
+    storage = {"storage_path": str(data_folder)} if data_folder is not None else {}
     try:
-        toolkit.start(http_server=True, private_mode=True)
+        toolkit.start(http_server=True, private_mode=True, **storage)
     finally:
         events.close()
 
@@ -328,6 +217,8 @@ def run_window() -> int:
     from webview.util import get_app_root
 
     route_pywebview_logging()
+    # What the last window left behind, which nothing holds any more.
+    webview_data.remove_data_folder(webview_data.data_folder(), tries=1)
     context = AppContext.from_app_folders()
     context.open_stores()
     context.jobs.start_up()
@@ -338,7 +229,15 @@ def run_window() -> int:
     try:
         api = Api(context)
         return open_window(
-            webview, api, context.events, page=page, on_created=context.desktop.attach
+            webview,
+            api,
+            context.events,
+            page=page,
+            on_created=context.desktop.attach,
+            on_ready=FileDrops(context.jobs, context.events).bind,
+            on_closing=close_guard(context.jobs).closing,
+            data_folder=webview_data.data_folder(),
         )
     finally:
         context.jobs.shut_down()
+        webview_data.remove_data_folder(webview_data.data_folder())

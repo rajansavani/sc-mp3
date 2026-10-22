@@ -16,6 +16,7 @@ let state = {
   first_run: false,
   view: "main", // "main", or a full-window view such as "settings"
   dialog: null, // the open dialog's name, or null
+  dialog_props: {}, // what the open dialog was opened with, such as the help's tab
   selected_job_id: null,
   toasts: [],
 };
@@ -164,12 +165,12 @@ export function closeView() {
   update({ view: "main" });
 }
 
-export function openDialog(name) {
-  update({ dialog: name });
+export function openDialog(name, props = {}) {
+  update({ dialog: name, dialog_props: props });
 }
 
 export function closeDialog() {
-  update({ dialog: null });
+  update({ dialog: null, dialog_props: {} });
 }
 
 // The settings update_settings saved. first_run follows first_run_done, as in snapshot().

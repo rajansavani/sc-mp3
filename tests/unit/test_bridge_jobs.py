@@ -17,6 +17,7 @@ from scmp3.app.bridge import Api
 from scmp3.app.bridge import files as files_module
 from scmp3.app.bridge import jobs as bridge_jobs
 from scmp3.app.context import AppContext
+from scmp3.app.drops import SAME_NAME_DROP
 from scmp3.app.input_reasons import ALREADY_IN_QUEUE, REASON_CODES
 from scmp3.app.job_covers import COVER_PROBLEMS
 from scmp3.app.job_fields import NOT_A_TRACK, NOT_A_YEAR, TOTAL_BEFORE_TRACK
@@ -49,7 +50,21 @@ TRACK = fakes.TRACK
 CALL_BUDGET = 0.05
 
 
-def api_on(store: SettingsStore, events: Any, manager: JobManager) -> Api:
+class Clipboard:
+    """Stands in for the system clipboard, which no test reads."""
+
+    def __init__(self, text: str | None = None) -> None:
+        self.text = text
+        self.reads = 0
+
+    def __call__(self) -> str | None:
+        self.reads += 1
+        return self.text
+
+
+def api_on(
+    store: SettingsStore, events: Any, manager: JobManager, clipboard: Clipboard | None = None
+) -> Api:
     """An Api on this job manager."""
     context = AppContext(
         settings=store,
@@ -57,6 +72,7 @@ def api_on(store: SettingsStore, events: Any, manager: JobManager) -> Api:
         events=events,
         engine_version=lambda: "2026.08.19",
         make_jobs=lambda context: manager,
+        clipboard=clipboard or Clipboard(),
     )
     return Api(context)
 
@@ -243,10 +259,67 @@ def test_history_lists_the_latest_saves_or_the_ones_that_match(api: Api) -> None
     assert [entry["title"] for entry in api.history("midnight", 5)["entries"]] == ["Midnight Drive"]
 
 
-def test_the_sets_calls_and_diagnostics_are_still_to_come(api: Api) -> None:
+def test_the_sets_calls_are_still_to_come(api: Api) -> None:
     assert api.set_album_mode("job", "album") == {"error": "not_implemented"}
     assert api.set_included("job", "child", True) == {"error": "not_implemented"}
-    assert api.diagnostics() == {"error": "not_implemented"}
+
+
+# The clipboard offer
+
+
+@pytest.fixture
+def clipboard() -> Clipboard:
+    return Clipboard()
+
+
+@pytest.fixture
+def offering_api(harness: Any, clipboard: Clipboard) -> Api:
+    return api_on(harness.store, harness.events, harness.manager, clipboard)
+
+
+def test_a_track_link_on_the_clipboard_is_offered(offering_api: Api, clipboard: Clipboard) -> None:
+    clipboard.text = f"check this out {TRACK}?si=abc"
+    assert offering_api.clipboard_link() == {"link": TRACK}
+
+
+def test_a_link_already_queued_isnt_offered(
+    offering_api: Api, clipboard: Clipboard, harness: Any
+) -> None:
+    clipboard.text = TRACK
+    offering_api.add_inputs(TRACK)
+    assert offering_api.clipboard_link() == {"link": None}
+    # Still not once it's resolved, when the queue knows it by the source's own link too.
+    harness.pools.run("resolve")
+    assert offering_api.clipboard_link() == {"link": None}
+
+
+@pytest.mark.parametrize("text", [None, "", "no links here", "https://soundcloud.com/kaia"])
+def test_a_clipboard_without_a_track_link_offers_nothing(
+    offering_api: Api, clipboard: Clipboard, text: str | None
+) -> None:
+    clipboard.text = text
+    assert offering_api.clipboard_link() == {"link": None}
+
+
+def test_the_clipboard_isnt_read_with_the_offer_turned_off(
+    offering_api: Api, clipboard: Clipboard, harness: Any
+) -> None:
+    harness.store.update({"offer_clipboard_links": False})
+    clipboard.text = TRACK
+    assert offering_api.clipboard_link() == {"link": None}
+    assert clipboard.reads == 0
+
+
+# Diagnostics
+
+
+def test_diagnostics_give_the_text_for_a_bug_report(api: Api, harness: Any) -> None:
+    text = api.diagnostics()["text"]
+    assert text.startswith("sc-mp3 diagnostics\nApp: sc-mp3 ")
+    assert "Download engine: yt-dlp 2026.08.19" in text
+    library = Path(harness.store.load().library_dir)
+    assert f"  library_dir: {library.name}" in text
+    assert str(library.parent) not in text
 
 
 # Speed
@@ -264,7 +337,7 @@ def test_every_call_returns_at_once_while_the_pipeline_is_slow(tmp_path: Path) -
     steps = fakes.FakeSteps(delay=0.5)
     events = fakes.RecordingBus()
     manager = JobManager(store, events, steps=steps, covers=fakes.FakeCovers(), make_pool=TaskPool)
-    api = api_on(store, events, manager)
+    api = api_on(store, events, manager, Clipboard(f"{TRACK} and {fakes.OTHER}"))
     # As the app does before its window loads: history.db is created and the pools' threads
     # are started, so no call pays for either.
     api._context.open_stores()
@@ -297,6 +370,8 @@ def test_every_call_returns_at_once_while_the_pipeline_is_slow(tmp_path: Path) -
     measure("save", lambda: api.save([first, second]))
     measure("cancel", lambda: api.cancel(second))
     measure("history", lambda: api.history("drive", 10))
+    measure("clipboard_link", api.clipboard_link)
+    measure("diagnostics", api.diagnostics)
     measure("snapshot", api.snapshot)
     # The first job's save is now finalizing for half a second.
     deadline = time.monotonic() + 10
@@ -313,11 +388,7 @@ def test_every_call_returns_at_once_while_the_pipeline_is_slow(tmp_path: Path) -
         name: round(seconds, 3) for name, seconds in durations.items() if seconds >= CALL_BUDGET
     }
     assert slow == {}
-    job_calls = set(bridge_jobs.JobsApi.__dict__) - {
-        "set_album_mode",
-        "set_included",
-        "diagnostics",
-    }
+    job_calls = set(bridge_jobs.JobsApi.__dict__) - {"set_album_mode", "set_included"}
     assert set(durations) == {name for name in job_calls if not name.startswith("_")} | {"snapshot"}
 
 
@@ -352,7 +423,7 @@ def test_every_error_kind_and_job_state_has_text_in_the_ui() -> None:
 
 def test_every_rejection_code_has_text_in_the_ui() -> None:
     texts = keys_in_block(web_file("strings", "main.js"), "rejectReasons")
-    assert {*REASON_CODES.values(), ALREADY_IN_QUEUE} <= texts
+    assert {*REASON_CODES.values(), ALREADY_IN_QUEUE, SAME_NAME_DROP} <= texts
 
 
 def test_every_field_refusal_has_text_in_the_ui() -> None:
@@ -372,6 +443,7 @@ def test_every_error_a_call_answers_with_has_text_in_the_ui() -> None:
         bridge_jobs.INVALID_ARTWORK,
         files_module.FILE_MISSING,
         files_module.SPOTIFY_MISSING,
+        files_module.SPOTIFY_FOLDER_MISSING,
         files_module.INTERNAL,
         "not_implemented",
     }

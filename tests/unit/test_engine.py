@@ -113,6 +113,42 @@ def test_yt_dlp_messages_reach_python_logging_as_plain_text(
     assert (logging.ERROR, "ERROR: [soundcloud] 123: This video is DRM protected") in logged
 
 
+def test_a_cache_write_that_lost_a_race_is_logged_at_debug_only(
+    fake_ffmpeg: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.DEBUG, logger=engine.YTDLP_LOGGER), engine.make_ydl() as ydl:
+        ydl.report_warning(
+            "Writing cache to 'C:\\cache\\soundcloud\\client_id.json' failed: Traceback ..."
+        )
+    [record] = [r for r in caplog.records if r.name == engine.YTDLP_LOGGER]
+    assert record.levelno == logging.DEBUG
+    assert record.getMessage().startswith("Writing cache to")
+
+
+def test_parallel_yt_dlp_instances_writing_the_cache_warn_at_most_at_debug(
+    fake_ffmpeg: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    # The same race as four resolves at once on a first run, with the real cache code.
+    instances = [engine.make_ydl() for _ in range(8)]
+    barrier = threading.Barrier(len(instances))
+
+    def store(ydl: yt_dlp.YoutubeDL) -> None:
+        barrier.wait()
+        for number in range(20):
+            ydl.cache.store("soundcloud", "client_id", f"id-{number}")
+
+    with caplog.at_level(logging.DEBUG, logger=engine.YTDLP_LOGGER):
+        threads = [threading.Thread(target=store, args=(ydl,)) for ydl in instances]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(30)
+    for ydl in instances:
+        ydl.close()
+    assert [r for r in caplog.records if r.levelno >= logging.WARNING] == []
+    assert instances[0].cache.load("soundcloud", "client_id").startswith("id-")
+
+
 class FakeYdl:
     """Answers urlopen with canned bodies or errors, and records each request."""
 

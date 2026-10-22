@@ -89,6 +89,7 @@ class JobBook:
         job.progress = None
         record.failed_step = step
         record.error_where = error.where
+        record.error_reason = error.reason
         self._schedule_auto_retry(record, job.error)
 
     def _schedule_auto_retry(self, record: JobRecord, error: JobError) -> None:

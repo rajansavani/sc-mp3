@@ -27,6 +27,7 @@ from scmp3.core.settings import SettingsStore
 CALLS: dict[type, set[str]] = {
     JobsApi: {
         "add_inputs",
+        "clipboard_link",
         "update_fields",
         "reset_field",
         "toggle_change",
@@ -43,7 +44,14 @@ CALLS: dict[type, set[str]] = {
         "history",
         "diagnostics",
     },
-    FilesApi: {"pick_folder", "pick_audio_files", "pick_image", "reveal", "open_spotify"},
+    FilesApi: {
+        "pick_folder",
+        "pick_audio_files",
+        "pick_image",
+        "reveal",
+        "open_spotify",
+        "open_local_files_folder",
+    },
     SettingsApi: {"update_settings", "preview_render"},
     AccountApi: {"sign_in_window", "sign_in_firefox", "sign_in_token", "sign_out"},
     ComponentsApi: {"check_updates", "update_engine", "revert_engine", "install_youtube_support"},
@@ -55,7 +63,7 @@ BUILT = {
     "install_youtube_support",
     "update_settings",
     "preview_render",
-    *CALLS[JobsApi] - {"set_album_mode", "set_included", "diagnostics"},
+    *CALLS[JobsApi] - {"set_album_mode", "set_included"},
     *CALLS[FilesApi],
 }
 STUBS = [name for name in ALL_CALLS if name not in BUILT]

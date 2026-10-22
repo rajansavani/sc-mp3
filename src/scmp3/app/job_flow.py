@@ -99,6 +99,7 @@ class JobFlow(CoverTasks):
                 self._reject_after_resolving(record, outcome)
             elif isinstance(outcome, ScmpError):
                 self._fail(record, "resolve", outcome)
+                self.publish(record)
             else:
                 self._resolved(record, outcome)
 

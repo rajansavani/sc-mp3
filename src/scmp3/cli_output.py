@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from scmp3.core import paths
-from scmp3.core.errors import ErrorKind, ErrorPlace, ScmpError
+from scmp3.core.errors import ErrorKind, ErrorPlace, ErrorReason, ScmpError
 from scmp3.core.log import LOG_FILE
 from scmp3.core.models import HistoryEntry, Settings
 
@@ -74,6 +74,14 @@ PLACE_MESSAGES: dict[tuple[ErrorKind, ErrorPlace], str] = {
         "Check that the drive has free space, then try again."
     ),
 }
+# Messages for a failure that says more exactly what went wrong, ahead of the kind and place.
+REASON_MESSAGES: dict[ErrorReason, str] = {
+    "file_in_use": "The file is open in another program or is read-only. Close it and try again.",
+    "path_too_long": (
+        "The folder path is too long for this file. "
+        "Choose a folder closer to the top of the drive with --out."
+    ),
+}
 
 
 def saved_on(entry: HistoryEntry) -> str:
@@ -86,10 +94,12 @@ def saved_on(entry: HistoryEntry) -> str:
 
 
 def error_message(error: ScmpError, settings: Settings) -> str:
-    """The message for a failure's kind and place, with the folder or the log file filled in."""
+    """The message for a failure's reason, or else its kind and place, with the blanks filled in."""
     message = ERROR_MESSAGES[error.kind]
     if error.where is not None:
         message = PLACE_MESSAGES.get((error.kind, error.where), message)
+    if error.reason is not None:
+        message = REASON_MESSAGES[error.reason]
     return message.format(
         folder=settings.library_dir, log=paths.log_dir() / LOG_FILE, saved="before"
     )

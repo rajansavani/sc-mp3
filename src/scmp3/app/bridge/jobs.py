@@ -10,10 +10,15 @@ import os
 from collections.abc import Callable, Mapping
 from typing import Any, cast, get_args
 
+from scmp3 import __version__
+from scmp3.app.clipboard import offered_link
 from scmp3.app.context import AppContext
+from scmp3.app.diagnostics import diagnostics_text
 from scmp3.app.job_fields import EDITABLE_FIELDS
+from scmp3.core import paths
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.library import CollisionChoice
+from scmp3.core.log import LOG_FILE
 from scmp3.core.models import CropBox, TitleStyle
 
 INTERNAL = ErrorKind.internal.value
@@ -131,6 +136,14 @@ class JobsApi:
             return refused("add_inputs")
         return self._context.jobs.add_inputs(text)
 
+    def clipboard_link(self) -> dict[str, Any]:
+        """The link on the clipboard worth offering: one sc-mp3 can save that isn't queued yet."""
+        context = self._context
+        if not context.settings.load().offer_clipboard_links:
+            return {"link": None}
+        text = context.clipboard()
+        return {"link": offered_link(text, context.jobs.is_queued) if text else None}
+
     # Editing
 
     def update_fields(self, job_id: str, patch: dict[str, str]) -> dict[str, Any]:
@@ -238,7 +251,13 @@ class JobsApi:
             return {"error": INTERNAL}
         return {"entries": [entry.to_dict() for entry in entries]}
 
-    # TODO(T-025): Build the diagnostics for bug reports.
     def diagnostics(self) -> dict[str, Any]:
-        """Versions, settings and recent log lines, with secrets masked, for a bug report."""
-        return {"error": "not_implemented"}
+        """Versions, settings and recent log lines, with secrets and the home folder masked."""
+        context = self._context
+        text = diagnostics_text(
+            app_version=__version__,
+            engine_version=context.engine_version(),
+            settings=context.settings.load(),
+            log_file=paths.log_dir() / LOG_FILE,
+        )
+        return {"text": text}

@@ -285,4 +285,5 @@
 .banner-hint {
   color: var(--text-2);
   font-size: var(--text-small);
+  font-weight: 400;
 }

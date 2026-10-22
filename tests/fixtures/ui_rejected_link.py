@@ -18,7 +18,7 @@ from typing import Any
 import webview
 from webview.util import get_app_root
 
-from scmp3.app import main
+from scmp3.app import main, page_loading
 from scmp3.app.bridge import Api
 from scmp3.app.context import AppContext
 from scmp3.app.events import EventBus
@@ -89,12 +89,12 @@ def drive(window: webview.Window, ui_ready: threading.Event, result: dict[str, A
 
 def watch_for_the_ui(window: webview.Window, events: EventBus) -> threading.Event:
     """Load the page as the app does, retrying a failed first load, and say when the UI is up."""
-    page_watch = main.PageWatch(events)
+    page_watch = page_loading.PageWatch(events)
     ui_ready = threading.Event()
 
     def loaded(window: webview.Window) -> None:
         page_watch.loaded(window)
-        if not page_watch.failed and main.shows_the_ui(window):
+        if not page_watch.failed and page_loading.shows_the_ui(window):
             ui_ready.set()
 
     window.events.loaded += loaded
@@ -117,8 +117,8 @@ def run() -> int:
         make_jobs=make_jobs,
     )
     context.settings.update({"first_run_done": True, "offer_clipboard_links": False})
-    page = main.page_location(main.INDEX_PAGE, Path(get_app_root()))
-    main.start_page_server(webview.http.start_global_server, page)
+    page = page_loading.page_location(main.INDEX_PAGE, Path(get_app_root()))
+    page_loading.start_page_server(webview.http.start_global_server, page)
     window = webview.create_window("sc-mp3 test", page, js_api=Api(context), hidden=True)
     ui_ready = watch_for_the_ui(window, context.events)
     result: dict[str, Any] = {}

@@ -1,4 +1,5 @@
-"""Tests for the file bridge calls: the pickers, showing a file, and opening Spotify."""
+"""Tests for the file bridge calls: the pickers, showing a file, and opening Spotify and its
+folder for local files."""
 
 from collections.abc import Sequence
 from pathlib import Path
@@ -53,8 +54,23 @@ def desktop(os_fake: FakeOS) -> Desktop:
     )
 
 
+class SpotifyFolder:
+    """Stands in for the search for local-files.bnk, so no test looks at the real one."""
+
+    def __init__(self) -> None:
+        self.found: Path | None = None
+
+    def __call__(self) -> Path | None:
+        return self.found
+
+
 @pytest.fixture
-def api(desktop: Desktop, tmp_path: Path) -> Api:
+def spotify_folder() -> SpotifyFolder:
+    return SpotifyFolder()
+
+
+@pytest.fixture
+def api(desktop: Desktop, tmp_path: Path, spotify_folder: SpotifyFolder) -> Api:
     store = SettingsStore(paths.config_dir() / "settings.json")
     store.update({"library_dir": str(tmp_path / "library")})
     context = AppContext(
@@ -62,6 +78,7 @@ def api(desktop: Desktop, tmp_path: Path) -> Api:
         history=History(paths.data_dir() / "history.db"),
         events=EventBus(),
         desktop=desktop,
+        find_local_files=spotify_folder,
     )
     return Api(context)
 
@@ -139,3 +156,34 @@ def test_spotify_opens_through_its_link(api: Api, os_fake: FakeOS) -> None:
 def test_spotify_that_wont_open_says_so(api: Api, os_fake: FakeOS) -> None:
     os_fake.spotify_installed = False
     assert api.open_spotify() == {"error": "spotify_missing"}
+
+
+def test_spotifys_list_of_local_files_is_shown_selected(
+    api: Api, os_fake: FakeOS, spotify_folder: SpotifyFolder, tmp_path: Path
+) -> None:
+    listing = tmp_path / "Spotify" / "Users" / "kaia-user" / "local-files.bnk"
+    listing.parent.mkdir(parents=True)
+    listing.write_bytes(b"list")
+    spotify_folder.found = listing
+    assert api.open_local_files_folder() == {}
+    assert os_fake.spawned == [["explorer", "/select,", str(listing)]]
+
+
+def test_an_account_folder_without_the_list_is_opened(
+    api: Api, os_fake: FakeOS, spotify_folder: SpotifyFolder, tmp_path: Path
+) -> None:
+    folder = tmp_path / "Spotify" / "Users" / "kaia-user"
+    folder.mkdir(parents=True)
+    spotify_folder.found = folder
+    assert api.open_local_files_folder() == {}
+    assert os_fake.spawned == [["explorer", str(folder)]]
+
+
+def test_no_spotify_folder_says_so(
+    api: Api, os_fake: FakeOS, spotify_folder: SpotifyFolder, tmp_path: Path
+) -> None:
+    assert api.open_local_files_folder() == {"error": "spotify_folder_missing"}
+    # A folder that was found but is gone by the time it's opened says the same.
+    spotify_folder.found = tmp_path / "gone" / "kaia-user"
+    assert api.open_local_files_folder() == {"error": "spotify_folder_missing"}
+    assert os_fake.spawned == []

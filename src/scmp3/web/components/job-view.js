@@ -8,6 +8,8 @@ const text = strings.main;
 
 // Each error kind's tone, icon and buttons, in the order the error view shows them. The first
 // action is the main one when `primary` is set, and Remove from the queue always comes last.
+// `variants` replace parts of an entry for an error's reason, or for a disk error in sc-mp3's
+// own data folder, as errorVariant() names them.
 export const ERROR_KINDS = {
   drm: { tone: "danger", icon: "error", actions: ["remove"] },
   preview_only: {
@@ -34,7 +36,16 @@ export const ERROR_KINDS = {
   bot_check: { tone: "warn", icon: "error", actions: ["retry", "remove"] },
   offline: { tone: "warn", icon: "offline", actions: ["retry_now", "remove"] },
   convert_failed: { tone: "danger", icon: "error", actions: ["retry", "remove"] },
-  disk: { tone: "danger", icon: "folder", actions: ["choose_folder", "retry", "remove"] },
+  disk: {
+    tone: "danger",
+    icon: "folder",
+    actions: ["choose_folder", "retry", "remove"],
+    variants: {
+      // Another library folder wouldn't help with these two, so it isn't offered.
+      data: { actions: ["retry", "remove"] },
+      file_in_use: { icon: "error", actions: ["retry", "remove"] },
+    },
+  },
   duplicate: { tone: "warn", icon: "clock", actions: ["show_it", "save_again", "remove"] },
   service_down: { tone: "warn", icon: "error", actions: ["retry", "remove"] },
   internal: { tone: "danger", icon: "error", actions: ["retry", "remove"] },
@@ -139,14 +150,34 @@ export function cropStyle(crop) {
   };
 }
 
+// What an error says more exactly than its kind: its reason, such as a file in use, or else that
+// a disk error was about sc-mp3's own data folder rather than the library (TECH_SPEC §9).
+export function errorVariant(job) {
+  const error = job.error;
+  if (!error) return null;
+  if (error.reason) return error.reason;
+  return error.where === "data" ? "data" : null;
+}
+
+// An entry with the parts its variant replaces, for a table of kinds such as ERROR_KINDS.
+function withVariant(entry, job) {
+  return { ...entry, ...(entry?.variants?.[errorVariant(job)] ?? {}) };
+}
+
 export function errorKind(job) {
   const kind = job.error?.kind;
-  return { kind, ...(ERROR_KINDS[kind] ?? UNKNOWN_KIND) };
+  return { kind, ...withVariant(ERROR_KINDS[kind] ?? UNKNOWN_KIND, job) };
+}
+
+// The words for a job's error kind, with its variant's in place of the kind's own.
+function errorWords(job) {
+  const entry = text.errors[job.error?.kind];
+  return entry ? withVariant(entry, job) : null;
 }
 
 // The headline and detail of a job's error, worded for its source and settings.
 export function errorText(job, settings) {
-  const entry = text.errors[job.error?.kind];
+  const entry = errorWords(job);
   if (!entry) return { headline: strings.shell.unknownError(job.error?.kind), detail: null };
   const context = {
     source: sourceName(job),
@@ -179,7 +210,7 @@ const STATUS = {
   saved: (job) => ({ text: savedStatus(job), tone: "ok" }),
   skipped: () => ({ text: text.status.skipped, tone: "muted" }),
   error: (job) => ({
-    text: text.errors[job.error?.kind]?.status ?? text.unknownErrorStatus,
+    text: errorWords(job)?.status ?? text.unknownErrorStatus,
     tone: errorKind(job).tone,
   }),
 };

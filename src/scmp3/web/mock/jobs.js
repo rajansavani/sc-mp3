@@ -99,6 +99,15 @@ export function add_inputs(text_or_paths) {
   return { added, rejected };
 }
 
+// The mock's clipboard holds nothing worth offering. ?mock&clipboard holds a track link instead.
+const CLIPBOARD_LINK = "https://soundcloud.com/juno-vale/paper-lanterns";
+
+export function clipboard_link() {
+  if (!new URLSearchParams(window.location.search).has("clipboard")) return { link: null };
+  const queued = jobs.some((job) => job.input === CLIPBOARD_LINK);
+  return { link: queued ? null : CLIPBOARD_LINK };
+}
+
 // A refused patch changes nothing, and an accepted value is kept exactly as sent.
 export function update_fields(job_id, patch) {
   const fields = refusedFields(patch);
@@ -132,6 +141,7 @@ export function set_artwork(job_id, artwork, crop = null) {
   }
   return editJob(job_id, (job) => {
     job.artwork = newArtwork(job, artwork, crop);
+    job.cover_problem = null;
   });
 }
 
@@ -143,6 +153,11 @@ export function save(job_ids) {
   for (const jobId of job_ids) {
     const job = findJob(jobId);
     if (!job || !canSave(job)) continue;
+    // The name is still taken, so the bridge would ask again.
+    if (job.collision) {
+      publish(job);
+      continue;
+    }
     startSaving(job);
     publish(job);
   }
@@ -181,9 +196,15 @@ export function remove(job_id) {
   return {};
 }
 
-// The mock never finds a file name taken, so no job has a question to answer.
+// Only ?mock&states has a job whose file name is taken. Skip leaves it unsaved, and the other
+// answers save it.
 export function answer_collision(job_id, choice) {
-  return findJob(job_id) ? {} : { error: "unknown_job" };
+  return editJob(job_id, (job) => {
+    if (!job.collision) return;
+    job.collision = null;
+    if (choice === "skip") job.state = "skipped";
+    else startSaving(job);
+  });
 }
 
 export function set_album_mode(job_id, mode) {

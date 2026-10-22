@@ -1,4 +1,4 @@
-"""Tests for ScmpError: its kind, its detail and the folder a disk error was about."""
+"""Tests for ScmpError: its kind, its detail, and the folder and reason a disk error gives."""
 
 import pytest
 
@@ -24,3 +24,8 @@ def test_an_error_says_no_folder_unless_given_one() -> None:
 def test_subclasses_start_without_a_folder() -> None:
     error = HttpStatusError(ErrorKind.service_down, "HTTP 503", status=503, answer={})
     assert error.where is None
+
+
+def test_an_error_has_no_reason_unless_given_one() -> None:
+    assert ScmpError(ErrorKind.disk).reason is None
+    assert ScmpError(ErrorKind.disk, "locked", reason="file_in_use").reason == "file_in_use"

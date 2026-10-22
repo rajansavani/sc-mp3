@@ -39,6 +39,8 @@ NOT_ABSOLUTE = "NOT_ABSOLUTE"
 NOT_A_FOLDER = "NOT_A_FOLDER"
 CANT_CREATE = "CANT_CREATE"
 NOT_WRITABLE = "NOT_WRITABLE"
+# sc-mp3 deletes files in its own folders, such as staging and the window's data.
+INSIDE_APP_FOLDERS = "INSIDE_APP_FOLDERS"
 UNKNOWN_TOKEN = "UNKNOWN_TOKEN"
 FEAT_TOKEN = "FEAT_TOKEN"
 OPEN_BRACE = "OPEN_BRACE"
@@ -271,7 +273,26 @@ def folder_path_problem(value: str) -> Problem | None:
     # os.path doesn't raise, where Path.exists() can on a folder that can't be read.
     if os.path.exists(value) and not os.path.isdir(value):
         return {"reason": NOT_A_FOLDER, "folder": value}
+    if is_in_app_folders(value):
+        return {"reason": INSIDE_APP_FOLDERS, "folder": value}
     return None
+
+
+def is_in_app_folders(folder: str) -> bool:
+    """Whether a folder is one of sc-mp3's own, or inside one, where sc-mp3 deletes files itself."""
+    own = (paths.config_dir(), paths.data_dir(), paths.cache_dir(), paths.log_dir())
+    target = _comparable_path(folder)
+    for app_folder in own:
+        root = _comparable_path(str(app_folder))
+        if target == root or target.startswith(root.rstrip(os.sep) + os.sep):
+            return True
+    return False
+
+
+def _comparable_path(folder: str) -> str:
+    """A full path in one form, so two spellings of one folder compare equal."""
+    # realpath follows junctions and symlinks, and on Windows it also gives 8.3 names in full.
+    return os.path.normcase(os.path.realpath(folder))
 
 
 def library_dir_problem(value: str, probe: Probe | None = None) -> Problem | None:

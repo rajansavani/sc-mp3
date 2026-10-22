@@ -111,6 +111,7 @@ export default {
     CANT_CREATE: ({ folder }) =>
       `sc-mp3 can't create ${folder}. Check that the drive is connected, or choose another folder.`,
     NOT_WRITABLE: ({ folder }) => `sc-mp3 can't save files in ${folder}. Choose another folder.`,
+    INSIDE_APP_FOLDERS: () => "Choose a folder outside sc-mp3's own folders.",
     UNKNOWN_TOKEN: ({ token }) => `${token} isn't a token. Check its spelling against the list below.`,
     FEAT_TOKEN: () => "There's no {feat} token. Write the wording yourself, as in (ft. {featured}).",
     OPEN_BRACE: () => "Each token needs both of its braces, as in {title}.",
@@ -142,7 +143,10 @@ export default {
     engine: (version) => (version ? `Download engine: yt-dlp ${version}` : "Download engine: yt-dlp"),
     builtIn: "Built in",
     versionUnknown: "Its version couldn't be read.",
-    notBuilt: "Update checks, engine updates, YouTube support and diagnostics aren't built yet.",
+    diagnostics: "Diagnostics",
+    diagnosticsDetail:
+      "The versions, your settings and the latest log lines, for a bug report. Folders show only their last part, and sign-in details are left out.",
+    notBuilt: "Update checks, engine updates and YouTube support aren't built yet.",
   },
 
   firstRun: {
