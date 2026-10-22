@@ -94,6 +94,10 @@ class FileDrops:
         if len(paths) < len(files):
             # Such as an image dragged out of a browser, which has no file on disk.
             log.info("%d dropped files came without their path", len(files) - len(paths))
+        self.add_paths(paths)
+
+    def add_paths(self, paths: Sequence[str]) -> None:
+        """Add files by their full paths, such as those the app was opened with, like a drop."""
         if not paths:
             return
         # One path a line, so spaces inside a path don't split it.

@@ -41,6 +41,8 @@ ProgressHook = Callable[[dict[str, Any]], None]
 QUIET_WARNINGS = (
     # Parallel resolves race to write the client_id cache, and the winner's copy is kept.
     "Writing cache to ",
+    # The app ships no ffprobe (TECH_SPEC §19), so yt-dlp remuxes HLS audio without checking it.
+    "Unable to extract metadata: ffprobe not found",
 )
 
 log = logging.getLogger(__name__)

@@ -80,6 +80,21 @@ def test_files_that_werent_added_are_told_like_a_paste(events: FakeEvents) -> No
     ]
 
 
+def test_files_the_app_was_opened_with_are_added_like_a_drop(events: FakeEvents) -> None:
+    jobs = FakeJobs(refuse=(SONG,))
+    handler(jobs, events).add_paths([SONG, OTHER])
+    assert jobs.added == [f"{SONG}\n{OTHER}"]
+    assert events.sent == [
+        {"type": "rejected", "rejected": [{"input": SONG, "reason": "FILES_NOT_SUPPORTED"}]}
+    ]
+
+
+def test_opening_the_app_without_files_adds_nothing(jobs: FakeJobs, events: FakeEvents) -> None:
+    handler(jobs, events).add_paths([])
+    assert jobs.added == []
+    assert events.sent == []
+
+
 def test_a_drop_of_two_files_with_the_same_name_is_refused(
     jobs: FakeJobs, events: FakeEvents
 ) -> None:

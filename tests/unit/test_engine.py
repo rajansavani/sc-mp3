@@ -125,6 +125,27 @@ def test_a_cache_write_that_lost_a_race_is_logged_at_debug_only(
     assert record.getMessage().startswith("Writing cache to")
 
 
+@pytest.mark.parametrize(
+    ("warning", "level"),
+    [
+        (
+            "Unable to extract metadata: ffprobe not found. Please install or provide the path "
+            "using --ffmpeg-location",
+            logging.DEBUG,
+        ),
+        ("Unable to extract metadata: ffprobe exited with code 1", logging.WARNING),
+    ],
+    ids=["no ffprobe", "another metadata failure"],
+)
+def test_only_the_missing_ffprobe_warning_is_quiet(
+    warning: str, level: int, fake_ffmpeg: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    with caplog.at_level(logging.DEBUG, logger=engine.YTDLP_LOGGER), engine.make_ydl() as ydl:
+        ydl.report_warning(warning)
+    [record] = [r for r in caplog.records if r.name == engine.YTDLP_LOGGER]
+    assert record.levelno == level
+
+
 def test_parallel_yt_dlp_instances_writing_the_cache_warn_at_most_at_debug(
     fake_ffmpeg: Path, caplog: pytest.LogCaptureFixture
 ) -> None:

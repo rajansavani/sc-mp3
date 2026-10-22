@@ -6,7 +6,7 @@ page_loading.py gets the page into the window.
 import logging
 import mimetypes
 import webbrowser
-from collections.abc import Callable, MutableMapping
+from collections.abc import Callable, MutableMapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -196,20 +196,24 @@ def open_window(
     return 1 if watch.failed else 0
 
 
-def run() -> int:
-    """Open the main window, wait until it's closed, and return the exit code."""
+def run(paths: Sequence[str] = ()) -> int:
+    """Open the main window, wait until it's closed, and return the exit code.
+
+    `paths` are files the app was opened with, which go into the queue as if dropped on it.
+    """
     setup_logging(console=True)
     lock = instance.instance_lock()
     if instance.another_copy_is_open(lock):
+        # TODO(T-062): Hand the paths to the copy that's open.
         instance.say_already_open()
         return 1
     try:
-        return run_window()
+        return run_window(paths)
     finally:
         lock.release()
 
 
-def run_window() -> int:
+def run_window(paths: Sequence[str] = ()) -> int:
     """Open the window for this copy of the app, and stop its work once the window closes."""
     register_web_types()
     # Imported here, because importing pywebview adds the log handler that's removed next.
@@ -222,6 +226,9 @@ def run_window() -> int:
     context = AppContext.from_app_folders()
     context.open_stores()
     context.jobs.start_up()
+    drops = FileDrops(context.jobs, context.events)
+    # What isn't added waits in the event bus, and the UI shows it once the page is up.
+    drops.add_paths(paths)
     page = page_location(INDEX_PAGE, Path(get_app_root()))
     if is_servable(page):
         # webview.start() reuses the server that's already running.
@@ -234,7 +241,7 @@ def run_window() -> int:
             context.events,
             page=page,
             on_created=context.desktop.attach,
-            on_ready=FileDrops(context.jobs, context.events).bind,
+            on_ready=drops.bind,
             on_closing=close_guard(context.jobs).closing,
             data_folder=webview_data.data_folder(),
         )

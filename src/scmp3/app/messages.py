@@ -21,6 +21,15 @@ def unsaved(count: int) -> str:
     )
 
 
+# Shown in a message box when the Windows app sits in a folder whose path is too long for the
+# files inside it. {length} and {limit} count characters, and {folder} is the folder to move.
+FOLDER_TOO_LONG_TITLE = "sc-mp3's folder path is too long"
+FOLDER_TOO_LONG = (
+    "sc-mp3 can't open from this folder, because its path is too long. The path has {length}"
+    " characters, and sc-mp3 needs {limit} or fewer:\n\n{folder}\n\n"
+    "Move the sc-mp3 folder somewhere with a shorter path, such as C:\\sc-mp3, then open it again."
+)
+
 # The file type filters in the native file dialogs. pywebview takes "Name (*.ext;*.ext)", with
 # only letters, digits and spaces in the name.
 AUDIO_FILES = "MP3 and M4A files (*.mp3;*.m4a)"

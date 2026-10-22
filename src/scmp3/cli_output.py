@@ -1,5 +1,6 @@
 """What the command line prints, and the exit codes its commands return."""
 
+from collections.abc import Sequence
 from datetime import datetime
 
 from scmp3.core import paths
@@ -103,3 +104,15 @@ def error_message(error: ScmpError, settings: Settings) -> str:
     return message.format(
         folder=settings.library_dir, log=paths.log_dir() / LOG_FILE, saved="before"
     )
+
+
+def unknown_command(word: str, commands: Sequence[str]) -> str:
+    """For a first word typed in a terminal that's neither a command nor a file."""
+    return f"Unknown command: {word}. The commands are {spoken_list(commands)}."
+
+
+def spoken_list(items: Sequence[str]) -> str:
+    """Items as a sentence lists them: "get", "get and retag", "get, retag and sets"."""
+    if len(items) < 2:
+        return "".join(items)
+    return f"{', '.join(items[:-1])} and {items[-1]}"

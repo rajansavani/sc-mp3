@@ -51,6 +51,19 @@ def test_a_disk_error_with_a_reason_gets_its_own_message(reason: ErrorReason, st
     assert "/music" not in message
 
 
+@pytest.mark.parametrize(
+    ("commands", "listed"),
+    [
+        (["get"], "get"),
+        (["get", "retag"], "get and retag"),
+        (["get", "retag", "x"], "get, retag and x"),
+    ],
+)
+def test_an_unknown_command_names_every_command(commands: list[str], listed: str) -> None:
+    message = cli_output.unknown_command("gte", commands)
+    assert message == f"Unknown command: gte. The commands are {listed}."
+
+
 def test_every_reason_has_a_message() -> None:
     assert set(cli_output.REASON_MESSAGES) == set(get_args(ErrorReason))
 

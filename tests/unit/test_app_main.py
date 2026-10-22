@@ -6,6 +6,7 @@ import logging
 import mimetypes
 import threading
 import webbrowser
+from collections.abc import Sequence
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -371,7 +372,7 @@ def test_a_second_copy_exits_without_opening_a_window(monkeypatch: pytest.Monkey
     told: list[bool] = []
     monkeypatch.setattr(main, "setup_logging", lambda console: None)
     monkeypatch.setattr(instance, "say_already_open", lambda: told.append(True))
-    monkeypatch.setattr(main, "run_window", lambda: pytest.fail("a window opened"))
+    monkeypatch.setattr(main, "run_window", lambda paths: pytest.fail("a window opened"))
     try:
         assert main.run() == 1
     finally:
@@ -381,11 +382,24 @@ def test_a_second_copy_exits_without_opening_a_window(monkeypatch: pytest.Monkey
 
 def test_the_first_copy_lets_go_of_the_lock_when_it_closes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(main, "setup_logging", lambda console: None)
-    monkeypatch.setattr(main, "run_window", lambda: 0)
+    monkeypatch.setattr(main, "run_window", lambda paths: 0)
     assert main.run() == 0
     after = instance.instance_lock()
     assert instance.another_copy_is_open(after) is False
     after.release()
+
+
+def test_the_files_the_app_opens_with_reach_the_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    opened_with: list[Sequence[str]] = []
+
+    def run_window(paths: Sequence[str]) -> int:
+        opened_with.append(paths)
+        return 0
+
+    monkeypatch.setattr(main, "setup_logging", lambda console: None)
+    monkeypatch.setattr(main, "run_window", run_window)
+    assert main.run([r"C:\Music\song.mp3"]) == 0
+    assert opened_with == [[r"C:\Music\song.mp3"]]
 
 
 @pytest.mark.parametrize(
