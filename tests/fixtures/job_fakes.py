@@ -14,10 +14,11 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from scmp3.app.events import Event, EventBus
+from scmp3.app.events import Deferred, Event, EventBus
 from scmp3.app.job_covers import CoverView, KeptImage
 from scmp3.app.jobs import JobManager
-from scmp3.app.workers import Task
+from scmp3.app.queue_file import QueueFile
+from scmp3.app.workers import Spacing, StillWanted, Task
 from scmp3.core import download, paths, pipeline
 from scmp3.core.convert import AudioInfo
 from scmp3.core.errors import Cancelled, ScmpError
@@ -118,6 +119,9 @@ class FakeSteps:
     def steps_for(self, job_id: str) -> list[str]:
         return [step for step, called_for in self.calls if called_for == job_id]
 
+    def tools(self) -> Tools:
+        return Tools(make_ydl=no_ydl, history=History(paths.data_dir() / "history.db"))
+
     def prepare(self, parsed: ParsedInput, *, settings: Settings, job_id: str) -> Prepared:
         self._called("prepare", job_id)
         if self.during_prepare is not None:
@@ -134,8 +138,32 @@ class FakeSteps:
             duplicate=self.duplicates.get(source.url),
             settings=settings,
             info={},
-            tools=Tools(make_ydl=no_ydl, history=History(paths.data_dir() / "history.db")),
+            tools=self.tools(),
         )
+
+    def restore(
+        self,
+        job_id: str,
+        source: SourceInfo,
+        suggestion: TagSuggestion,
+        duplicate: HistoryEntry | None,
+        *,
+        settings: Settings,
+    ) -> Prepared:
+        self._called("restore", job_id)
+        return Prepared(
+            job_id=job_id,
+            source=source,
+            suggestion=suggestion,
+            duplicate=duplicate,
+            settings=settings,
+            info={},
+            tools=self.tools(),
+        )
+
+    def duplicate_of(self, source: SourceInfo) -> HistoryEntry | None:
+        self._called("duplicate_of", source.url)
+        return self.duplicates.get(source.url)
 
     def fetch(
         self,
@@ -248,18 +276,26 @@ class FakeCovers:
 
 
 class ManualPool:
-    """A pool whose tasks wait until the test runs them."""
+    """A pool whose tasks wait until the test runs them. Pacing is only noted, never waited for."""
 
-    def __init__(self, name: str, size: int) -> None:
+    def __init__(self, name: str, size: int, spacing: Spacing | None = None) -> None:
         self.name = name
         self.size = size
+        self.spacing = dict(spacing or {})
         self.tasks: deque[Task] = deque()
+        # The pace key each task was submitted with, and whether it was still wanted, in order.
+        self.paces: list[str | None] = []
+        self.wanted: list[StillWanted | None] = []
         self.closed = False
         self.started = False
 
-    def submit(self, task: Task) -> None:
+    def submit(
+        self, task: Task, *, pace: str | None = None, wanted: StillWanted | None = None
+    ) -> None:
         if not self.closed:
             self.tasks.append(task)
+            self.paces.append(pace)
+            self.wanted.append(wanted)
 
     def resize(self, size: int) -> None:
         self.size = size
@@ -284,8 +320,8 @@ class ManualPools:
     def __init__(self) -> None:
         self.by_name: dict[str, ManualPool] = {}
 
-    def __call__(self, name: str, size: int) -> ManualPool:
-        pool = ManualPool(name, size)
+    def __call__(self, name: str, size: int, *, spacing: Spacing | None = None) -> ManualPool:
+        pool = ManualPool(name, size, spacing)
         self.by_name[name] = pool
         return pool
 
@@ -343,9 +379,11 @@ class RecordingBus(EventBus):
         self.events: list[dict[str, Any]] = []
         self._events_lock = threading.Lock()
 
-    def emit(self, event: Event) -> None:
+    def emit(self, event: Event | Deferred) -> None:
+        # Built at once, which a snapshot taken under the lock allows.
+        built = event.build() if isinstance(event, Deferred) else event
         with self._events_lock:
-            self.events.append(json.loads(json.dumps(event)))
+            self.events.append(json.loads(json.dumps(built)))
 
     def for_job(self, job_id: str) -> list[dict[str, Any]]:
         return [event for event in self.events if event_job_id(event) == job_id]
@@ -375,6 +413,7 @@ class Harness:
     timers: FakeTimers
     events: RecordingBus
     library: Path
+    queue: QueueFile | None = None
 
     def add(self, url: str = TRACK) -> str:
         answer = self.manager.add_inputs(url)
@@ -398,13 +437,34 @@ class Harness:
         return saved
 
 
-def make_harness(library: Path, **settings: Any) -> Harness:
+def make_harness(library: Path, *, queue: QueueFile | None = None, **settings: Any) -> Harness:
+    """A job manager on fakes. With `queue`, it keeps its queue there across restarts."""
     store = SettingsStore(paths.config_dir() / "settings.json")
     store.update({"library_dir": str(library), **settings})
+    return _harness_on(store, library, queue)
+
+
+def _harness_on(store: SettingsStore, library: Path, queue: QueueFile | None) -> Harness:
     steps = FakeSteps(sources={OTHER: source_for(OTHER, OTHER_TITLE)})
     pools = ManualPools()
     timers = FakeTimers()
     events = RecordingBus()
     covers = FakeCovers()
-    manager = JobManager(store, events, steps=steps, covers=covers, make_pool=pools, timers=timers)
-    return Harness(manager, store, steps, covers, pools, timers, events, library)
+    manager = JobManager(
+        store, events, steps=steps, covers=covers, make_pool=pools, timers=timers, queue=queue
+    )
+    return Harness(manager, store, steps, covers, pools, timers, events, library, queue)
+
+
+def restarted(harness: Harness) -> Harness:
+    """The app closed and opened again: a new job manager on the same settings and queue.json."""
+    harness.manager.shut_down()
+    return reopened(harness)
+
+
+def reopened(harness: Harness) -> Harness:
+    """The app opened again after `harness` closed, as a new job manager that has started up."""
+    queue = QueueFile(harness.queue.path) if harness.queue else None
+    again = _harness_on(harness.store, harness.library, queue)
+    again.manager.start_up()
+    return again

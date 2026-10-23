@@ -1,4 +1,8 @@
 // Text for the main window: the top bar, the queue, the track editor and the cover.
+
+// A count as people read it, such as 2,000.
+const number = (count) => count.toLocaleString("en-US");
+
 export default {
   appName: "sc-mp3",
   queueLabel: "Queue",
@@ -13,9 +17,12 @@ export default {
   clipboardOffer: "Add the link on your clipboard?",
   clipboardNotNow: "Not now",
   clipboardAdd: "Add it",
+  // What a paste or drop of more than one item added, in a toast.
+  addedMany: (count) => `Added ${number(count)} items to the queue.`,
+  addedOne: "Added 1 item to the queue.",
   notAddedOne: (input, reason) => `${input} wasn't added. ${reason}`,
-  notAddedMany: (count, reason) => `${count} items weren't added. ${reason}`,
-  alreadyQueuedMany: (count) => `${count} of these are already in the queue.`,
+  notAddedMany: (count, reason) => `${number(count)} items weren't added. ${reason}`,
+  alreadyQueuedMany: (count) => `${number(count)} of these are already in the queue.`,
 
   // Why an added item was rejected, by the reason code add_inputs returns. The codes are the
   // constant names in core/urls.py and core/inputs.py. Worded for v0.1, which saves SoundCloud
@@ -44,9 +51,15 @@ export default {
   },
 
   // The queue.
-  queueTitle: (count) => `Queue · ${count}`,
+  queueTitle: (count) => `Queue · ${number(count)}`,
   clearFinished: "Clear finished",
-  queueEmpty: "Nothing queued yet. Links you add show up here.",
+  queueEmpty: "Nothing queued yet. Links you add show up here, and unsaved ones stay after you quit.",
+  // Saving every item that waits for review, after a question.
+  saveAll: "Save all",
+  saveAllTitle: (count) => `Save ${number(count)} tracks to your library?`,
+  saveAllBody:
+    "Each track is saved with the title, artist and cover it has now. Tracks still downloading are saved when their download finishes.",
+  saveAllConfirm: (count) => `Save ${number(count)} tracks`,
   sources: { soundcloud: "SoundCloud", youtube: "YouTube", file: "File" },
   itemLine: (artist, source) => (artist ? `${artist} · ${source}` : source),
   setLine: (owner, count) => `${owner} · SoundCloud set · ${count} tracks`,

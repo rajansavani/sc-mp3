@@ -7,6 +7,7 @@ import { horizon, PALETTES } from "./sample-art.js";
 import {
   makeSource,
   makeSuggestion,
+  manyTracks,
   SAMPLE_HISTORY,
   sampleQueue,
   staticBloomInfo,
@@ -29,8 +30,15 @@ const ERROR_LINK = /\/error-([a-z_]+)$/;
 // Errors that happen while saving, after the review. The others happen while fetching info.
 const SAVE_ERRORS = new Set(["disk", "convert_failed", "duplicate"]);
 
-const showsStates = new URLSearchParams(window.location.search).has("states");
-export const jobs = [...sampleQueue(), ...(showsStates ? sampleStates() : [])];
+const query = new URLSearchParams(window.location.search);
+const showsStates = query.has("states");
+// ?mock&many=<count> adds that many tracks in review, for trying a long queue.
+const manyCount = Number.parseInt(query.get("many") ?? "0", 10) || 0;
+export const jobs = [
+  ...sampleQueue(),
+  ...(showsStates ? sampleStates() : []),
+  ...manyTracks(manyCount),
+];
 // Jobs whose download is running, so a cancel or a removal can stop it.
 const downloading = new Set();
 

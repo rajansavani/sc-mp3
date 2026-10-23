@@ -3,9 +3,12 @@ import { api } from "../api.js";
 import { addToast, getState, reportError, selectJob, setSettings } from "../store.js";
 import { strings } from "../strings/index.js";
 
+// The next item after this one that needs review, going round to the top of the queue.
 export function nextToReview(job) {
   const { jobs } = getState();
-  return jobs.find((other) => other.id !== job.id && other.state === "needs_review") ?? null;
+  const index = jobs.findIndex((other) => other.id === job.id);
+  const inTurn = [...jobs.slice(index + 1), ...jobs.slice(0, Math.max(index, 0))];
+  return inTurn.find((other) => other.id !== job.id && other.state === "needs_review") ?? null;
 }
 
 // Moves focus once the next render is done, since the element it goes to may be new.
@@ -61,6 +64,18 @@ export async function skipJob(job) {
 export function selectAndFocus(jobId) {
   selectJob(jobId);
   focusSelectedItem();
+}
+
+// After Enter saved a job: on to the next one that needs review, ready for Enter again. With
+// none left, focus stays on the saved job's queue item.
+export function moveToNextReview(job) {
+  const next = nextToReview(job);
+  if (!next) {
+    focusSelectedItem();
+    return;
+  }
+  selectJob(next.id);
+  focusEditor();
 }
 
 // Says why the folder wasn't taken, in the words the settings screen uses for it.

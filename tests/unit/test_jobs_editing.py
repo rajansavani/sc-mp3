@@ -497,7 +497,7 @@ def test_a_progress_report_that_fails_never_reaches_the_download(
     record_event = jobs.events.emit
 
     def emit_all_but_progress(event: Any) -> None:
-        if event["type"] == "progress":
+        if isinstance(event, dict) and event["type"] == "progress":
             raise RuntimeError("the bus broke")
         record_event(event)
 

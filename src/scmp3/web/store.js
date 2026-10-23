@@ -25,10 +25,35 @@ const listeners = new Set();
 // Events that arrive before the snapshot wait here, then apply on top of it.
 let earlyEvents = [];
 let nextToastId = 1;
+// Set while listeners are due to hear about the latest changes.
+let notifying = false;
+// The jobs list that the events of one batch change, with where each job sits in it. The first
+// event copies state.jobs and the rest change that copy in place, so a batch from Python costs
+// one copy and one render, not one each, however long the queue is.
+let draft = null;
 
+// The state changes at once, and listeners hear once the current batch of changes is done.
 function update(patch) {
   state = { ...state, ...patch };
-  for (const listener of listeners) listener(state);
+  if (notifying) return;
+  notifying = true;
+  queueMicrotask(() => {
+    notifying = false;
+    // The next change copies the list again, so the one listeners get never changes later.
+    draft = null;
+    for (const listener of listeners) listener(state);
+  });
+}
+
+function draftJobs() {
+  if (draft === null) draft = { jobs: [...state.jobs], positions: null };
+  return draft;
+}
+
+function positionOf(jobId) {
+  const current = draftJobs();
+  current.positions ??= new Map(current.jobs.map((job, index) => [job.id, index]));
+  return current.positions.get(jobId);
 }
 
 export function getState() {
@@ -50,35 +75,55 @@ export function useStore() {
 export function loadSnapshot(snapshot) {
   const waiting = earlyEvents;
   earlyEvents = [];
+  draft = null;
   update({ ...snapshot, ready: true });
   for (const event of waiting) applyEvent(event);
 }
 
-function upsertJob(jobs, job) {
-  const index = jobs.findIndex((existing) => existing.id === job.id);
-  if (index === -1) return [...jobs, job];
-  return jobs.map((existing, i) => (i === index ? job : existing));
+function upsertJob(job) {
+  const current = draftJobs();
+  const position = positionOf(job.id);
+  if (position === undefined) {
+    current.positions.set(job.id, current.jobs.length);
+    current.jobs.push(job);
+  } else {
+    current.jobs[position] = job;
+  }
+  return current.jobs;
+}
+
+function withJobProgress(job, { pct, speed, eta }) {
+  return { ...job, progress: { ...job.progress, pct, speed, eta } };
 }
 
 // Progress can be for a queue item or for one track of a set, which has its own id.
-function withProgress(jobs, event) {
-  const { job_id, pct, speed, eta } = event;
-  return jobs.map((job) => {
-    if (job.id === job_id) return { ...job, progress: { ...job.progress, pct, speed, eta } };
-    if (!job.children.some((child) => child.id === job_id)) return job;
-    return { ...job, children: withProgress(job.children, event) };
+function withProgress(event) {
+  const { jobs } = draftJobs();
+  const position = positionOf(event.job_id);
+  if (position !== undefined) {
+    jobs[position] = withJobProgress(jobs[position], event);
+    return jobs;
+  }
+  const owner = jobs.findIndex((job) => job.children.some((child) => child.id === event.job_id));
+  if (owner === -1) return jobs;
+  const children = jobs[owner].children.map((child) => {
+    return child.id === event.job_id ? withJobProgress(child, event) : child;
   });
+  jobs[owner] = { ...jobs[owner], children };
+  return jobs;
 }
 
 function withoutJob(state, jobId) {
+  const jobs = draftJobs().jobs.filter((job) => job.id !== jobId);
+  draft = { jobs, positions: null };
   const selected = state.selected_job_id === jobId ? null : state.selected_job_id;
-  return { jobs: state.jobs.filter((job) => job.id !== jobId), selected_job_id: selected };
+  return { jobs, selected_job_id: selected };
 }
 
 // How each event type changes the state. A new event type needs one entry here.
 const EVENT_HANDLERS = {
-  job: (current, event) => ({ jobs: upsertJob(current.jobs, event.job) }),
-  progress: (current, event) => ({ jobs: withProgress(current.jobs, event) }),
+  job: (current, event) => ({ jobs: upsertJob(event.job) }),
+  progress: (current, event) => ({ jobs: withProgress(event) }),
   job_removed: (current, event) => withoutJob(current, event.job_id),
   account: (current, event) => ({ account: event.account }),
   components: (current, event) => ({ components: event.components }),

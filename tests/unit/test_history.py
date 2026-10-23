@@ -399,3 +399,62 @@ def test_a_folder_error_without_an_os_message_still_explains_itself(
     with pytest.raises(ScmpError) as error_info:
         History(tmp_path / "new" / "history.db").recent()
     assert error_info.value.detail == "can't create the data folder: the drive went away"
+
+
+class SchemaCounter:
+    """Counts how many connections run the schema script."""
+
+    def __init__(self) -> None:
+        self.runs = 0
+        self._real_connect = sqlite3.connect
+
+    def install(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(history.sqlite3, "connect", self.connect)
+
+    def connect(self, database: Path, *args: Any, **kwargs: Any) -> sqlite3.Connection:
+        db = self._real_connect(database, *args, factory=CountingConnection, **kwargs)
+        db.counter = self
+        return db
+
+
+class CountingConnection(sqlite3.Connection):
+    counter: SchemaCounter | None = None
+
+    def executescript(self, script: str) -> sqlite3.Cursor:
+        if self.counter is not None and script == history.SCHEMA:
+            self.counter.runs += 1
+        return super().executescript(script)
+
+
+def test_the_schema_runs_only_on_the_first_connection(
+    store: History, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    counter = SchemaCounter()
+    counter.install(monkeypatch)
+    added = store.add(entry())
+    assert store.search("drive") == [added]
+    assert store.recent() == [added]
+    assert store.find_by_url(added.url_norm or "") == added
+    assert counter.runs == 1
+
+
+def test_a_history_file_deleted_meanwhile_is_started_again(store: History) -> None:
+    store.add(entry())
+    store.path.unlink()
+    assert store.recent() == []
+    added = store.add(entry(title="Night Bus"))
+    assert store.recent() == [added]
+
+
+def test_a_file_damaged_after_it_was_opened_is_replaced_by_the_next_call(
+    tmp_path: Path,
+) -> None:
+    store = History(tmp_path / "history.db", clock=lambda: START)
+    store.add(entry())
+    store.path.write_bytes(b"this is not a database " * 100)
+    # The call that finds the damage fails, and the next one starts a new file.
+    with pytest.raises(ScmpError) as error_info:
+        store.recent()
+    assert error_info.value.kind is ErrorKind.disk
+    assert store.recent() == []
+    assert len(list(tmp_path.glob("history.bad-*.db"))) == 1

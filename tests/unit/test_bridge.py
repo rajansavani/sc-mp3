@@ -38,6 +38,7 @@ CALLS: dict[type, set[str]] = {
         "retry",
         "cancel",
         "remove",
+        "remove_jobs",
         "answer_collision",
         "set_album_mode",
         "set_included",

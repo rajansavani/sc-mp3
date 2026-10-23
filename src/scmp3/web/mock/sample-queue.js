@@ -282,6 +282,36 @@ export function sampleQueue() {
   return [midnightDrive(), lantern(), staticBloom(), nightBus(), oldFavorite()];
 }
 
+const MANY_PALETTES = [PALETTES.dusk, PALETTES.tide, PALETTES.moss, PALETTES.nightBus];
+
+// A batch of tracks waiting for review with their audio in, for ?mock&many=<count>.
+export function manyTracks(count) {
+  return Array.from({ length: count }, (_, index) => {
+    const number = index + 1;
+    const url = `https://soundcloud.com/teo-marr/batch-track-${number}`;
+    return makeJob({
+      id: `batch-${number}`,
+      input: url,
+      state: "needs_review",
+      source: makeSource({
+        id: `soundcloud:tracks:${5000 + number}`,
+        url,
+        title: `Batch Track ${number} [FREE DL]`,
+        uploader: "Teo Marr",
+        duration: 200,
+        artwork_url: horizon(MANY_PALETTES[index % MANY_PALETTES.length], 640),
+      }),
+      suggestion: makeSuggestion({
+        base_title: `Batch Track ${number}`,
+        main_artists: ["Teo Marr"],
+        album: `Batch Track ${number}`,
+        changes: [makeChange("freedl", "remove_promo", "[FREE DL]", "Removed “[FREE DL]”")],
+      }),
+      staged_audio: `staging/batch-${number}/audio.m4a`,
+    });
+  });
+}
+
 export const SAMPLE_HISTORY = [
   {
     id: 1,

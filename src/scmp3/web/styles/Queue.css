@@ -29,7 +29,13 @@
   text-transform: uppercase;
 }
 
-.queue-clear {
+.queue-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.queue-action {
   padding: 4px 0;
   border: 0;
   background: none;
@@ -37,8 +43,18 @@
   font-size: var(--text-caption);
 }
 
-.queue-clear:hover {
+.queue-action:hover {
   color: var(--text-1);
+}
+
+/* The main action of the two, in the color of links and text buttons. */
+.queue-action.is-save-all {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.queue-action.is-save-all:hover {
+  color: var(--accent-text-hover);
 }
 
 .queue-empty {
@@ -54,6 +70,13 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* Items out of view skip layout and painting, which is most of what a change costs in a queue of
+   hundreds. The size stands in for one item until it has been drawn once. */
+.queue-list > li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 66px;
 }
 
 .queue-item {

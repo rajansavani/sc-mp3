@@ -92,6 +92,8 @@ class History:
         # Held while a connection is opened, and while a damaged file is replaced. So no other
         # thread has the damaged file open when it's renamed, which Windows would refuse.
         self._open_lock = threading.Lock()
+        # Set once this run has checked the tables, so later connections skip the schema script.
+        self._schema_ready = False
 
     def add(self, entry: HistoryEntry) -> HistoryEntry:
         """Record a saved file. Returns the entry with its id and save time filled in."""
@@ -154,6 +156,10 @@ class History:
             with db:
                 yield db
         except sqlite3.Error as error:
+            if isinstance(error, sqlite3.DatabaseError) and _is_damaged(error):
+                # The next connection checks the file again, and replaces it if it's damaged.
+                with self._open_lock:
+                    self._schema_ready = False
             raise ScmpError(ErrorKind.disk, f"history database error: {error}") from error
         finally:
             db.close()
@@ -184,23 +190,34 @@ class History:
             return None
 
     def _open_once(self) -> sqlite3.Connection:
-        """Connect and create the schema if it's missing. Raises sqlite's own errors."""
+        """Connect, creating the schema if it's missing. Raises sqlite's own errors.
+
+        The schema script runs on this run's first connection and for a file that has gone, since
+        it's most of what opening costs (T-022b). It's also what finds a damaged file.
+        """
+        needs_schema = not self._schema_ready or not self.path.exists()
+        if needs_schema:
+            self._create_folder()
+        db = sqlite3.connect(self.path)
+        try:
+            db.row_factory = sqlite3.Row
+            # sqlite's own lower() only folds ASCII, so searches fold text in Python.
+            db.create_function("fold", 1, _fold_value, deterministic=True)
+            if needs_schema:
+                db.executescript(SCHEMA)
+        except BaseException:
+            db.close()
+            raise
+        self._schema_ready = True
+        return db
+
+    def _create_folder(self) -> None:
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
         except OSError as error:
             raise ScmpError(
                 ErrorKind.disk, f"can't create the data folder: {error.strerror or error}"
             ) from error
-        db = sqlite3.connect(self.path)
-        try:
-            db.row_factory = sqlite3.Row
-            # sqlite's own lower() only folds ASCII, so searches fold text in Python.
-            db.create_function("fold", 1, _fold_value, deterministic=True)
-            db.executescript(SCHEMA)
-        except BaseException:
-            db.close()
-            raise
-        return db
 
     def _move_aside(self) -> None:
         """Rename a damaged history.db to history.bad-<time>.db, in local time."""

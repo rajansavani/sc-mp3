@@ -1,6 +1,8 @@
-"""Asking before the window closes while tracks in the queue haven't been saved.
+"""Asking before the window closes while tracks in the queue haven't been saved, if closing would
+lose them.
 
-Nothing brings the queue back after a restart until T-050, so closing drops them. The user decides.
+queue.json brings the queue back at the next start, so closing normally asks nothing. Only when
+queue.json can't be written does closing drop the tracks, and then the user decides.
 """
 
 import ctypes
@@ -33,6 +35,8 @@ class UnsavedJobs(Protocol):
     """The part of the job manager the question needs."""
 
     def unsaved_count(self) -> int: ...
+
+    def keep_queue(self) -> bool: ...
 
 
 @dataclass(frozen=True)
@@ -73,6 +77,9 @@ class CloseGuard:
         """Whether the window may close. pywebview cancels the close on False."""
         count = self._jobs.unsaved_count()
         if count == 0 or self._asking is None:
+            return True
+        # Written now, while the window can still stay open if it fails.
+        if self._jobs.keep_queue():
             return True
         if self._asking.session_ending():
             # A question would hold up logging off, and a save placing its file gets 5 s anyway.

@@ -40,7 +40,7 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
 7. Select Open Spotify.
    - You should see: the Spotify app opens or comes to the front.
 8. Select Finish.
-   - You should see: the main window, with "Paste a SoundCloud track link to start" and an empty queue that says "Nothing queued yet. Links you add show up here."
+   - You should see: the main window, with "Paste a SoundCloud track link to start" and an empty queue that says "Nothing queued yet. Links you add show up here, and unsaved ones stay after you quit."
 9. Select Spotify help, in the middle of the empty window, then press Esc.
    - You should see: the Spotify help panel opens on the right, on "On your computer", and Esc closes it.
 
@@ -176,10 +176,14 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
 ## 11. Closing
 
 1. Turn off "Download while I review", paste a track and select Save to library. While it says "Saves when the download finishes", paste another track and leave it in review. Close the window.
-   - You should see: "2 tracks haven't been saved. Close anyway?" and "Closing removes them from the queue." No keeps the window open, and the first track saves. Yes closes it.
-2. Save or skip every track, or remove it from the queue. Then paste the Traffic link, wait for its error, and close the window.
-   - You should see: it closes at once, without asking, since Traffic can't be saved anyway.
-3. Open the log folder, `%LOCALAPPDATA%\sc-mp3\Logs`, and search `sc-mp3.log` for "Traceback" and for your user name.
+   - You should see: it closes at once, without asking.
+2. Open sc-mp3 again.
+   - You should see: both tracks in the queue, both in review. The first one's save didn't finish, so it waits for Save again.
+3. Turn "Download while I review" back on, and wait until both tracks say "Needs review · audio ready". Close the window and open sc-mp3 again.
+   - You should see: both tracks back at once with "Needs review · audio ready", and no download progress.
+4. Save or skip every track, or remove it from the queue. Then paste the Traffic link, wait for its error, and close the window. Open sc-mp3 again.
+   - You should see: it closes without asking, and Traffic comes back with its error. Clear finished removes it.
+5. Open the log folder, `%LOCALAPPDATA%\sc-mp3\Logs`, and search `sc-mp3.log` for "Traceback" and for your user name.
    - You should see: neither. Your home folder appears as `~`.
 
 ## 12. Spotify on the desktop

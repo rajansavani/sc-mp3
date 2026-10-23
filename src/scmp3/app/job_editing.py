@@ -131,6 +131,7 @@ class JobEditing:
                 return refusal
             # A problem with an earlier cover no longer applies.
             record.cover_problem = None
+            record.changed()
             choice = _unchanged_image(record.job.artwork, kind, value, crop)
             if choice is None:
                 assert value is not None

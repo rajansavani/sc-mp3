@@ -1,7 +1,8 @@
 """Pushes events from Python to the web UI, which receives them in `window.scmp3.emit`.
 
 Job and progress events are merged per job, and batches go out at most about ten times a second
-from the bus's own thread, so no worker or bridge thread ever waits on the window.
+from the bus's own thread, so no worker or bridge thread ever waits on the window. A `Deferred`
+event is built on that thread too, just before it's sent, and only if nothing replaced it first.
 """
 
 import itertools
@@ -9,7 +10,7 @@ import json
 import logging
 import threading
 import time
-from collections.abc import Callable, Hashable, Mapping
+from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -22,9 +23,34 @@ SEND_INTERVAL = 0.1
 # How long close() waits for a send in progress, since evaluate_js can hang on a closing window.
 CLOSE_TIMEOUT = 2.0
 
+# The most JSON one script carries. A bigger batch, such as every job after Save all, goes in
+# several, so the answer to a bridge call, which pywebview also sends as a script, never waits
+# long behind it.
+MAX_SCRIPT_CHARACTERS = 200_000
+# The most events one batch carries. After Save all of 2,000, the rest go in the next batches,
+# merged with whatever changes meanwhile, so the window's thread is never busy for long at once.
+MAX_BATCH_EVENTS = 200
+
 Event = Mapping[str, Any]
 
 log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class Deferred:
+    """An event built when it's sent, so a burst of changes to one job builds its dict once.
+
+    `build` runs on the bus's thread, outside the caller's locks, so it may only read what was
+    copied for it. `key` is what MERGE_RULES would read from the built event.
+    """
+
+    type: str
+    key: str
+    build: Callable[[], Event]
+
+
+# A waiting event: JSON already, or one still to build.
+Pending = str | Deferred
 
 
 class Window(Protocol):
@@ -70,31 +96,36 @@ MERGE_RULES: dict[str, MergeRule] = {
 
 
 class PendingEvents:
-    """Events waiting to be sent, as JSON in send order, with stale ones already dropped."""
+    """Events waiting to be sent, in send order, with stale ones already dropped."""
 
     def __init__(self) -> None:
         # A dict keeps insertion order, and a replaced event moves to the end, after older ones.
-        self._events: dict[Hashable, str] = {}
+        self._events: dict[Hashable, Pending] = {}
         self._unmerged_ids = itertools.count()
 
-    def add(self, event: Event) -> None:
+    def add(self, event: Event | Deferred) -> None:
         """Add an event, dropping the waiting events it replaces."""
+        if isinstance(event, Deferred):
+            self._merge(event.type, event.key, event)
+            return
         # Serializing now raises in the caller for a bad event, and freezes its content.
         text = json.dumps(event)
         rule = MERGE_RULES.get(event["type"])
-        if rule is None:
-            self._events[next(self._unmerged_ids)] = text
+        self._merge(event["type"], rule.key(event) if rule else None, text)
+
+    def _merge(self, event_type: str, key: str | None, pending: Pending) -> None:
+        rule = MERGE_RULES.get(event_type)
+        if rule is None or key is None:
+            self._events[next(self._unmerged_ids)] = pending
             return
-        key = rule.key(event)
         for stale_type in rule.replaces:
             self._events.pop((stale_type, key), None)
-        self._events[(event["type"], key)] = text
+        self._events[(event_type, key)] = pending
 
-    def take(self) -> list[str]:
-        """Remove and return every waiting event, oldest first."""
-        events = list(self._events.values())
-        self._events.clear()
-        return events
+    def take(self, limit: int | None = None) -> list[Pending]:
+        """Remove and return the oldest waiting events, up to `limit`, oldest first."""
+        keys = list(itertools.islice(self._events, limit))
+        return [self._events.pop(key) for key in keys]
 
     def __bool__(self) -> bool:
         return bool(self._events)
@@ -105,6 +136,33 @@ def batch_script(events: list[str]) -> str:
     return f"for (const event of [{','.join(events)}]) {EMIT_FUNCTION}(event);"
 
 
+def as_json(pending: Iterable[Pending]) -> Iterator[str]:
+    """The waiting events as JSON, each deferred one built as it comes. A failed one is left out."""
+    for item in pending:
+        if isinstance(item, str):
+            yield item
+            continue
+        try:
+            yield json.dumps(item.build())
+        except Exception:
+            # The next change to the same job sends it again.
+            log.exception("A %s event couldn't be built, so it wasn't sent", item.type)
+
+
+def in_chunks(events: Iterable[str], limit: int = MAX_SCRIPT_CHARACTERS) -> Iterator[list[str]]:
+    """The events in order, in groups of about `limit` characters. A bigger event goes alone."""
+    chunk: list[str] = []
+    size = 0
+    for event in events:
+        if chunk and size + len(event) > limit:
+            yield chunk
+            chunk, size = [], 0
+        chunk.append(event)
+        size += len(event)
+    if chunk:
+        yield chunk
+
+
 class EventBus:
     """Sends events to the window from any thread, merged and capped at about ten batches a second.
 
@@ -112,9 +170,16 @@ class EventBus:
     """
 
     def __init__(
-        self, *, interval: float = SEND_INTERVAL, clock: Callable[[], float] = time.monotonic
+        self,
+        *,
+        interval: float = SEND_INTERVAL,
+        clock: Callable[[], float] = time.monotonic,
+        script_limit: int = MAX_SCRIPT_CHARACTERS,
+        batch_limit: int = MAX_BATCH_EVENTS,
     ) -> None:
         self._interval = interval
+        self._script_limit = script_limit
+        self._batch_limit = batch_limit
         self._clock = clock
         self._wake = threading.Condition()
         self._pending = PendingEvents()
@@ -123,11 +188,12 @@ class EventBus:
         self._closed = False
         self._thread: threading.Thread | None = None
 
-    def emit(self, event: Event) -> None:
+    def emit(self, event: Event | Deferred) -> None:
         """Queue an event for the UI. Safe from any thread, and never waits on the window."""
         with self._wake:
             if self._closed:
-                log.debug("The window is closed, so a %s event wasn't sent", event.get("type"))
+                kind = event.type if isinstance(event, Deferred) else event.get("type")
+                log.debug("The window is closed, so a %s event wasn't sent", kind)
                 return
             self._pending.add(event)
             self._wake.notify()
@@ -160,7 +226,7 @@ class EventBus:
             window, events = batch
             self._send(window, events)
 
-    def _wait_for_batch(self) -> tuple[Window, list[str]] | None:
+    def _wait_for_batch(self) -> tuple[Window, list[Pending]] | None:
         """Block until a batch is due and return it with its window, or return None once closed."""
         with self._wake:
             while not self._closed:
@@ -172,7 +238,7 @@ class EventBus:
                     self._wake.wait(delay)
                     continue
                 self._last_send = self._clock()
-                return self._window, self._pending.take()
+                return self._window, self._pending.take(self._batch_limit)
             return None
 
     def _delay(self) -> float:
@@ -181,9 +247,11 @@ class EventBus:
             return 0.0
         return self._last_send + self._interval - self._clock()
 
-    def _send(self, window: Window, events: list[str]) -> None:
-        try:
-            window.evaluate_js(batch_script(events))
-        except Exception:
-            # A failed batch is lost, but the next one carries newer job snapshots.
-            log.warning("Sending %d events to the window failed", len(events), exc_info=True)
+    def _send(self, window: Window, pending: list[Pending]) -> None:
+        # Each part goes as soon as it's built, so the first events don't wait for the last.
+        for events in in_chunks(as_json(pending), self._script_limit):
+            try:
+                window.evaluate_js(batch_script(events))
+            except Exception:
+                # Those events are lost, but the next batch carries newer job snapshots.
+                log.warning("Sending %d events to the window failed", len(events), exc_info=True)

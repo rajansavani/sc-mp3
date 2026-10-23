@@ -1,4 +1,4 @@
-"""Tests for asking before the window closes while tracks in the queue haven't been saved."""
+"""Tests for asking before the window closes while unsaved tracks can't be kept for next time."""
 
 import pytest
 
@@ -8,11 +8,17 @@ from scmp3.app.message_box import IDNO, IDYES, MB_DEFBUTTON2, MB_ICONWARNING, MB
 
 
 class UnsavedJobs:
-    def __init__(self, count: int) -> None:
+    def __init__(self, count: int, *, kept: bool = False) -> None:
         self.count = count
+        self.kept = kept
+        self.keeps = 0
 
     def unsaved_count(self) -> int:
         return self.count
+
+    def keep_queue(self) -> bool:
+        self.keeps += 1
+        return self.kept
 
 
 class Asker:
@@ -37,8 +43,16 @@ def test_nothing_is_asked_when_every_track_is_saved_or_skipped() -> None:
     assert ask.questions == []
 
 
+def test_nothing_is_asked_once_the_queue_is_kept_for_next_time() -> None:
+    ask = Asker(False)
+    jobs = UnsavedJobs(3, kept=True)
+    assert CloseGuard(jobs, asking(ask)).closing() is True
+    assert jobs.keeps == 1
+    assert ask.questions == []
+
+
 @pytest.mark.parametrize("answer", [True, False])
-def test_the_answer_decides_while_tracks_are_unsaved(answer: bool) -> None:
+def test_the_answer_decides_when_the_queue_cant_be_kept(answer: bool) -> None:
     ask = Asker(answer)
     assert CloseGuard(UnsavedJobs(3), asking(ask)).closing() is answer
     assert ask.questions == [messages.unsaved(3)]
@@ -55,9 +69,10 @@ def test_without_a_way_to_ask_the_window_closes() -> None:
     assert CloseGuard(UnsavedJobs(3), None).closing() is True
 
 
-def test_the_question_counts_the_tracks() -> None:
-    assert messages.unsaved(3).startswith("3 tracks haven't been saved. Close anyway?")
-    assert messages.unsaved(1).startswith("1 track hasn't been saved. Close anyway?")
+def test_the_question_counts_the_tracks_and_says_why_it_asks() -> None:
+    assert messages.unsaved(3).startswith("3 tracks haven't been saved, and sc-mp3 couldn't keep")
+    assert messages.unsaved(1).startswith("1 track hasn't been saved, and sc-mp3 couldn't keep")
+    assert "Close anyway?" in messages.unsaved(2)
     for text in (messages.unsaved(1), messages.unsaved(5)):
         assert "!" not in text
         assert "—" not in text

@@ -2,7 +2,7 @@
 import { useState } from "preact/hooks";
 
 import { api } from "../api.js";
-import { getState, reportError, reportRejected, selectJob } from "../store.js";
+import { addToast, getState, reportError, reportRejected, selectJob } from "../store.js";
 import { strings } from "../strings/index.js";
 
 const text = strings.main;
@@ -14,13 +14,26 @@ function selectNewJob(added = []) {
   if (added.length > 0 && current?.state !== "needs_review") selectJob(added[0]);
 }
 
+// Says how many items went in, when more than one did or some didn't. A single new item shows up
+// in the queue, selected, which says enough.
+function reportAdded({ added = [], rejected = [] }) {
+  if (added.length === 0 || (added.length === 1 && rejected.length === 0)) return;
+  addToast("ok", added.length === 1 ? text.addedOne : text.addedMany(added.length));
+}
+
 // Sends text to add_inputs. Returns true when the call went through, even if some items didn't.
 export async function addInputs(textOrPaths) {
   const result = await api.add_inputs(textOrPaths);
   if (reportError(result)) return false;
+  reportAdded(result);
   reportRejected(result.rejected ?? []);
   selectNewJob(result.added);
   return true;
+}
+
+// Text with more than one line, which a one-line field would join with spaces.
+export function isSeveralLines(text) {
+  return /[\r\n]/.test(text.trim());
 }
 
 // The links in a drop, one a line. Dropped files are left to Python's drop handler on the page's

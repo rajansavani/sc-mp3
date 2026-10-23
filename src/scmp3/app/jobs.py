@@ -2,7 +2,8 @@
 
 `JobFlow` runs each job's steps. Every call here takes the flow's one lock, changes what it needs
 to, hands anything slow to a worker and returns at once. Answers are JSON-safe dicts, and the
-error codes in them have text in web/strings.
+error codes in them have text in web/strings. The jobs not saved yet are kept in queue.json and
+come back at the next start.
 """
 
 import logging
@@ -10,20 +11,24 @@ import time
 from collections.abc import Iterable
 from typing import Any
 
+from scmp3.app import queue_file
 from scmp3.app.events import EventBus
 from scmp3.app.input_reasons import ALREADY_IN_QUEUE, reason_code
 from scmp3.app.job_covers import CoverReader
-from scmp3.app.job_editing import EDITABLE_STATES, UNKNOWN_JOB, JobEditing
+from scmp3.app.job_editing import UNKNOWN_JOB, JobEditing
 from scmp3.app.job_flow import JobFlow, PoolMaker
-from scmp3.app.job_record import JobRecord, planned_path, rebuilt_suggestion, rendered_tags
+from scmp3.app.job_record import JobRecord
+from scmp3.app.job_settings import SettingsFollowing
 from scmp3.app.job_steps import PipelineSteps, Steps
+from scmp3.app.queue_file import QueueFile
+from scmp3.app.queue_keeper import QueueKeeper
 from scmp3.app.workers import TaskPool, ThreadTimers, Timers
 from scmp3.core import download, pipeline, placing
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.history import History
 from scmp3.core.inputs import ParsedInput, parse_inputs
 from scmp3.core.library import CollisionChoice
-from scmp3.core.models import JobState, Settings
+from scmp3.core.models import JobState
 from scmp3.core.settings import SettingsStore
 from scmp3.core.sources import soundcloud
 
@@ -36,13 +41,15 @@ UNSAVABLE_KINDS = frozenset(
 )
 # How long closing the window waits for a save that's placing its file, in seconds.
 SHUTDOWN_SAVE_WAIT = 5.0
+# How many jobs a call that names many, such as a paste or Save all, handles per turn of the lock.
+JOBS_PER_TURN = 100
 
 Answer = dict[str, Any]
 
 log = logging.getLogger(__name__)
 
 
-class JobManager(JobEditing):
+class JobManager(JobEditing, SettingsFollowing):
     """The queue. Bridge calls go through here, and so does every change the UI hears about."""
 
     def __init__(
@@ -54,7 +61,9 @@ class JobManager(JobEditing):
         covers: CoverReader,
         make_pool: PoolMaker = TaskPool,
         timers: Timers | None = None,
+        queue: QueueFile | None = None,
     ) -> None:
+        """`queue` keeps the queue across restarts. Without it, the queue lasts one run."""
         self._flow = JobFlow(
             settings.load(),
             events,
@@ -63,19 +72,26 @@ class JobManager(JobEditing):
             make_pool=make_pool,
             timers=timers or ThreadTimers(),
         )
+        self._keeper = QueueKeeper(queue, self._flow, steps) if queue else None
 
     @classmethod
     def for_app(cls, settings: SettingsStore, history: History, events: EventBus) -> "JobManager":
-        """The job manager the app runs, on the real pipeline and yt-dlp."""
+        """The job manager the app runs, on the real pipeline and yt-dlp, kept in queue.json."""
         tools = pipeline.Tools(make_ydl=soundcloud.make_ydl, history=history)
         return cls(
-            settings, events, steps=PipelineSteps(tools), covers=CoverReader(soundcloud.make_ydl)
+            settings,
+            events,
+            steps=PipelineSteps(tools),
+            covers=CoverReader(soundcloud.make_ydl),
+            queue=QueueFile(queue_file.default_path()),
         )
 
     def views(self) -> list[dict[str, Any]]:
-        """Every job as the UI gets it, in queue order."""
+        """Every job as the UI gets it, in queue order. The dicts are built outside the lock."""
         with self._flow.lock:
-            return self._flow.views()
+            snapshots = [record.snapshot() for record in self._flow.records.values()]
+            settings = self._flow.settings
+        return [snapshot.view(settings) for snapshot in snapshots]
 
     def is_queued(self, url: str) -> bool:
         """Whether a job for this normalized link is in the queue already."""
@@ -95,13 +111,15 @@ class JobManager(JobEditing):
         parsed_items = parse_inputs(text)
         added: list[str] = []
         rejected: list[dict[str, str]] = []
-        with self._flow.lock:
-            for parsed in parsed_items:
-                rejection = self._rejection(parsed)
-                if rejection is None:
-                    added.append(self._flow.queue(parsed).id)
-                else:
-                    rejected.append(rejection)
+        # A few at a time, so other calls never wait long for the lock during a paste of 2,000.
+        for start in range(0, len(parsed_items), JOBS_PER_TURN):
+            with self._flow.lock:
+                for parsed in parsed_items[start : start + JOBS_PER_TURN]:
+                    rejection = self._rejection(parsed)
+                    if rejection is None:
+                        added.append(self._flow.queue(parsed).id)
+                    else:
+                        rejected.append(rejection)
         return {"added": added, "rejected": rejected}
 
     def _rejection(self, parsed: ParsedInput) -> dict[str, str] | None:
@@ -117,11 +135,14 @@ class JobManager(JobEditing):
 
     def save(self, job_ids: Iterable[str]) -> Answer:
         """Save each job that's waiting for review, or that's a confirmed repeat of a saved one."""
-        with self._flow.lock:
-            for job_id in job_ids:
-                record = self._flow.records.get(job_id)
-                if record is not None and self._can_save(record):
-                    self._flow.start_saving(record)
+        ids = list(job_ids)
+        # A few at a time, as when adding, since Save all can name the whole queue.
+        for start in range(0, len(ids), JOBS_PER_TURN):
+            with self._flow.lock:
+                for job_id in ids[start : start + JOBS_PER_TURN]:
+                    record = self._flow.records.get(job_id)
+                    if record is not None and self._can_save(record):
+                        self._flow.start_saving(record)
         return {}
 
     def _can_save(self, record: JobRecord) -> bool:
@@ -181,12 +202,27 @@ class JobManager(JobEditing):
             record = self._flow.records.get(job_id)
             if record is None:
                 return {"error": UNKNOWN_JOB}
-            if record.saving_now:
-                # The file is being placed, so the save finishes and then the job leaves.
-                record.remove_when_saved = True
-                return {}
-            self._flow.remove(record)
+            self._remove(record)
         return {}
+
+    def remove_jobs(self, job_ids: Iterable[str]) -> Answer:
+        """Take many jobs out of the queue in one call, as Clear finished does. Unknown ids are
+        left out, since a job may have left meanwhile."""
+        ids = list(job_ids)
+        for start in range(0, len(ids), JOBS_PER_TURN):
+            with self._flow.lock:
+                for job_id in ids[start : start + JOBS_PER_TURN]:
+                    record = self._flow.records.get(job_id)
+                    if record is not None:
+                        self._remove(record)
+        return {}
+
+    def _remove(self, record: JobRecord) -> None:
+        if record.saving_now:
+            # The file is being placed, so the save finishes and then the job leaves.
+            record.remove_when_saved = True
+            return
+        self._flow.remove(record)
 
     def answer_collision(self, job_id: str, choice: CollisionChoice) -> Answer:
         """Save a job whose file name was taken, with the user's answer to the question."""
@@ -203,77 +239,25 @@ class JobManager(JobEditing):
             self._flow.start_saving(record)
         return {}
 
-    # Settings
-
-    def settings_changed(self, settings: Settings, version: int | None = None) -> None:
-        """Follow saved settings: resize the download pool, and re-render the jobs in review.
-
-        `version` numbers each save, so a change that arrives after a newer one is ignored.
-        """
-        flow = self._flow
-        with flow.lock:
-            if version is not None and version <= flow.settings_version:
-                log.debug("Settings save %d came after a newer one, so it's ignored", version)
-                return
-            flow.settings_version = version or flow.settings_version
-            before, flow.settings = flow.settings, settings
-            if settings.download_while_reviewing and not before.download_while_reviewing:
-                self._download_jobs_in_review()
-        if before.concurrent_downloads != settings.concurrent_downloads:
-            # Outside the lock, since a bigger pool starts its threads now. It reads the newest
-            # setting, so two changes resizing at once still end on the latest.
-            flow.resize_downloads(flow.settings.concurrent_downloads)
-        # Downloads already started keep their format, and nothing downloads again.
-        # Rebuilding suggestions takes a moment per job, so it isn't done on the bridge's thread.
-        flow.misc_pool.submit(lambda: self._refresh_reviews(settings))
-
-    def _refresh_reviews(self, settings: Settings) -> None:
-        flow = self._flow
-        with flow.lock:
-            if flow.settings is not settings:
-                # A newer change is on its way with its own refresh.
-                return
-            waiting = [
-                (record, record.job.suggestion, record.job.source, dict(record.toggles))
-                for record in flow.records.values()
-                if record.job.state in EDITABLE_STATES
-                and record.job.suggestion
-                and record.job.source
-            ]
-        rebuilt = [
-            (record, before, rebuilt_suggestion(before, source, toggles, settings))
-            for record, before, source, toggles in waiting
-        ]
-        with flow.lock:
-            if flow.settings is not settings:
-                return
-            for record, before, after in rebuilt:
-                # A toggle made meanwhile already rebuilt it with these settings.
-                if record.job.suggestion is before:
-                    record.job.suggestion = after
-            for record in flow.records.values():
-                _drop_stale_question(record, settings)
-                flow.publish(record)
-
-    def _download_jobs_in_review(self) -> None:
-        """Start the downloads that the download-while-reviewing setting would have started."""
-        for record in self._flow.records.values():
-            if record.job.state != JobState.needs_review or record.prepared is None:
-                continue
-            # A download the person stopped stays stopped until they save.
-            if not record.download_cancelled:
-                self._flow.start_download(record)
-
     # Starting and stopping
 
     def start_up(self) -> None:
-        """Start the pools' threads, and clear what the last run left behind on a worker.
+        """Start the pools' threads, bring back the queue, and clear what the last run left behind.
 
-        The app calls this before its window opens, so no bridge call waits for a thread to start.
+        The app calls this before its window opens, so no bridge call waits for a thread to start,
+        and the window's first snapshot has the queue.
         """
         for pool in self._flow.pools():
             pool.start_threads()
+        if self._keeper is not None:
+            self._keeper.restore()
+            self._keeper.start()
+        # After the restore, so the staging folders of the jobs it brought back are kept.
         self._flow.misc_pool.submit(self._clean_up_last_run)
+
+    def keep_queue(self) -> bool:
+        """Write queue.json now. Returns whether the queue will come back at the next start."""
+        return self._keeper is not None and self._keeper.write_now()
 
     def _clean_up_last_run(self) -> None:
         with self._flow.lock:
@@ -290,7 +274,10 @@ class JobManager(JobEditing):
             log.debug("Clearing what the last run left behind failed", exc_info=error)
 
     def shut_down(self) -> None:
-        """Stop downloads and timers as the window closes. Unsaved staging folders stay."""
+        """Stop downloads and timers as the window closes, and keep the queue in queue.json.
+
+        The staging folders of jobs not saved yet stay, so their audio comes back with them.
+        """
         flow = self._flow
         with flow.lock:
             for record in flow.records.values():
@@ -303,6 +290,9 @@ class JobManager(JobEditing):
         # A save placing its file gets to finish, so its history entry is written too.
         if not flow.save_pool.wait_until_idle(SHUTDOWN_SAVE_WAIT):
             log.warning("A save was still running when sc-mp3 closed")
+        # Last, so queue.json leaves out the saves that just finished.
+        if self._keeper is not None:
+            self._keeper.close()
 
     def wait_until_idle(self, timeout: float) -> bool:
         """Wait until no task is waiting or running in any pool, as tests and shutdown need."""
@@ -315,16 +305,6 @@ class JobManager(JobEditing):
             if all(pool.wait_until_idle(0) for pool in pools):
                 return True
         return False
-
-
-def _drop_stale_question(record: JobRecord, settings: Settings) -> None:
-    """Drop the question about a taken name once the job would be saved under another name."""
-    if record.collision is None:
-        return
-    tags = rendered_tags(record, settings)
-    if tags is None or planned_path(record, tags, settings) != record.collision:
-        record.collision = None
-        record.collision_answer = None
 
 
 def _could_still_save(record: JobRecord) -> bool:

@@ -4,14 +4,17 @@ Every method here expects the caller to hold `lock`. A task claims its step with
 its slow work outside the lock, then applies the result under it, but only while its ticket is
 still the step's. Skipping, removing, cancelling or retrying replaces or drops the ticket, so a
 result that came too late is dropped instead of undoing what the user did.
+
+Every change ends with `publish`, which tells the UI and queue.json. Their dicts are built later
+from a snapshot, outside the lock, so a queue of thousands never holds it for long.
 """
 
 import logging
 import threading
-from typing import Any
+from collections.abc import Callable
 
-from scmp3.app.events import EventBus
-from scmp3.app.job_record import JobRecord, Step, Ticket, job_view
+from scmp3.app.events import Deferred, EventBus
+from scmp3.app.job_record import JobRecord, Step, Ticket
 from scmp3.app.job_steps import Steps
 from scmp3.app.workers import Pool, Timers
 from scmp3.core.errors import ErrorKind, ScmpError
@@ -30,6 +33,45 @@ def unexpected_error(step: str, error: Exception) -> ScmpError:
     """
     log.error("%s failed unexpectedly", step, exc_info=error)
     return ScmpError(ErrorKind.internal, f"{step} failed with {type(error).__name__}")
+
+
+def _nothing() -> None:
+    pass
+
+
+class LinkIndex:
+    """The queued jobs by link, so finding one stays quick with thousands queued."""
+
+    def __init__(self) -> None:
+        self._by_link: dict[str, list[JobRecord]] = {}
+
+    def add(self, url: str | None, record: JobRecord) -> None:
+        if url is None:
+            return
+        records = self._by_link.setdefault(url, [])
+        if not any(known is record for known in records):
+            records.append(record)
+
+    def drop(self, record: JobRecord) -> None:
+        for url in _links_of(record):
+            records = [known for known in self._by_link.get(url, ()) if known is not record]
+            if records:
+                self._by_link[url] = records
+            else:
+                self._by_link.pop(url, None)
+
+    def find(self, url: str | None) -> JobRecord | None:
+        """The job queued for a normalized link, before or after it resolved."""
+        for record in self._by_link.get(url or "", ()):
+            # A job resolved again since it was added may have a new link by now.
+            if not record.removed and url in _links_of(record):
+                return record
+        return None
+
+
+def _links_of(record: JobRecord) -> set[str]:
+    source = record.job.source
+    return {url for url in (record.parsed.url, source.url if source else None) if url}
 
 
 class JobBook:
@@ -55,6 +97,9 @@ class JobBook:
         # Reentrant, since the helpers that change a job call each other.
         self.lock = threading.RLock()
         self.records: dict[str, JobRecord] = {}
+        self.links = LinkIndex()
+        # Called after every change, so queue.json is written soon. The job manager sets it.
+        self.on_change: Callable[[], None] = _nothing
 
     def retry(self, record: JobRecord) -> None:
         """Run a failed job's failed step again. The flow, which runs the steps, defines it."""
@@ -62,22 +107,29 @@ class JobBook:
 
     def queued_with_link(self, url: str | None) -> JobRecord | None:
         """The job already queued for a normalized link, before or after it resolved."""
-        for record in self.records.values():
-            source = record.job.source
-            if url in (record.parsed.url, source.url if source else None):
-                return record
-        return None
+        return self.links.find(url)
+
+    def add_record(self, record: JobRecord) -> None:
+        """Put a job at the end of the queue."""
+        self.records[record.id] = record
+        self.links.add(record.parsed.url, record)
+        if record.job.source is not None:
+            self.links.add(record.job.source.url, record)
 
     # Telling the UI
 
     def publish(self, record: JobRecord) -> None:
-        """Send the job to the UI as it is now."""
+        """Send the job to the UI as it is now, and have queue.json written soon."""
         if record.removed:
             return
-        self._events.emit({"type": "job", "job": job_view(record, self.settings)})
-
-    def views(self) -> list[dict[str, Any]]:
-        return [job_view(record, self.settings) for record in self.records.values()]
+        record.changed()
+        snapshot = record.snapshot()
+        settings = self.settings
+        # Built on the event bus's thread, and only if no newer change replaced it by then.
+        self._events.emit(
+            Deferred("job", record.id, lambda: {"type": "job", "job": snapshot.view(settings)})
+        )
+        self.on_change()
 
     # Failing
 
@@ -125,9 +177,11 @@ class JobBook:
 
     def remove(self, record: JobRecord) -> None:
         self.close(record)
+        self.links.drop(record)
         record.removed = True
         del self.records[record.id]
         self._events.emit({"type": "job_removed", "job_id": record.id})
+        self.on_change()
 
     def _cancel_auto_retry(self, record: JobRecord) -> None:
         if record.retry_timer is not None:

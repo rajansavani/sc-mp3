@@ -1,13 +1,15 @@
 // The queue: every item with its cover, its title and artist as they'll be saved, and its status.
+import { Component } from "preact";
 import { html } from "htm/preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 
 import { api } from "../api.js";
 import { reportError, selectJob } from "../store.js";
 import { strings } from "../strings/index.js";
+import { DialogHead, useModal } from "./CoverDialogs.js";
 import { Icon } from "./icons.js";
 import { dialogIsOpen, isEditable, useInputDrop } from "./inputs.js";
-import { focusEditor } from "./job-actions.js";
+import { focusEditor, focusSelectedItem } from "./job-actions.js";
 import {
   cropStyle,
   downloadPct,
@@ -22,6 +24,12 @@ import { useAnnouncements } from "./queue-announcer.js";
 const text = strings.main;
 
 const FINISHED = new Set(["saved", "skipped"]);
+// Errors no retry can fix, which Clear finished takes away too.
+const FINAL_ERRORS = new Set(["drm", "preview_only", "unavailable", "geo_blocked"]);
+
+function isFinished(job) {
+  return FINISHED.has(job.state) || (job.state === "error" && FINAL_ERRORS.has(job.error?.kind));
+}
 
 // Where the queue lands when nothing valid is selected: the first item that needs review.
 function defaultSelection(jobs) {
@@ -99,6 +107,18 @@ function QueueItem({ job, selected }) {
   `;
 }
 
+// An item renders again only when its job or its selection changed. Every event replaces just
+// the job it's about, so a queue of hundreds stays quick to update.
+class QueueRow extends Component {
+  shouldComponentUpdate(next) {
+    return next.job !== this.props.job || next.selected !== this.props.selected;
+  }
+
+  render({ job, selected }) {
+    return html`<${QueueItem} job=${job} selected=${selected} />`;
+  }
+}
+
 // Focus follows the selection, so it never stays on a control of the job that was left.
 function moveSelection(jobs, selectedId, step) {
   const index = jobs.findIndex((job) => job.id === selectedId);
@@ -129,10 +149,63 @@ function useArrowKeys(jobs, selectedId) {
   }, []);
 }
 
-function clearFinished(jobs) {
-  for (const job of jobs.filter((candidate) => FINISHED.has(candidate.state))) {
-    api.remove(job.id).then(reportError);
-  }
+// One call for them all, so clearing 2,000 saved tracks doesn't queue 2,000 answers.
+async function clearFinished(jobs) {
+  reportError(await api.remove_jobs(jobs.filter(isFinished).map((job) => job.id)));
+}
+
+// The question before Save all. It names the items waiting when it opened, and saves only those.
+function SaveAllDialog({ jobIds, onClose }) {
+  const modal = useModal(onClose);
+  const count = jobIds.length;
+  const saveThem = async () => {
+    onClose();
+    if (reportError(await api.save(jobIds))) return;
+    focusSelectedItem();
+  };
+  return html`
+    <dialog
+      ref=${modal.ref}
+      class="dialog"
+      role="alertdialog"
+      aria-labelledby="save-all-title"
+      aria-describedby="save-all-text"
+      onCancel=${modal.onCancel}
+    >
+      <div class="dialog-body">
+        <${DialogHead} id="save-all-title" title=${text.saveAllTitle(count)} onClose=${onClose} />
+        <p id="save-all-text" class="dialog-text">${text.saveAllBody}</p>
+        <div class="dialog-actions">
+          <button type="button" class="control-button is-large is-ghost" onClick=${onClose}>
+            ${text.cancel}
+          </button>
+          <button
+            type="button"
+            class="control-button is-large is-primary"
+            autofocus
+            onClick=${saveThem}
+          >
+            ${text.saveAllConfirm(count)}
+          </button>
+        </div>
+      </div>
+    </dialog>
+  `;
+}
+
+// Save all shows once two or more items wait for review, and asks before it saves them.
+function SaveAll({ jobs }) {
+  const [asking, setAsking] = useState(null);
+  const waiting = jobs.filter((job) => job.state === "needs_review").map((job) => job.id);
+  return html`
+    ${waiting.length > 1 &&
+    html`
+      <button type="button" class="queue-action is-save-all" onClick=${() => setAsking(waiting)}>
+        ${text.saveAll}
+      </button>
+    `}
+    ${asking && html`<${SaveAllDialog} jobIds=${asking} onClose=${() => setAsking(null)} />`}
+  `;
 }
 
 export function Queue({ jobs, selectedId }) {
@@ -145,20 +218,23 @@ export function Queue({ jobs, selectedId }) {
     if (!selectionIsValid && jobs.length > 0) selectJob(defaultSelection(jobs));
   }, [selectionIsValid, jobs]);
 
-  const anyFinished = jobs.some((job) => FINISHED.has(job.state));
+  const anyFinished = jobs.some(isFinished);
   const items = jobs.map(
-    (job) => html`<${QueueItem} key=${job.id} job=${job} selected=${job.id === selectedId} />`,
+    (job) => html`<${QueueRow} key=${job.id} job=${job} selected=${job.id === selectedId} />`,
   );
   return html`
     <div class="queue" data-drop-over=${drop.over ? "true" : undefined} ...${drop.handlers}>
       <div class="queue-head">
         <h2 class="queue-title">${text.queueTitle(jobs.length)}</h2>
-        ${anyFinished &&
-        html`
-          <button type="button" class="queue-clear" onClick=${() => clearFinished(jobs)}>
-            ${text.clearFinished}
-          </button>
-        `}
+        <div class="queue-actions">
+          <${SaveAll} jobs=${jobs} />
+          ${anyFinished &&
+          html`
+            <button type="button" class="queue-action" onClick=${() => clearFinished(jobs)}>
+              ${text.clearFinished}
+            </button>
+          `}
+        </div>
       </div>
       ${jobs.length === 0
         ? html`<p class="queue-empty">${text.queueEmpty}</p>`

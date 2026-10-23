@@ -6,7 +6,7 @@ import { openDialog, openView } from "../store.js";
 import { strings } from "../strings/index.js";
 import { ClipboardOffer } from "./ClipboardOffer.js";
 import { Icon } from "./icons.js";
-import { addInputs, dialogIsOpen, isEditable, useInputDrop } from "./inputs.js";
+import { addInputs, dialogIsOpen, isEditable, isSeveralLines, useInputDrop } from "./inputs.js";
 
 const text = strings.main;
 
@@ -58,6 +58,16 @@ function PasteForm({ dropOver }) {
     if (await addInputs(links)) setLinks("");
   }
 
+  // Several lines are added at once, one item a line, since the field would join them with
+  // spaces and a path with spaces in it would split.
+  async function onPaste(event) {
+    const pasted = event.clipboardData?.getData("text/plain") ?? "";
+    if (!isSeveralLines(pasted)) return;
+    event.preventDefault();
+    const items = [links.trim(), pasted].filter(Boolean).join("\n");
+    if (await addInputs(items)) setLinks("");
+  }
+
   return html`
     <form class="top-bar-paste" onSubmit=${add}>
       <label class="visually-hidden" for="top-bar-paste">${text.pasteLabel}</label>
@@ -69,6 +79,7 @@ function PasteForm({ dropOver }) {
         placeholder=${text.pastePlaceholder}
         value=${links}
         onInput=${(event) => setLinks(event.currentTarget.value)}
+        onPaste=${onPaste}
       />
       <button class="control-button top-bar-add" type="submit">${text.add}</button>
     </form>

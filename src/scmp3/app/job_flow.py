@@ -1,27 +1,27 @@
-"""How each job moves through the pipeline: resolving, downloading, saving, failing and retrying.
+"""How each job moves through the pipeline: resolving, saving, failing and retrying.
 
 Every method here expects the caller to hold `lock`, except the tasks, which take it themselves,
-as job_book.py describes. The cover tasks are in job_cover_tasks.py.
+as job_book.py describes. The download tasks are in job_downloads.py, and the cover tasks in
+job_cover_tasks.py.
 """
 
 import logging
 import uuid
-from collections.abc import Callable
-from pathlib import Path
+from typing import Protocol
 
 from scmp3.app.events import EventBus
 from scmp3.app.input_reasons import reason_code
 from scmp3.app.job_book import unexpected_error
-from scmp3.app.job_cover_tasks import CoverTasks
 from scmp3.app.job_covers import CoverReader, CoverView
+from scmp3.app.job_downloads import DOWNLOAD_SPACING, DownloadTasks
 from scmp3.app.job_record import JobRecord, Ticket, rebuilt_suggestion
 from scmp3.app.job_saving import CollisionQuestion, save, save_order
 from scmp3.app.job_steps import Steps
-from scmp3.app.workers import Pool, Timers
+from scmp3.app.workers import Pool, Spacing, Timers
 from scmp3.core import pipeline
-from scmp3.core.errors import Cancelled, ErrorKind, ScmpError
+from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.inputs import ParsedInput
-from scmp3.core.models import Job, JobState, Progress, Settings
+from scmp3.core.models import Job, JobState, Settings
 from scmp3.core.suggest import InvalidOverride
 from scmp3.core.urls import UnsupportedInput
 
@@ -30,13 +30,18 @@ RESOLVE_WORKERS = 4
 SAVE_WORKERS = 1
 MISC_WORKERS = 2
 
-PoolMaker = Callable[[str, int], Pool]
 SaveOutcome = pipeline.Saved | ScmpError | None
 
 log = logging.getLogger(__name__)
 
 
-class JobFlow(CoverTasks):
+class PoolMaker(Protocol):
+    """Makes a named pool of `size` workers, like TaskPool."""
+
+    def __call__(self, name: str, size: int, *, spacing: Spacing | None = None) -> Pool: ...
+
+
+class JobFlow(DownloadTasks):
     """The jobs and the pools that run their steps."""
 
     def __init__(
@@ -53,7 +58,9 @@ class JobFlow(CoverTasks):
         super().__init__(settings, events, steps=steps, timers=timers, misc_pool=misc_pool)
         self._covers = covers
         self._resolve_pool = make_pool("resolve", RESOLVE_WORKERS)
-        self._download_pool = make_pool("download", settings.concurrent_downloads)
+        self._download_pool = make_pool(
+            "download", settings.concurrent_downloads, spacing=DOWNLOAD_SPACING
+        )
         self.save_pool = make_pool("save", SAVE_WORKERS)
 
     def pools(self) -> list[Pool]:
@@ -68,7 +75,7 @@ class JobFlow(CoverTasks):
         """Add a job for a supported input and start resolving it."""
         job = Job(id=uuid.uuid4().hex, kind="track", input=parsed.url or parsed.raw)
         record = JobRecord(job=job, parsed=parsed)
-        self.records[job.id] = record
+        self.add_record(record)
         self.publish(record)
         self._start_resolving(record)
         return record
@@ -107,6 +114,7 @@ class JobFlow(CoverTasks):
         job = record.job
         record.prepared = prepared
         job.source = prepared.source
+        self.links.add(prepared.source.url, record)
         job.suggestion = prepared.suggestion
         if prepared.settings is not self.settings:
             # The settings changed while it resolved, so its cleanups follow the new ones.
@@ -133,95 +141,6 @@ class JobFlow(CoverTasks):
             self._fail(record, "save", ScmpError(ErrorKind.duplicate, "saved before"))
             return
         self.start_saving(record)
-
-    # Downloading
-
-    def start_download(self, record: JobRecord) -> None:
-        if "download" in record.tickets or record.staged is not None:
-            return
-        ticket = self._new_ticket(record, "download")
-        if record.download_running:
-            # A cancelled download is still stopping, and two mustn't share the staging folder.
-            record.download_deferred = True
-            return
-        self._download_pool.submit(lambda: self._download(record, ticket))
-
-    def cancel_download(self, record: JobRecord) -> None:
-        ticket = record.tickets.pop("download", None)
-        if ticket is None:
-            return
-        ticket.cancel.set()
-        record.job.progress = None
-
-    def _download(self, record: JobRecord, ticket: Ticket) -> None:
-        with self.lock:
-            if not self._claim(record, "download", ticket):
-                return
-            record.download_running = True
-            prepared = record.prepared
-            assert prepared is not None
-            # The format is fixed now, from the settings at this moment (TECH_SPEC §9).
-            prepared.settings = self.settings
-            stale, record.stale_audio = record.stale_audio, None
-            record.job.progress = Progress(pct=0.0)
-            self.publish(record)
-        outcome: pipeline.Staged | ScmpError | Cancelled
-        try:
-            if stale is not None:
-                # Done here, so it can't delete the file this download is about to write.
-                _delete_file(stale)
-            outcome = self._steps.fetch(
-                prepared,
-                on_progress=lambda progress: self._progress(record, ticket, progress),
-                cancel=ticket.cancel,
-            )
-        except (ScmpError, Cancelled) as error:
-            outcome = error
-        except Exception as error:
-            outcome = unexpected_error("downloading", error)
-        with self.lock:
-            record.download_running = False
-            current = self._release(record, "download", ticket)
-            self._start_deferred_download(record)
-            if not current:
-                return
-            record.job.progress = None
-            if isinstance(outcome, ScmpError):
-                self._fail(record, "download", outcome)
-            elif isinstance(outcome, pipeline.Staged):
-                record.staged = outcome
-                record.job.staged_audio = outcome.path
-                self.save_if_ready(record)
-            self.publish(record)
-
-    def _start_deferred_download(self, record: JobRecord) -> None:
-        """Start the download that waited for a cancelled one to stop."""
-        if not record.download_deferred:
-            return
-        record.download_deferred = False
-        ticket = record.tickets.get("download")
-        if ticket is not None:
-            self._download_pool.submit(lambda: self._download(record, ticket))
-
-    def _progress(self, record: JobRecord, ticket: Ticket, progress: Progress) -> None:
-        """Show a download's progress. It runs inside yt-dlp, so it never raises."""
-        try:
-            with self.lock:
-                if record.closed or record.tickets.get("download") is not ticket:
-                    return
-                record.job.progress = progress
-                self._events.emit(
-                    {
-                        "type": "progress",
-                        "job_id": record.id,
-                        "pct": progress.pct,
-                        "speed": progress.speed,
-                        "eta": progress.eta,
-                    }
-                )
-        except Exception:
-            # Raising here would fail the download as an internal error.
-            log.exception("Showing a download's progress failed")
 
     # Saving
 
@@ -306,6 +225,21 @@ class JobFlow(CoverTasks):
             job.state = JobState.saved if outcome is not None else JobState.skipped
         self.publish(record)
 
+    # Bringing jobs back after a restart
+
+    def restore(self, record: JobRecord) -> None:
+        """Put a job from queue.json at the end of the queue, and start the work it waits for."""
+        self.add_record(record)
+        job = record.job
+        if job.state == JobState.queued:
+            self._start_resolving(record)
+        elif job.state == JobState.needs_review and self.settings.download_while_reviewing:
+            # A download the person stopped stays stopped, as it was before the restart.
+            if not record.download_cancelled:
+                self.start_download(record)
+        elif job.error is not None:
+            self._schedule_auto_retry(record, job.error)
+
     # Retrying
 
     def retry(self, record: JobRecord) -> None:
@@ -327,10 +261,3 @@ class JobFlow(CoverTasks):
         else:
             self.start_saving(record)
         self.publish(record)
-
-
-def _delete_file(path: Path) -> None:
-    try:
-        path.unlink(missing_ok=True)
-    except OSError as error:
-        log.warning("Couldn't delete the staged audio: %s", error.strerror or error)

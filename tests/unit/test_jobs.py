@@ -677,3 +677,25 @@ def test_a_save_that_failed_on_the_disk_counts_as_unsaved(jobs: Harness) -> None
     jobs.pools.run_all()
     assert jobs.job(job_id)["error"]["kind"] == "disk"
     assert jobs.manager.unsaved_count() == 1
+
+
+def test_many_jobs_leave_in_one_call_and_unknown_ids_are_left_out(jobs: Harness) -> None:
+    first = jobs.add_and_resolve(TRACK)
+    second = jobs.add_and_resolve(OTHER)
+    third = jobs.add("https://soundcloud.com/kaia/lantern")
+    assert jobs.manager.remove_jobs([first, "gone", second]) == {}
+    assert [job["id"] for job in jobs.manager.views()] == [third]
+    removed = [event["job_id"] for event in jobs.events.events if event["type"] == "job_removed"]
+    assert removed == [first, second]
+
+
+def test_removing_many_lets_a_save_placing_its_file_finish_first(jobs: Harness) -> None:
+    job_id = jobs.add_and_resolve()
+    jobs.pools.run("download")
+    jobs.pools.run("misc")
+    jobs.manager.save([job_id])
+    jobs.steps.during_finalize = lambda: jobs.manager.remove_jobs([job_id])
+    jobs.pools.run("save")
+    assert jobs.manager.views() == []
+    assert jobs.steps.steps_for(job_id)[-1] == "finalize"
+    assert list(jobs.library.rglob("*.mp3"))

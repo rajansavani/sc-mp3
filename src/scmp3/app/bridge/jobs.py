@@ -219,6 +219,12 @@ class JobsApi:
             return refused("remove")
         return self._context.jobs.remove(job_id)
 
+    def remove_jobs(self, job_ids: list[str]) -> dict[str, Any]:
+        """Take many jobs out of the queue in one call, as Clear finished does."""
+        if not isinstance(job_ids, list) or not all(is_id(job_id) for job_id in job_ids):
+            return refused("remove_jobs")
+        return self._context.jobs.remove_jobs(job_ids)
+
     def answer_collision(self, job_id: str, choice: str) -> dict[str, Any]:
         """Say what to do about a file with the same name: replace, keep both or skip."""
         if not is_id(job_id) or choice not in COLLISION_CHOICES:

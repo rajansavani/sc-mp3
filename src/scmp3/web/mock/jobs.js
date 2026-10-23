@@ -196,6 +196,12 @@ export function remove(job_id) {
   return {};
 }
 
+// Ids that aren't queued any more are left out, as in the bridge.
+export function remove_jobs(job_ids) {
+  for (const jobId of job_ids) remove(jobId);
+  return {};
+}
+
 // Only ?mock&states has a job whose file name is taken. Skip leaves it unsaved, and the other
 // answers save it.
 export function answer_collision(job_id, choice) {

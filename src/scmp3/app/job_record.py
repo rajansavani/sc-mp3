@@ -1,11 +1,13 @@
 """One queue item as the job manager tracks it, and the dict the UI gets for it.
 
 The model `Job` is what the UI sees. The record adds what only Python needs: the pipeline's own
-results, the tasks in flight, and the cover previews.
+results, the tasks in flight, and the cover previews. A `Snapshot` copies a record under the lock,
+so the dicts made from it can be built outside the lock.
 """
 
 import logging
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Literal
@@ -85,10 +87,22 @@ class JobRecord:
     closed: bool = False  # skipped or removed, so nothing in flight may change it
     removed: bool = False
     discarded: bool = False  # its staging folder is deleted, or about to be
+    # The copy taken since the last change, which the UI's dict and queue.json are built from.
+    last_snapshot: "Snapshot | None" = field(default=None, repr=False)
 
     @property
     def id(self) -> str:
         return self.job.id
+
+    def snapshot(self) -> "Snapshot":
+        """The record as it is now, copied once per change. Call it under the lock."""
+        if self.last_snapshot is None:
+            self.last_snapshot = Snapshot(_copied(self))
+        return self.last_snapshot
+
+    def changed(self) -> None:
+        """Note that something the UI or queue.json shows has changed, so the copy is stale."""
+        self.last_snapshot = None
 
     @property
     def cover(self) -> CoverView:
@@ -98,6 +112,55 @@ class JobRecord:
         if self.job.artwork.kind == "none":
             return NO_COVER
         return self.added_cover
+
+
+def _copied(record: JobRecord) -> JobRecord:
+    """A copy that later changes to the record don't reach.
+
+    A shallow copy is enough, since the job manager replaces the values it changes rather than
+    editing them, except for the job itself and the toggles, which are copied too.
+    """
+    copied = _shallow_copy(record)
+    copied.job = _shallow_copy(record.job)
+    copied.toggles = dict(record.toggles)
+    # The tasks in flight belong to the live record only.
+    copied.tickets = {}
+    copied.last_snapshot = None
+    return copied
+
+
+def _shallow_copy[T](value: T) -> T:
+    """copy.copy for a plain dataclass, in a few times less time, since a big paste makes 2,000."""
+    copied = object.__new__(type(value))
+    copied.__dict__.update(value.__dict__)
+    return copied
+
+
+@dataclass(eq=False)
+class Snapshot:
+    """A record as it was at one change. Each dict made from it is built once, outside the lock.
+
+    Two threads building the same dict at once is harmless, since both build the same thing.
+    """
+
+    record: JobRecord
+    _view: tuple[Settings, dict[str, Any]] | None = None
+    _kept: tuple[str | None] | None = None
+
+    def view(self, settings: Settings) -> dict[str, Any]:
+        """The job as the UI gets it with these settings. Callers mustn't change the dict."""
+        cached = self._view
+        if cached is not None and cached[0] is settings:
+            return cached[1]
+        view = job_view(self.record, settings)
+        self._view = (settings, view)
+        return view
+
+    def kept(self, build: Callable[[JobRecord], str | None]) -> str | None:
+        """What queue.json keeps of the job, as `build` makes it from the record, built once."""
+        if self._kept is None:
+            self._kept = (build(self.record),)
+        return self._kept[0]
 
 
 def rebuilt_suggestion(

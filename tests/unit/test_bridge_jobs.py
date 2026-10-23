@@ -18,6 +18,7 @@ from scmp3.app.bridge import files as files_module
 from scmp3.app.bridge import jobs as bridge_jobs
 from scmp3.app.context import AppContext
 from scmp3.app.drops import SAME_NAME_DROP
+from scmp3.app.events import EventBus
 from scmp3.app.input_reasons import ALREADY_IN_QUEUE, REASON_CODES
 from scmp3.app.job_covers import COVER_PROBLEMS
 from scmp3.app.job_fields import NOT_A_TRACK, NOT_A_YEAR, TOTAL_BEFORE_TRACK
@@ -119,6 +120,8 @@ BAD_CALLS: list[tuple[str, tuple[Any, ...]]] = [
     ("retry", ("x" * 65,)),
     ("cancel", (["job"],)),
     ("remove", ({},)),
+    ("remove_jobs", ("job",)),
+    ("remove_jobs", ([3],)),
     ("answer_collision", ("job", "rename")),
     ("history", (3,)),
     ("history", ("", 0)),
@@ -382,6 +385,7 @@ def test_every_call_returns_at_once_while_the_pipeline_is_slow(tmp_path: Path) -
     measure("retry", lambda: api.retry(first))
     measure("answer_collision", lambda: api.answer_collision(first, "replace"))
     measure("remove", lambda: api.remove(second))
+    measure("remove_jobs", lambda: api.remove_jobs([second, "gone"]))
     assert manager.wait_until_idle(10)
     manager.shut_down()
     slow = {
@@ -390,6 +394,119 @@ def test_every_call_returns_at_once_while_the_pipeline_is_slow(tmp_path: Path) -
     assert slow == {}
     job_calls = set(bridge_jobs.JobsApi.__dict__) - {"set_album_mode", "set_included"}
     assert set(durations) == {name for name in job_calls if not name.startswith("_")} | {"snapshot"}
+
+
+FULL_QUEUE = 2_000  # the paste cap
+# With a full queue, most calls must fit the budget, and none may take more than this. A pause for
+# garbage collection or another busy process can stretch any one call, so the slowest isn't held
+# to the budget itself.
+SLOWEST_CALL = 0.25
+
+
+class SentScripts:
+    """A window that keeps the scripts the event bus sends it."""
+
+    def __init__(self) -> None:
+        self.scripts: list[str] = []
+        self._lock = threading.Lock()
+
+    def evaluate_js(self, script: str) -> None:
+        with self._lock:
+            self.scripts.append(script)
+
+    def mentions(self, text: str) -> int:
+        with self._lock:
+            return sum(script.count(text) for script in self.scripts)
+
+
+def calls_during(work: Callable[[], Any], call: Callable[[], Any]) -> list[float]:
+    """How long each `call` took while `work` ran on another thread."""
+    worker = threading.Thread(target=work)
+    worker.start()
+    durations = []
+    while worker.is_alive() or not durations:
+        durations.append(timed(call))
+    worker.join(30)
+    return durations
+
+
+def test_every_call_stays_quick_with_a_full_queue(tmp_path: Path) -> None:
+    store = SettingsStore(paths.config_dir() / "settings.json")
+    store.update({"library_dir": str(tmp_path / "library")})
+    links = [f"https://soundcloud.com/kaia/track-{number}" for number in range(FULL_QUEUE)]
+    steps = fakes.FakeSteps()
+    for number, link in enumerate(links):
+        steps.sources[link] = fakes.source_for(link, f"Track {number} [FREE DL]")
+    covers = fakes.FakeCovers()
+    covers.source_works = False
+    pools = fakes.ManualPools()
+    bus = EventBus()
+    manager = JobManager(store, bus, steps=steps, covers=covers, make_pool=pools)
+    clipboard = Clipboard("\n".join([*links[:500], "https://soundcloud.com/kaia/not-queued"]))
+    api = api_on(store, bus, manager, clipboard)
+    api._context.open_stores()
+    samples: list[tuple[str, float]] = []
+
+    def measure(name: str, call: Callable[[], Any]) -> Any:
+        start = time.perf_counter()
+        answer = call()
+        samples.append((name, time.perf_counter() - start))
+        return answer
+
+    # The paste takes the lock a few jobs at a time, so a call made meanwhile never waits long.
+    pasted: dict[str, Any] = {}
+    waits = calls_during(
+        lambda: pasted.update(api.add_inputs("\n".join(links))), lambda: manager.is_queued(TRACK)
+    )
+    samples += [("a call during the paste", seconds) for seconds in waits]
+    ids = pasted["added"]
+    assert len(ids) == FULL_QUEUE
+    pools.run("resolve")
+    pools.run("misc")
+    # The bus builds every job's dict on its own thread and sends it, as it does in the app.
+    window = SentScripts()
+    bus.attach(window)
+    deadline = time.monotonic() + 30
+    while window.mentions('"state": "needs_review"') < FULL_QUEUE:
+        assert time.monotonic() < deadline
+        time.sleep(0.02)
+    first, second, third = ids[:3]
+    change = manager.views()[0]["suggestion"]["changes"][0]["id"]
+    measure("snapshot", api.snapshot)
+    measure("add_inputs", lambda: api.add_inputs(f"{TRACK}\n{fakes.OTHER}"))
+    measure("update_fields", lambda: api.update_fields(first, {"title": "New"}))
+    measure("reset_field", lambda: api.reset_field(first, "title"))
+    measure("toggle_change", lambda: api.toggle_change(first, change, False))
+    measure("set_style", lambda: api.set_style(first, "feat_in_title"))
+    link = {"kind": "url", "value": "https://example.com/cover.jpg"}
+    measure("set_artwork", lambda: api.set_artwork(first, link))
+    measure("history", lambda: api.history("drive", 10))
+    assert measure("clipboard_link", api.clipboard_link) == {
+        "link": "https://soundcloud.com/kaia/not-queued"
+    }
+    measure("diagnostics", api.diagnostics)
+    # Save all, at the paste cap.
+    measure("save", lambda: api.save(ids))
+    measure("cancel", lambda: api.cancel(second))
+    measure("skip", lambda: api.skip(first))
+    measure("retry", lambda: api.retry(first))
+    measure("answer_collision", lambda: api.answer_collision(first, "replace"))
+    measure("remove", lambda: api.remove(second))
+    # Clear finished, for half the queue in one call.
+    measure("remove_jobs", lambda: api.remove_jobs(ids[FULL_QUEUE // 2 :]))
+    # A settings change rebuilds every job's suggestion on a worker, outside the lock.
+    saved = store.update({"title_style": "feat_in_title"})
+    measure("a settings change", lambda: manager.settings_changed(saved))
+    waits = calls_during(
+        lambda: pools.run("misc"), lambda: api.update_fields(third, {"title": "Typed"})
+    )
+    samples += [("a call during a settings refresh", seconds) for seconds in waits]
+    bus.close()
+    manager.shut_down()
+    times = sorted(seconds for _, seconds in samples)
+    slowest = max(samples, key=lambda sample: sample[1])
+    assert times[int(len(times) * 0.95)] < CALL_BUDGET, sorted(samples, key=lambda s: -s[1])[:10]
+    assert slowest[1] < SLOWEST_CALL, slowest
 
 
 # Codes the UI has text for

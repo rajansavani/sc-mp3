@@ -13,7 +13,7 @@ import { ActionBar, Cleanups, OutputStrip } from "./EditorSections.js";
 import { EmptyEditor } from "./EmptyEditor.js";
 import { useFieldDrafts } from "./field-drafts.js";
 import { dialogIsOpen, isEditable } from "./inputs.js";
-import { focusSelectedItem, removeJob } from "./job-actions.js";
+import { focusSelectedItem, moveToNextReview, removeJob } from "./job-actions.js";
 import { linkText, sourceName } from "./job-view.js";
 
 const text = strings.main;
@@ -42,9 +42,9 @@ function savesOnEnter(target) {
   return !target.closest(INTERACTIVE);
 }
 
-function useEnterToSave(onSave) {
-  const current = useRef(onSave);
-  current.current = onSave;
+function useEnterToSave(onEnter) {
+  const current = useRef(onEnter);
+  current.current = onEnter;
   useEffect(() => {
     function onKeyDown(event) {
       if (event.key !== "Enter" || event.repeat || event.isComposing) return;
@@ -58,19 +58,26 @@ function useEnterToSave(onSave) {
   }, []);
 }
 
-// Sends what's still being typed, then saves. A refused field gets focus instead. The fields
-// lock while saving, so focus moves to the queue item rather than falling to the page.
-// `beforeSave` runs first, so a question closed without an answer can come up again.
+// Sends what's still being typed, then saves. A refused field gets focus instead.
+// `beforeSave` runs first, so a question closed without an answer can come up again. `afterSave`
+// moves focus on, since the fields lock while saving.
+async function saveJob(job, drafts, beforeSave, afterSave) {
+  if (!canSave(job)) return;
+  if (!(await drafts.flush())) {
+    document.getElementById(fieldId(drafts.firstRefused()))?.focus();
+    return;
+  }
+  beforeSave();
+  if (reportError(await api.save([job.id]))) return;
+  afterSave(job);
+}
+
+// The Save button stays on the job, to show where it went. Enter goes on to the next job that
+// needs review, so a batch can be saved one Enter at a time.
 function useSave(job, drafts, beforeSave) {
-  return async () => {
-    if (!canSave(job)) return;
-    if (!(await drafts.flush())) {
-      document.getElementById(fieldId(drafts.firstRefused()))?.focus();
-      return;
-    }
-    beforeSave();
-    if (reportError(await api.save([job.id]))) return;
-    focusSelectedItem();
+  return {
+    save: () => saveJob(job, drafts, beforeSave, focusSelectedItem),
+    saveAndNext: () => saveJob(job, drafts, beforeSave, moveToNextReview),
   };
 }
 
@@ -130,8 +137,8 @@ function TopBanner({ job, settings, onSave }) {
 function ReviewForm({ job, jobs, settings }) {
   const drafts = useFieldDrafts(job, renderedValue);
   const question = useCollisionQuestion(job);
-  const save = useSave(job, drafts, question.reopen);
-  useEnterToSave(save);
+  const { save, saveAndNext } = useSave(job, drafts, question.reopen);
+  useEnterToSave(saveAndNext);
   // Once saving starts, the tags are settled. A failed save can still be fixed and retried.
   const editable = job.state === "needs_review" || job.state === "error";
   return html`

@@ -1,5 +1,6 @@
 """Tests for the resizable thread pools and the timers the job manager uses."""
 
+import itertools
 import logging
 import threading
 import time
@@ -180,4 +181,89 @@ def test_without_starting_up_front_threads_start_as_tasks_come() -> None:
     pool.submit(done.set)
     assert done.wait(WAIT)
     assert pool_threads("lazy") == 1
+    pool.close()
+
+
+class StartTimes:
+    """Tasks that note when they started, by name."""
+
+    def __init__(self) -> None:
+        self.started: dict[str, float] = {}
+        self._lock = threading.Lock()
+
+    def task(self, name: str) -> object:
+        def run() -> None:
+            with self._lock:
+                self.started[name] = time.monotonic()
+
+        return run
+
+
+SPACING = 0.3
+
+
+def test_tasks_with_a_paced_key_start_that_far_apart() -> None:
+    pool = TaskPool("paced", 3, spacing={"youtube": SPACING})
+    starts = StartTimes()
+    for number in range(3):
+        pool.submit(starts.task(f"video {number}"), pace="youtube")
+    assert pool.wait_until_idle(WAIT)
+    times = [starts.started[f"video {number}"] for number in range(3)]
+    gaps = [later - earlier for earlier, later in itertools.pairwise(times)]
+    # A little slack, since the pool and the test read the clock at slightly different moments.
+    assert all(gap >= SPACING - 0.02 for gap in gaps), gaps
+    pool.close()
+
+
+def test_other_tasks_go_ahead_of_a_paced_task_that_waits() -> None:
+    pool = TaskPool("paced-mix", 1, spacing={"youtube": SPACING})
+    starts = StartTimes()
+    pool.submit(starts.task("first video"), pace="youtube")
+    pool.submit(starts.task("second video"), pace="youtube")
+    pool.submit(starts.task("track"), pace="soundcloud")
+    pool.submit(starts.task("unpaced"))
+    assert pool.wait_until_idle(WAIT)
+    order = sorted(starts.started, key=starts.started.__getitem__)
+    assert order == ["first video", "track", "unpaced", "second video"]
+    pool.close()
+
+
+def test_keys_without_spacing_and_tasks_without_a_key_never_wait() -> None:
+    pool = TaskPool("unpaced", 1, spacing={"youtube": 60.0})
+    starts = StartTimes()
+    begin = time.monotonic()
+    for number in range(5):
+        pool.submit(starts.task(f"track {number}"), pace="soundcloud")
+        pool.submit(starts.task(f"task {number}"))
+    assert pool.wait_until_idle(WAIT)
+    assert time.monotonic() - begin < 1.0
+    assert len(starts.started) == 10
+    pool.close()
+
+
+def test_closing_drops_a_paced_task_that_waits() -> None:
+    pool = TaskPool("paced-close", 1, spacing={"youtube": 60.0})
+    starts = StartTimes()
+    pool.submit(starts.task("first video"), pace="youtube")
+    pool.submit(starts.task("second video"), pace="youtube")
+    deadline = time.monotonic() + WAIT
+    while "first video" not in starts.started:
+        assert time.monotonic() < deadline
+        time.sleep(0.005)
+    pool.close()
+    assert pool.wait_until_idle(WAIT)
+    assert list(starts.started) == ["first video"]
+
+
+def test_a_paced_task_with_nothing_left_to_do_runs_at_once_and_keeps_no_turn() -> None:
+    pool = TaskPool("paced-unwanted", 1, spacing={"youtube": SPACING})
+    starts = StartTimes()
+    pool.submit(starts.task("first video"), pace="youtube")
+    pool.submit(starts.task("removed video"), pace="youtube", wanted=lambda: False)
+    pool.submit(starts.task("next video"), pace="youtube", wanted=lambda: True)
+    assert pool.wait_until_idle(WAIT)
+    first, removed, following = (starts.started[name] for name in starts.started)
+    assert removed - first < SPACING / 2
+    # The turn the removed one didn't use goes to the next, which waits only for the first.
+    assert SPACING - 0.02 <= following - first < 2 * SPACING
     pool.close()

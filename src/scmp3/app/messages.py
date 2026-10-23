@@ -7,17 +7,21 @@ Python sends the UI codes, never text, so error kinds and states have no text he
 ALREADY_OPEN_TITLE = "sc-mp3"
 ALREADY_OPEN = "sc-mp3 is already open."
 
-# Asked when the window is closed with tracks in the queue that haven't been saved, since
-# closing removes them.
+# Asked when the window is closed with tracks in the queue that haven't been saved, and
+# queue.json couldn't be written, so closing removes them.
 UNSAVED_TITLE = "sc-mp3"
 
 
 def unsaved(count: int) -> str:
-    """The question for closing while `count` tracks in the queue haven't been saved."""
+    """The question for closing while `count` unsaved tracks can't be kept for the next start."""
     if count == 1:
-        return "1 track hasn't been saved. Close anyway?\n\nClosing removes it from the queue."
+        return (
+            "1 track hasn't been saved, and sc-mp3 couldn't keep the queue for next time."
+            " Close anyway?\n\nClosing removes it from the queue."
+        )
     return (
-        f"{count} tracks haven't been saved. Close anyway?\n\nClosing removes them from the queue."
+        f"{count} tracks haven't been saved, and sc-mp3 couldn't keep the queue for next time."
+        " Close anyway?\n\nClosing removes them from the queue."
     )
 
 

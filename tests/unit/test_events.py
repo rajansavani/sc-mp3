@@ -10,7 +10,14 @@ from typing import Any
 
 import pytest
 
-from scmp3.app.events import EventBus, PendingEvents, batch_script
+from scmp3.app.events import (
+    Deferred,
+    EventBus,
+    PendingEvents,
+    as_json,
+    batch_script,
+    in_chunks,
+)
 
 # Generous, so a slow CI machine doesn't fail a test that's only waiting for a send.
 WAIT = 5.0
@@ -294,3 +301,119 @@ def test_close_stops_the_sending_thread() -> None:
     bus.close()
     assert [thread.name for thread in started] == ["scmp3-events"]
     assert not any(thread.is_alive() for thread in started)
+
+
+class Builds:
+    """Deferred job events that count their builds and note the thread each ran on."""
+
+    def __init__(self) -> None:
+        self.built: list[tuple[str, int]] = []
+        self.threads: set[str] = set()
+
+    def job(self, job_id: str, version: int) -> Deferred:
+        def build() -> dict[str, Any]:
+            self.built.append((job_id, version))
+            self.threads.add(threading.current_thread().name)
+            return job_event(job_id, version)
+
+        return Deferred("job", job_id, build)
+
+
+def test_a_deferred_job_event_is_built_only_if_nothing_replaced_it() -> None:
+    builds = Builds()
+    pending = PendingEvents()
+    for version in range(3):
+        pending.add(builds.job("a", version))
+    assert builds.built == []
+    assert list(as_json(pending.take())) == [json.dumps(job_event("a", 2))]
+    assert builds.built == [("a", 2)]
+
+
+def test_deferred_and_ready_events_replace_each_other_by_job() -> None:
+    builds = Builds()
+    pending = PendingEvents()
+    pending.add(job_event("a", 1))
+    pending.add(builds.job("a", 2))
+    pending.add(progress_event("a", 40))
+    pending.add(builds.job("b", 1))
+    pending.add({"type": "job_removed", "job_id": "b"})
+    sent = [json.loads(text) for text in as_json(pending.take())]
+    assert sent == [
+        job_event("a", 2),
+        progress_event("a", 40),
+        {"type": "job_removed", "job_id": "b"},
+    ]
+    assert builds.built == [("a", 2)]
+
+
+def test_a_deferred_event_is_built_on_the_bus_thread(bus: EventBus) -> None:
+    builds = Builds()
+    window = FakeWindow()
+    bus.emit(builds.job("a", 1))
+    assert builds.built == []
+    bus.attach(window)
+    window.wait_for(lambda w: len(w.events) == 1)
+    assert window.events == [job_event("a", 1)]
+    assert builds.threads == {"scmp3-events"}
+
+
+def test_a_deferred_event_that_fails_to_build_is_logged_and_the_rest_go_out(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def broken() -> dict[str, Any]:
+        raise RuntimeError("a bug in the job view")
+
+    pending = PendingEvents()
+    pending.add(Deferred("job", "a", broken))
+    pending.add(toast_event("still sent"))
+    with caplog.at_level(logging.ERROR, logger="scmp3.app.events"):
+        sent = list(as_json(pending.take()))
+    assert sent == [json.dumps(toast_event("still sent"))]
+    assert "A job event couldn't be built" in caplog.text
+
+
+def test_events_are_sent_in_parts_of_a_limited_size() -> None:
+    events = ["a" * 40, "b" * 40, "c" * 40, "d" * 150, "e" * 10]
+    assert list(in_chunks(events, limit=100)) == [
+        ["a" * 40, "b" * 40],
+        ["c" * 40],
+        ["d" * 150],
+        ["e" * 10],
+    ]
+
+
+def test_a_big_batch_reaches_the_window_in_order_in_several_scripts() -> None:
+    bus = EventBus(script_limit=200)
+    window = FakeWindow()
+    for number in range(20):
+        bus.emit(toast_event(f"toast {number}"))
+    bus.attach(window)
+    window.wait_for(lambda w: len(w.events) == 20)
+    bus.close()
+    assert [event["text"] for event in window.events] == [f"toast {n}" for n in range(20)]
+    assert len(window.batches) > 1
+
+
+def toast_texts(batch: list[Any]) -> list[str]:
+    return [json.loads(text)["text"] for text in batch]
+
+
+def test_a_batch_takes_the_oldest_events_up_to_its_limit() -> None:
+    pending = PendingEvents()
+    for number in range(5):
+        pending.add(toast_event(f"toast {number}"))
+    assert toast_texts(pending.take(2)) == ["toast 0", "toast 1"]
+    assert toast_texts(pending.take()) == ["toast 2", "toast 3", "toast 4"]
+    assert not pending
+
+
+def test_a_burst_bigger_than_a_batch_goes_out_over_several_batches_in_order() -> None:
+    bus = EventBus(interval=0.01, batch_limit=3)
+    window = FakeWindow()
+    for number in range(10):
+        bus.emit(job_event(f"job {number}", 1))
+    bus.attach(window)
+    window.wait_for(lambda w: len(w.events) == 10)
+    bus.close()
+    assert [len(batch) for batch in window.batches] == [3, 3, 3, 1]
+    assert [event["job"]["id"] for event in window.events] == [f"job {n}" for n in range(10)]
