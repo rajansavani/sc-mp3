@@ -28,8 +28,9 @@ WORK_DIR = REPO_ROOT / "build"
 APP_NAME = "sc-mp3"
 TARGET_OS = "windows"
 TARGET_ARCH = "x64"
-# An editable install's metadata holds the builder's checkout path and build times (T-002).
-LOCAL_ONLY_FILES = frozenset({"direct_url.json", "uv_cache.json"})
+# An editable install's metadata holds the builder's checkout path and build times (T-002), and a
+# delvewheel-repaired wheel's DELVEWHEEL holds the paths of the machine that repaired it.
+LOCAL_ONLY_FILES = frozenset({"direct_url.json", "uv_cache.json", "DELVEWHEEL"})
 # Files from the repo that go next to sc-mp3.exe, by the name they get there; .txt opens in Notepad.
 RELEASE_FILES = {"LICENSE": "LICENSE.txt", "THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.txt"}
 

@@ -41,8 +41,9 @@ EXCLUDES = [
 ]
 
 # An editable install's metadata holds the builder's checkout path and build times, and its .pth
-# file holds the path of src/.
-LOCAL_ONLY_METADATA = {"direct_url.json", "uv_cache.json"}
+# file holds the path of src/. A wheel's DELVEWHEEL holds the temp paths of the machine that
+# repaired it, which on a GitHub runner match the runner's home folder.
+LOCAL_ONLY_METADATA = {"direct_url.json", "uv_cache.json", "DELVEWHEEL"}
 
 # "en-US, Unicode", the language and code page of the version strings.
 VERSION_LANGUAGE = "040904B0"

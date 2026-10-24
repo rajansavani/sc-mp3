@@ -175,7 +175,7 @@ def test_an_app_folder_without_the_exe_fails_the_check(tmp_path: Path) -> None:
         build.check_bundle(app, [])
 
 
-@pytest.mark.parametrize("name", ["direct_url.json", "uv_cache.json"])
+@pytest.mark.parametrize("name", ["direct_url.json", "uv_cache.json", "DELVEWHEEL"])
 def test_the_built_folder_holds_no_local_only_metadata(tmp_path: Path, name: str) -> None:
     app = make_app(tmp_path, {f"_internal/sc_mp3-0.0.1.dist-info/{name}": b"{}"})
     with pytest.raises(build.BuildError, match=name):
