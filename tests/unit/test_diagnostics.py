@@ -1,14 +1,26 @@
 """Tests for the diagnostics text: what it holds, and what it never holds."""
 
 from pathlib import Path, PureWindowsPath
+from typing import Any
 
 import pytest
 
 from scmp3.app import diagnostics
-from scmp3.app.diagnostics import diagnostics_text, last_log_lines, settings_lines
+from scmp3.app.bridge import Api
+from scmp3.app.context import AppContext
+from scmp3.app.diagnostics import (
+    components_lines,
+    diagnostics_text,
+    last_log_lines,
+    settings_lines,
+)
+from scmp3.app.events import EventBus
 from scmp3.core import log
+from scmp3.core.engine_start import EngineStart
+from scmp3.core.history import History
 from scmp3.core.log import MASK
 from scmp3.core.models import Settings
+from scmp3.core.settings import SettingsStore
 
 TOKEN = "2-123456-987654321-AbCdEfGhIjKl"
 
@@ -114,3 +126,96 @@ def test_tokens_and_the_home_folder_never_reach_the_text(
     assert TOKEN not in text
     assert "saved ~\\Music\\a.mp3" in text
     assert f"Authorization: {MASK}" in text
+
+
+# The engine and its updates
+
+COMPONENTS: dict[str, Any] = {
+    "app_version": "0.1.0",
+    "engine_version": "2026.10.10.233141",
+    "engine": {
+        "version": "2026.10.10.233141",
+        "source": "updated",
+        "built_in_version": "2026.8.19",
+        "restart_to": {"version": "2026.8.19", "source": "built_in"},
+        "failed_version": "2026.10.12.010101",
+        "failed_now": None,
+    },
+    "app_update": {"state": "available", "version": "0.2.0", "url": "https://github.com/x"},
+    "youtube_support": {"state": "installed", "version": "2.9.7", "pct": None, "error": None},
+}
+
+
+def test_the_engine_block_says_where_the_engine_came_from_and_what_a_restart_changes() -> None:
+    assert components_lines(COMPONENTS) == [
+        "Engine and updates:",
+        "  running: yt-dlp 2026.10.10.233141, updated",
+        "  built in: yt-dlp 2026.8.19",
+        "  after a restart: yt-dlp 2026.8.19, built in",
+        "  update that didn't load: yt-dlp 2026.10.12.010101",
+        "  YouTube support: Deno 2.9.7",
+        "  latest app release: 0.2.0, available",
+        "",
+    ]
+
+
+def test_the_engine_block_leaves_out_what_didnt_happen() -> None:
+    engine = {**COMPONENTS["engine"], "restart_to": None, "failed_version": None}
+    youtube = {"state": "missing", "version": None, "pct": None, "error": None}
+    app_update = {"state": "unknown", "version": None, "url": None}
+    components = {
+        **COMPONENTS,
+        "engine": engine,
+        "youtube_support": youtube,
+        "app_update": app_update,
+    }
+    assert components_lines(components) == [
+        "Engine and updates:",
+        "  running: yt-dlp 2026.10.10.233141, updated",
+        "  built in: yt-dlp 2026.8.19",
+        "  YouTube support: missing",
+        "  latest app release: unknown, unknown",
+        "",
+    ]
+
+
+def test_the_engine_block_comes_before_the_settings(tmp_path: Path) -> None:
+    text = diagnostics_text(
+        app_version="0.1.0",
+        engine_version="2026.10.10.233141",
+        settings=Settings(),
+        log_file=tmp_path / "sc-mp3.log",
+        components=COMPONENTS,
+    )
+    lines = text.splitlines()
+    assert lines.index("Engine and updates:") < lines.index("Settings:")
+
+
+def test_the_apps_diagnostics_hold_no_token_and_no_folder_of_an_update(
+    scmp3_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = PureWindowsPath(str(scmp3_home))
+    monkeypatch.setattr(log, "_home", log.home_pattern(home, ignore_case=True))
+    oauth = "2-298765-123456789-ZyXwVuTsRqPo"
+    jwt = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJrYWlhIn0.c2lnbmF0dXJl"
+    # Not a secret, but the settings only say whether it's set.
+    client_id = "Q" * 32
+    update = scmp3_home / "data" / "components" / "yt-dlp" / "2099.01.01"
+    log_file = scmp3_home / "logs" / "sc-mp3.log"
+    log_file.parent.mkdir(parents=True)
+    log_file.write_text(
+        f"Authorization: OAuth {oauth}\naccess_token={jwt}\n"
+        f"Imported the update from {update / 'yt-dlp.zip'}\n",
+        encoding="utf-8",
+    )
+    context = AppContext(
+        settings=SettingsStore(scmp3_home / "config" / "settings.json"),
+        history=History(scmp3_home / "data" / "history.db"),
+        events=EventBus(),
+        engine_start=EngineStart(update="2099.01.01"),
+    )
+    context.settings.update({"soundcloud_client_id": client_id})
+    text = Api(context).diagnostics()["text"]
+    assert "running: yt-dlp 2099.01.01, updated" in text
+    for secret in (oauth, jwt, client_id, str(scmp3_home)):
+        assert secret not in text

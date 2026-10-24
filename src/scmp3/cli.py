@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from scmp3.cli_get import add_get_arguments, run_get
 from scmp3.cli_output import EXIT_ERROR, NOT_IMPLEMENTED
+from scmp3.core.engine_start import EngineStart
 
 
 @dataclass(frozen=True)
@@ -59,7 +60,11 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Sequence[str]) -> int:
-    """Parse the arguments, run the chosen command and return its exit code."""
+def main(argv: Sequence[str], engine_start: EngineStart | None = None) -> int:
+    """Parse the arguments, run the chosen command and return its exit code.
+
+    `engine_start` says which yt-dlp __main__ settled on, for the command's log.
+    """
     args = build_parser().parse_args(argv)
+    args.engine_start = engine_start or EngineStart()
     return args.run(args)

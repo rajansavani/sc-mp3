@@ -14,6 +14,7 @@ import time
 from collections import Counter
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
@@ -23,7 +24,14 @@ from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.fetch import DownloadProgress, disk_errors, os_reason
 from scmp3.core.github import Clock
 from scmp3.core.log import safe_url
-from scmp3.core.manifests import Manifest, read_manifest, safe_part, write_manifest
+from scmp3.core.manifests import (
+    MANIFEST_FILE,
+    ComponentStatus,
+    Manifest,
+    read_manifest,
+    safe_part,
+    write_manifest,
+)
 from scmp3.core.net import Opener
 from scmp3.core.releases import ComponentSpec, Download
 
@@ -76,8 +84,14 @@ class Components:
         folder = self.root / safe_part(name)
         if not folder.is_dir():
             return []
+        try:
+            version_dirs = list(folder.iterdir())
+        except OSError as error:
+            # Start-up lists the engine's updates, so this must never stop the app.
+            log.warning("Couldn't list the installed %s versions: %s", name, os_reason(error))
+            return []
         manifests = []
-        for version_dir in folder.iterdir():
+        for version_dir in version_dirs:
             manifest = read_manifest(version_dir)
             if manifest is not None:
                 manifests.append(manifest)
@@ -115,14 +129,26 @@ class Components:
             with self._installing_lock:
                 self._installing[name] -= 1
 
+    def set_status(self, manifest: Manifest, status: ComponentStatus) -> Manifest:
+        """Mark an installed version good, bad or reverted, as its manifest records it."""
+        with self._lock:
+            marked = replace(manifest, status=status)
+            write_manifest(self._version_dir(manifest.name, manifest.version), marked)
+        log.info("Marked %s %s %s", manifest.name, manifest.version, status)
+        return marked
+
     def remove(self, name: str, version: str | None = None) -> None:
         """Delete one installed version of a component, or every version when none is given."""
         folder = self.root / safe_part(name)
-        if version is not None:
-            folder = self._version_dir(name, version)
+        version_dirs = [self._version_dir(name, version)] if version is not None else []
         with self._lock:
             try:
-                shutil.rmtree(folder)
+                if version is None and folder.is_dir():
+                    version_dirs = list(folder.iterdir())
+                for version_dir in version_dirs:
+                    _remove_version(version_dir)
+                if version is None:
+                    shutil.rmtree(folder)
             except FileNotFoundError:
                 return
             except OSError as error:
@@ -232,6 +258,24 @@ class Components:
             and manifest.file == download.file_name
             and self.file_path(manifest).is_file()
         )
+
+
+def _remove_version(version_dir: Path) -> None:
+    """Delete a version's files, then its manifest and folder.
+
+    A file another program holds stops this before the manifest goes, so the version stays
+    listed and the next removal tries again.
+    """
+    if not version_dir.is_dir():
+        return
+    for path in version_dir.iterdir():
+        if path.name == MANIFEST_FILE:
+            continue
+        if path.is_dir():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+    shutil.rmtree(version_dir)
 
 
 def _unpack(download: Download, archive: Path, staged: Path) -> None:

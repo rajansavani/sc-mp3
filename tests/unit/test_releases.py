@@ -89,7 +89,8 @@ def serve_release(
         web.serve(url, data)
         assets.append({"name": name, "browser_download_url": url})
     api = f"https://api.github.com/repos/{repo}/releases/latest"
-    web.serve(api, json.dumps({"tag_name": tag, "assets": assets}).encode())
+    page = f"https://github.com/{repo}/releases/tag/{tag}"
+    web.serve(api, json.dumps({"tag_name": tag, "html_url": page, "assets": assets}).encode())
 
 
 def sha256sum_line(data: bytes, name: str) -> bytes:
@@ -201,3 +202,132 @@ def test_each_deno_pin_names_its_zip_its_binary_and_a_sha256(target: str) -> Non
 def test_deno_pins_are_all_different() -> None:
     targets = load_spec("deno").targets.values()
     assert len({pin.asset for pin in targets}) == len({pin.pinned_sha256 for pin in targets}) == 6
+
+
+# The download engine
+
+NIGHTLY = "yt-dlp/yt-dlp-nightly-builds"
+ZIPAPP = b"PK yt-dlp zipapp"
+
+
+def serve_engine(
+    web: FakeWeb,
+    *,
+    repo: str = NIGHTLY,
+    tag: str = "2026.10.10.233141",
+    files: Mapping[str, bytes] | None = None,
+    digest: str | None = None,
+) -> None:
+    """Serve a yt-dlp release with the zipapp and SHA2-256SUMS, plus GitHub's digest if given."""
+    if files is None:
+        sums = sha256sum_line(ZIPAPP, "yt-dlp") + sha256sum_line(b"exe", "yt-dlp.exe")
+        files = {"yt-dlp": ZIPAPP, "SHA2-256SUMS": sums}
+    assets = []
+    for name, data in files.items():
+        url = f"https://github.com/{repo}/releases/download/{tag}/{name}"
+        web.serve(url, data)
+        asset = {"name": name, "browser_download_url": url}
+        if digest is not None and name == "yt-dlp":
+            asset["digest"] = digest
+        assets.append(asset)
+    page = f"https://github.com/{repo}/releases/tag/{tag}"
+    body = {"tag_name": tag, "html_url": page, "assets": assets}
+    web.serve(f"https://api.github.com/repos/{repo}/releases/latest", json.dumps(body).encode())
+
+
+def choose_engine(web: FakeWeb, channel: releases.EngineChannel = "nightly") -> Download:
+    return releases.choose_engine_download(channel, opener=web, clock=lambda: NOW)
+
+
+def engine_error(web: FakeWeb) -> ErrorKind:
+    with pytest.raises(ScmpError) as raised:
+        choose_engine(web)
+    return raised.value.kind
+
+
+def test_the_engine_is_the_channels_zipapp_with_its_sha2_256sums_hash() -> None:
+    web = FakeWeb()
+    serve_engine(web)
+    tag = "2026.10.10.233141"
+    assert choose_engine(web) == Download(
+        name="yt-dlp",
+        version=tag,
+        url=f"https://github.com/{NIGHTLY}/releases/download/{tag}/yt-dlp",
+        sha256=sha256(ZIPAPP),
+        file_name="yt-dlp.zip",
+    )
+
+
+@pytest.mark.parametrize(
+    ("channel", "repo"), [("stable", "yt-dlp/yt-dlp"), ("nightly", "yt-dlp/yt-dlp-nightly-builds")]
+)
+def test_each_channel_has_its_own_repo(channel: releases.EngineChannel, repo: str) -> None:
+    web = FakeWeb()
+    serve_engine(web, repo=repo, tag="2026.08.19")
+    assert choose_engine(web, channel).version == "2026.08.19"
+    assert web.requests[0] == f"https://api.github.com/repos/{repo}/releases/latest"
+
+
+@pytest.mark.parametrize(
+    "files",
+    [
+        {"yt-dlp": ZIPAPP},
+        {"SHA2-256SUMS": sha256sum_line(ZIPAPP, "yt-dlp")},
+        {"yt-dlp": ZIPAPP, "SHA2-256SUMS": sha256sum_line(ZIPAPP, "yt-dlp.exe")},
+    ],
+    ids=["no checksum file", "no zipapp", "a checksum file without the zipapp"],
+)
+def test_an_engine_release_that_cant_be_verified_is_unavailable(files: dict[str, bytes]) -> None:
+    web = FakeWeb()
+    serve_engine(web, files=files)
+    assert engine_error(web) is ErrorKind.unavailable
+
+
+def test_a_matching_github_digest_is_accepted() -> None:
+    web = FakeWeb()
+    serve_engine(web, digest=f"sha256:{sha256(ZIPAPP)}")
+    assert choose_engine(web).sha256 == sha256(ZIPAPP)
+
+
+def test_a_github_digest_that_disagrees_with_sha2_256sums_is_a_bad_download() -> None:
+    web = FakeWeb()
+    serve_engine(web, digest=f"sha256:{sha256(b'something else')}")
+    assert engine_error(web) is ErrorKind.bad_download
+
+
+def test_choosing_the_engine_downloads_nothing_but_the_checksum_file() -> None:
+    web = FakeWeb()
+    serve_engine(web)
+    choose_engine(web)
+    assert [url.rsplit("/", 1)[-1] for url in web.requests] == ["latest", "SHA2-256SUMS"]
+
+
+@pytest.mark.parametrize(
+    ("candidate", "than", "newer"),
+    [
+        ("2026.10.10.233141", "2026.08.19", True),
+        ("2026.08.19", "2026.8.19", False),
+        ("2026.08.19", "2026.10.10.233141", False),
+        ("2026.08.19.1", "2026.08.19", True),
+        ("2026.08.19", None, True),
+    ],
+)
+def test_versions_compare_by_their_numbers(candidate: str, than: str | None, newer: bool) -> None:
+    assert releases.is_newer(candidate, than) is newer
+
+
+@pytest.mark.parametrize(
+    ("source_url", "channel"),
+    [
+        ("https://github.com/yt-dlp/yt-dlp/releases/download/2026.09.30/yt-dlp", "stable"),
+        (
+            "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/download/2026.10.10/yt-dlp",
+            "nightly",
+        ),
+        ("https://example.com/yt-dlp", None),
+    ],
+)
+def test_an_updates_channel_comes_from_where_it_was_downloaded(
+    source_url: str, channel: str | None
+) -> None:
+    assert releases.engine_channel_of(source_url) == channel

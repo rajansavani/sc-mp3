@@ -20,7 +20,7 @@ import pytest
 from scmp3.core import components, fetch, paths
 from scmp3.core.components import DENO, Components
 from scmp3.core.errors import ErrorKind, ScmpError
-from scmp3.core.manifests import Manifest
+from scmp3.core.manifests import ComponentStatus, Manifest
 from scmp3.core.releases import ComponentSpec, Download, Target
 
 NOW = 1_800_000_000.0
@@ -107,7 +107,8 @@ def serve_release(
         url = f"https://github.com/{repo}/releases/download/{tag}/{name}"
         web.serve(url, data)
         assets.append({"name": name, "browser_download_url": url})
-    web.serve(api, json.dumps({"tag_name": tag, "assets": assets}).encode())
+    page = f"https://github.com/{repo}/releases/tag/{tag}"
+    web.serve(api, json.dumps({"tag_name": tag, "html_url": page, "assets": assets}).encode())
 
 
 def sha256sum_line(data: bytes, name: str) -> bytes:
@@ -517,6 +518,30 @@ def test_a_damaged_manifest_isnt_listed_or_active(store: Components, root: Path)
     assert store.active("tool") is None
 
 
+@pytest.mark.parametrize("status", ["bad", "reverted"])
+def test_a_version_marked_bad_or_reverted_stops_being_active(
+    store: Components, root: Path, status: ComponentStatus
+) -> None:
+    write_manifest(root, "1.0.0", installed_at="2027-01-01T00:00:00+00:00")
+    write_manifest(root, "2.0.0", installed_at="2027-02-01T00:00:00+00:00")
+    newest = store.installed("tool")[-1]
+    marked = store.set_status(newest, status)
+    assert marked == replace(newest, status=status)
+    assert store.installed("tool")[-1] == marked
+    active = store.active("tool")
+    assert active is not None
+    assert active.version == "1.0.0"
+
+
+def test_a_version_marked_good_again_is_active_again(store: Components, root: Path) -> None:
+    write_manifest(root, "2.0.0", status="reverted")
+    assert store.active("tool") is None
+    store.set_status(store.installed("tool")[0], "good")
+    active = store.active("tool")
+    assert active is not None
+    assert active.version == "2.0.0"
+
+
 def test_remove_deletes_one_version(store: Components, root: Path) -> None:
     write_manifest(root, "1.0.0")
     write_manifest(root, "2.0.0")
@@ -675,3 +700,35 @@ def test_check_runs_refuses_a_file_that_cant_run(root: Path, tmp_path: Path) -> 
 def test_the_default_folder_is_the_app_components_folder(scmp3_home: Path) -> None:
     assert Components().root == paths.components_dir()
     assert Components().root.is_relative_to(scmp3_home)
+
+
+def test_a_versions_folder_that_cant_be_read_lists_nothing_and_says_why(
+    store: Components, root: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    write_manifest(root, "2.0.0")
+    listing = Path.iterdir
+
+    def refuse(self: Path) -> Any:
+        if self == root / "tool":
+            raise PermissionError(13, "Access is denied", str(self))
+        return listing(self)
+
+    monkeypatch.setattr(Path, "iterdir", refuse)
+    assert store.installed("tool") == []
+    assert store.active("tool") is None
+    assert "Couldn't list the installed tool versions: Access is denied" in caplog.text
+    assert str(root) not in caplog.text
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="only Windows refuses to delete an open file")
+def test_a_version_whose_file_is_held_keeps_its_manifest_until_it_can_go(
+    store: Components, root: Path
+) -> None:
+    folder = write_manifest(root, "1.0.0")
+    with (folder / MEMBER).open("rb"), pytest.raises(ScmpError) as raised:
+        store.remove("tool", "1.0.0")
+    assert raised.value.kind is ErrorKind.disk
+    # Still listed, so the next removal tries again.
+    assert [manifest.version for manifest in store.installed("tool")] == ["1.0.0"]
+    store.remove("tool", "1.0.0")
+    assert not folder.exists()

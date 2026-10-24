@@ -11,6 +11,8 @@ from mutagen.mp4 import MP4
 import scmp3
 from scmp3 import cli, cli_output, frozen
 from scmp3.__main__ import main
+from scmp3.core import client_id, engine_start, overlay
+from scmp3.core.engine_start import EngineStart
 
 
 def test_version_comes_from_package_metadata() -> None:
@@ -27,7 +29,7 @@ def test_version_flag_prints_the_version(capsys: pytest.CaptureFixture[str]) -> 
 def test_a_command_goes_to_the_cli(argv: list[str], monkeypatch: pytest.MonkeyPatch) -> None:
     received: list[Sequence[str]] = []
 
-    def fake_cli_main(args: Sequence[str]) -> int:
+    def fake_cli_main(args: Sequence[str], started: EngineStart | None = None) -> int:
         received.append(args)
         return 7
 
@@ -41,9 +43,11 @@ class FakeApp:
 
     def __init__(self) -> None:
         self.opened_with: list[list[str]] = []
+        self.engine_starts: list[EngineStart | None] = []
 
-    def run(self, paths: Sequence[str] = ()) -> int:
+    def run(self, paths: Sequence[str] = (), engine_start: EngineStart | None = None) -> int:
         self.opened_with.append(list(paths))
+        self.engine_starts.append(engine_start)
         return 7
 
 
@@ -63,6 +67,98 @@ def terminal(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_no_arguments_runs_the_app(app: FakeApp) -> None:
     assert main([]) == 7
     assert app.opened_with == [[]]
+
+
+def test_the_engine_check_flag_runs_only_the_check(monkeypatch: pytest.MonkeyPatch) -> None:
+    checked: list[Sequence[str]] = []
+
+    def check_here(args: Sequence[str]) -> int:
+        checked.append(args)
+        return 1
+
+    monkeypatch.setattr(overlay, "check_here", check_here)
+    # Its parent ran the checks already, and the check imports the update itself.
+    monkeypatch.setattr(frozen, "prepare", lambda: pytest.fail("the checks ran again"))
+    monkeypatch.setattr(engine_start, "start_engine", lambda: pytest.fail("the engine was started"))
+    assert main([overlay.CHECK_FLAG, "update.zip"]) == 1
+    assert checked == [["update.zip"]]
+
+
+@pytest.mark.parametrize("argv", [["get", "x"], []], ids=["cli", "app"])
+def test_the_checks_come_first_then_the_engine_then_the_cli_or_the_app(
+    argv: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    started = EngineStart(update="2099.01.01")
+    order: list[str] = []
+
+    def prepare() -> None:
+        order.append("checks")
+
+    def start_engine() -> EngineStart:
+        order.append("engine")
+        return started
+
+    def app_run(paths: Sequence[str], given: EngineStart) -> int:
+        assert given == started
+        order.append("app")
+        return 0
+
+    def cli_main(args: Sequence[str], given: EngineStart) -> int:
+        assert given == started
+        order.append("cli")
+        return 0
+
+    monkeypatch.setattr(frozen, "prepare", prepare)
+    monkeypatch.setattr(engine_start, "start_engine", start_engine)
+    monkeypatch.setattr(client_id, "apply_saved_override", lambda: order.append("client_id"))
+    monkeypatch.setattr(cli, "main", cli_main)
+    monkeypatch.setattr("scmp3.app.main.run", app_run)
+    assert main(argv) == 0
+    assert order == ["checks", "engine", "client_id", "cli" if argv else "app"]
+
+
+@pytest.mark.parametrize("argv", [["get", "x"], []], ids=["cli", "app"])
+def test_checks_that_stop_the_app_come_before_the_engine(
+    argv: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(frozen, "prepare", lambda: frozen.EXIT_FOLDER_TOO_LONG)
+    monkeypatch.setattr(engine_start, "start_engine", lambda: pytest.fail("the engine was started"))
+    assert main(argv) == frozen.EXIT_FOLDER_TOO_LONG
+
+
+def test_an_update_that_broke_at_start_up_restarts_without_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    started = EngineStart(failed="2099.01.01", restart=True)
+    restarts: list[tuple[Sequence[str], EngineStart]] = []
+
+    def restart_app(args: Sequence[str], given: EngineStart) -> int:
+        restarts.append((args, given))
+        return 4
+
+    monkeypatch.setattr(engine_start, "start_engine", lambda: started)
+    monkeypatch.setattr(engine_start, "restart_app", restart_app)
+    monkeypatch.setattr(cli, "main", lambda args: pytest.fail("the CLI ran in the broken process"))
+    assert main(["get", "x"]) == 4
+    assert restarts == [(["get", "x"], started)]
+
+
+def test_the_app_gets_how_the_engine_started(monkeypatch: pytest.MonkeyPatch, app: FakeApp) -> None:
+    started = EngineStart(update="2099.01.01")
+    monkeypatch.setattr(engine_start, "start_engine", lambda: started)
+    assert main([]) == 7
+    assert app.engine_starts == [started]
+
+
+@pytest.mark.parametrize("argv", [["--version"], ["--help"]])
+def test_the_version_and_the_help_dont_start_the_engine(
+    argv: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(engine_start, "start_engine", lambda: pytest.fail("the engine was started"))
+    try:
+        main(argv)
+    except SystemExit as exit_info:
+        assert exit_info.code == 0
 
 
 def test_files_given_to_the_app_open_it_with_them(app: FakeApp, tmp_path: Path) -> None:

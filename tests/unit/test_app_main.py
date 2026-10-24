@@ -18,6 +18,7 @@ from scmp3.app.bridge import Api
 from scmp3.app.context import AppContext
 from scmp3.app.events import EventBus
 from scmp3.core import log, paths
+from scmp3.core.engine_start import EngineStart
 from scmp3.core.history import History
 from scmp3.core.settings import SettingsStore
 
@@ -372,7 +373,7 @@ def test_a_second_copy_exits_without_opening_a_window(monkeypatch: pytest.Monkey
     told: list[bool] = []
     monkeypatch.setattr(main, "setup_logging", lambda console: None)
     monkeypatch.setattr(instance, "say_already_open", lambda: told.append(True))
-    monkeypatch.setattr(main, "run_window", lambda paths: pytest.fail("a window opened"))
+    monkeypatch.setattr(main, "run_window", lambda paths, started: pytest.fail("a window opened"))
     try:
         assert main.run() == 1
     finally:
@@ -382,7 +383,7 @@ def test_a_second_copy_exits_without_opening_a_window(monkeypatch: pytest.Monkey
 
 def test_the_first_copy_lets_go_of_the_lock_when_it_closes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(main, "setup_logging", lambda console: None)
-    monkeypatch.setattr(main, "run_window", lambda paths: 0)
+    monkeypatch.setattr(main, "run_window", lambda paths, started: 0)
     assert main.run() == 0
     after = instance.instance_lock()
     assert instance.another_copy_is_open(after) is False
@@ -391,15 +392,19 @@ def test_the_first_copy_lets_go_of_the_lock_when_it_closes(monkeypatch: pytest.M
 
 def test_the_files_the_app_opens_with_reach_the_window(monkeypatch: pytest.MonkeyPatch) -> None:
     opened_with: list[Sequence[str]] = []
+    engine_starts: list[EngineStart | None] = []
 
-    def run_window(paths: Sequence[str]) -> int:
+    def run_window(paths: Sequence[str], engine_start: EngineStart | None) -> int:
         opened_with.append(paths)
+        engine_starts.append(engine_start)
         return 0
 
+    started = EngineStart(update="2099.01.01")
     monkeypatch.setattr(main, "setup_logging", lambda console: None)
     monkeypatch.setattr(main, "run_window", run_window)
-    assert main.run([r"C:\Music\song.mp3"]) == 0
+    assert main.run([r"C:\Music\song.mp3"], started) == 0
     assert opened_with == [[r"C:\Music\song.mp3"]]
+    assert engine_starts == [started]
 
 
 @pytest.mark.parametrize(

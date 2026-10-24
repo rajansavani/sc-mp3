@@ -23,13 +23,20 @@ DOWNLOADS = "https://github.com/denoland/deno/releases/download"
 RESET = str(int(NOW) + 600)
 
 
-def release_json(tag: str = "v2.9.7", names: tuple[str, ...] = ("deno.zip",)) -> bytes:
+RELEASES_PAGE = "https://github.com/denoland/deno/releases/tag"
+DIGEST = "ab" * 32
+
+
+def release_json(
+    tag: str = "v2.9.7", names: tuple[str, ...] = ("deno.zip",), **fields: Any
+) -> bytes:
     """GitHub's JSON for a release, cut down to the fields that matter here."""
     assets = [
         {"name": name, "size": 10, "browser_download_url": f"{DOWNLOADS}/{tag}/{name}"}
         for name in names
     ]
-    return json.dumps({"tag_name": tag, "draft": False, "assets": assets}).encode()
+    release = {"tag_name": tag, "html_url": f"{RELEASES_PAGE}/{tag}", "draft": False}
+    return json.dumps({**release, "assets": assets, **fields}).encode()
 
 
 class FakeResponse(io.BytesIO):
@@ -96,14 +103,36 @@ def raised_kind(web: FakeGitHub, clock: Clock | None = None) -> ErrorKind:
 # Releases
 
 
-def test_the_latest_release_has_its_tag_version_and_files() -> None:
+def test_the_latest_release_has_its_tag_version_page_and_files() -> None:
     release = latest(FakeGitHub(ok()))
     assert release == Release(
         repo=REPO,
         tag="v2.9.7",
         assets={"deno.zip": Asset("deno.zip", f"{DOWNLOADS}/v2.9.7/deno.zip")},
+        html_url=f"{RELEASES_PAGE}/v2.9.7",
     )
     assert release.version == "2.9.7"
+
+
+def asset_with_digest(digest: object) -> dict[str, object]:
+    return {"name": "deno.zip", "browser_download_url": f"{DOWNLOADS}/deno.zip", "digest": digest}
+
+
+def test_an_assets_sha256_digest_is_kept() -> None:
+    body = release_json(assets=[asset_with_digest(f"sha256:{DIGEST}")])
+    release = latest(FakeGitHub(FakeResponse(body)))
+    assert release.assets["deno.zip"].sha256 == DIGEST
+
+
+@pytest.mark.parametrize(
+    "digest",
+    [None, 5, f"sha512:{DIGEST}", "sha256:not-hex", f"sha256:{DIGEST.upper()}"],
+    ids=["null", "a number", "another hash", "not hex", "upper case"],
+)
+def test_a_digest_that_isnt_a_sha256_is_left_out(digest: object) -> None:
+    body = release_json(assets=[asset_with_digest(digest)])
+    release = latest(FakeGitHub(FakeResponse(body)))
+    assert release.assets["deno.zip"].sha256 is None
 
 
 def test_a_tag_without_a_v_is_its_own_version() -> None:
@@ -142,6 +171,39 @@ def test_the_cache_is_kept_per_repo_in_the_cache_folder(scmp3_home: Path) -> Non
     cached = json.loads((scmp3_home / "cache" / "github" / "denoland" / "deno.json").read_text())
     assert cached["etag"] == '"etag-1"'
     assert cached["release"]["tag_name"] == "v2.9.7"
+    assert cached["release"]["html_url"] == f"{RELEASES_PAGE}/v2.9.7"
+
+
+def test_the_page_and_the_digests_come_back_from_the_cache_after_a_304() -> None:
+    body = release_json(assets=[asset_with_digest(f"sha256:{DIGEST}")])
+    web = FakeGitHub(FakeResponse(body, headers={"ETag": '"abc"'}), FakeResponse(status=304))
+    first = latest(web)
+    assert latest(web) == first
+    assert first.html_url == f"{RELEASES_PAGE}/v2.9.7"
+    assert first.assets["deno.zip"].sha256 == DIGEST
+
+
+def test_a_cache_from_before_release_pages_is_fetched_again(scmp3_home: Path) -> None:
+    cache = scmp3_home / "cache" / "github" / "denoland" / "deno.json"
+    cache.parent.mkdir(parents=True)
+    old_release = {"tag_name": "v2.9.6", "assets": []}
+    cache.write_text(json.dumps({"etag": '"old"', "limited_until": None, "release": old_release}))
+    web = FakeGitHub(ok())
+    assert latest(web).html_url == f"{RELEASES_PAGE}/v2.9.7"
+    # Read as damaged, so nothing about the old answer was sent.
+    assert "If-None-Match" not in web.requests[0]
+
+
+def test_the_cached_release_is_read_without_asking_github() -> None:
+    assert github.cached_release(REPO) is None
+    first = latest(FakeGitHub(ok()))
+    assert github.cached_release(REPO) == first
+
+
+def test_the_cached_release_of_a_repo_that_isnt_owner_slash_name_is_refused() -> None:
+    with pytest.raises(ScmpError) as raised:
+        github.cached_release("../deno")
+    assert raised.value.kind is ErrorKind.internal
 
 
 @pytest.mark.parametrize(
@@ -305,8 +367,22 @@ def test_no_connection_is_offline() -> None:
         b'{"tag_name": "v1", "assets": [{"name": 5, "browser_download_url": "x"}]}',
         b'{"tag_name": "v1/../..", "assets": []}',
         b'{"tag_name": "..", "assets": []}',
+        b'{"tag_name": "v1", "assets": []}',
+        b'{"tag_name": "v1", "html_url": "http://github.com/x", "assets": []}',
+        b'{"tag_name": "v1", "html_url": "https://github.com/x", "assets": ["deno.zip"]}',
     ],
-    ids=["html", "a list", "no tag", "no url", "a number", "a path tag", "a dot tag"],
+    ids=[
+        "html",
+        "a list",
+        "no tag",
+        "no url",
+        "a number",
+        "a path tag",
+        "a dot tag",
+        "no page",
+        "a page without https",
+        "an asset that's text",
+    ],
 )
 def test_an_answer_that_isnt_a_usable_release_is_service_down(body: bytes) -> None:
     assert raised_kind(FakeGitHub(FakeResponse(body))) is ErrorKind.service_down

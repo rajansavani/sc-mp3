@@ -176,6 +176,38 @@
   font-size: var(--text-small);
 }
 
+/* What a restart would change, or an update that didn't load. */
+.settings-card-note {
+  color: var(--warn);
+  font-size: var(--text-small);
+}
+
+.settings-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-card-actions:empty {
+  display: none;
+}
+
+/* The engine section's advanced options, folded away. */
+.settings-advanced {
+  padding: 12px 0;
+  border-top: 1px solid var(--line-1);
+}
+
+.settings-advanced > summary {
+  min-height: 32px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-advanced > .field {
+  padding-top: 10px;
+}
+
 /* The banner for a save that failed outside any one field. The banner itself is in controls.css. */
 
 /* In Settings it stays in sight at the top, however far down the change was made. */

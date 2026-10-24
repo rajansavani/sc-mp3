@@ -112,6 +112,8 @@ const VALUE_CHECKS = {
     template === null ? null : templateProblem(template, FILENAME_TOKEN),
   custom_title_template: titleTemplateProblem,
   custom_artist_template: titleTemplateProblem,
+  soundcloud_client_id: (value) =>
+    value === null || /^[0-9A-Za-z]{32}$/.test(value) ? null : { reason: "NOT_A_CLIENT_ID" },
 };
 
 function problemOf(key, value) {

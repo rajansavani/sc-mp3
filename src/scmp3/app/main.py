@@ -25,6 +25,7 @@ from scmp3.app.page_loading import (
     start_page_server,
 )
 from scmp3.app.webview_data import EarlyDeleteFilter
+from scmp3.core.engine_start import EngineStart, log_start
 from scmp3.core.log import setup_logging
 
 WINDOW_TITLE = "sc-mp3"
@@ -196,24 +197,27 @@ def open_window(
     return 1 if watch.failed else 0
 
 
-def run(paths: Sequence[str] = ()) -> int:
+def run(paths: Sequence[str] = (), engine_start: EngineStart | None = None) -> int:
     """Open the main window, wait until it's closed, and return the exit code.
 
     `paths` are files the app was opened with, which go into the queue as if dropped on it.
+    `engine_start` says which yt-dlp __main__ settled on before anything imported it.
     """
+    engine_start = engine_start or EngineStart()
     setup_logging(console=True)
+    log_start(engine_start)
     lock = instance.instance_lock()
     if instance.another_copy_is_open(lock):
         # TODO(T-062): Hand the paths to the copy that's open.
         instance.say_already_open()
         return 1
     try:
-        return run_window(paths)
+        return run_window(paths, engine_start)
     finally:
         lock.release()
 
 
-def run_window(paths: Sequence[str] = ()) -> int:
+def run_window(paths: Sequence[str] = (), engine_start: EngineStart | None = None) -> int:
     """Open the window for this copy of the app, and stop its work once the window closes."""
     register_web_types()
     # Imported here, because importing pywebview adds the log handler that's removed next.
@@ -223,9 +227,10 @@ def run_window(paths: Sequence[str] = ()) -> int:
     route_pywebview_logging()
     # What the last window left behind, which nothing holds any more.
     webview_data.remove_data_folder(webview_data.data_folder(), tries=1)
-    context = AppContext.from_app_folders()
+    context = AppContext.from_app_folders(engine_start)
     context.open_stores()
     context.jobs.start_up()
+    context.updates.start()
     drops = FileDrops(context.jobs, context.events)
     # What isn't added waits in the event bus, and the UI shows it once the page is up.
     drops.add_paths(paths)
@@ -246,5 +251,6 @@ def run_window(paths: Sequence[str] = ()) -> int:
             data_folder=webview_data.data_folder(),
         )
     finally:
+        context.updates.stop()
         context.jobs.shut_down()
         webview_data.remove_data_folder(webview_data.data_folder())

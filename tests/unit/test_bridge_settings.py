@@ -20,7 +20,7 @@ from scmp3.app.bridge import settings as bridge
 from scmp3.app.context import AppContext
 from scmp3.app.events import EventBus
 from scmp3.app.main import WEB_DIR
-from scmp3.core import library, paths
+from scmp3.core import client_id, engine, library, paths
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.history import History
 from scmp3.core.log import short_path
@@ -52,7 +52,13 @@ MENU_CHANGES: dict[str, Any] = {
     "download_while_reviewing": False,
     "offer_clipboard_links": False,
     "concurrent_downloads": 4,
+    "check_app_updates": False,
+    "check_engine_updates": False,
+    "engine_channel": "nightly",
+    "soundcloud_client_id": "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6",
 }
+
+CLIENT_ID = "Zz0Yy9Xx8Ww7Vv6Uu5Tt4Ss3Rr2Qq1Pp"
 
 
 @pytest.fixture
@@ -648,7 +654,8 @@ def test_a_folder_that_only_starts_like_sc_mp3s_own_is_fine(api: Api) -> None:
 def test_every_problem_the_bridge_names_has_text_in_the_ui() -> None:
     codes = {
         value
-        for name, value in vars(bridge).items()
+        for module in (bridge, client_id)
+        for name, value in vars(module).items()
         if name.isupper() and isinstance(value, str) and re.fullmatch("[A-Z_]+", value)
     }
     assert {"UNKNOWN_TOKEN", "NOT_WRITABLE", "FEAT_TOKEN"} <= codes
@@ -677,3 +684,40 @@ def test_the_answers_are_json(api: Api, tmp_path: Path) -> None:
         api.preview_render(),
     ]
     assert json.loads(json.dumps(answers)) == answers
+
+
+# The SoundCloud client_id override
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["too-short", "a" * 31, "a" * 33, "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p!", " " + "a" * 31],
+)
+def test_a_client_id_that_isnt_32_letters_and_digits_is_refused(api: Api, value: str) -> None:
+    assert problem(api, {"soundcloud_client_id": value}, "soundcloud_client_id") == {
+        "reason": "NOT_A_CLIENT_ID"
+    }
+
+
+def test_a_client_id_override_goes_where_yt_dlp_looks_for_it(api: Api) -> None:
+    assert "error" not in api.update_settings({"soundcloud_client_id": CLIENT_ID})
+    with engine.make_ydl() as ydl:
+        assert ydl.cache.load("soundcloud", "client_id") == CLIENT_ID
+
+
+def test_clearing_the_override_lets_yt_dlp_find_its_own_client_id(api: Api) -> None:
+    api.update_settings({"soundcloud_client_id": CLIENT_ID})
+    assert (
+        api.update_settings({"soundcloud_client_id": None})["settings"]["soundcloud_client_id"]
+        is None
+    )
+    with engine.make_ydl() as ydl:
+        assert ydl.cache.load("soundcloud", "client_id") is None
+
+
+def test_other_settings_leave_yt_dlps_client_id_alone(api: Api) -> None:
+    with engine.make_ydl() as ydl:
+        ydl.cache.store("soundcloud", "client_id", CLIENT_ID)
+    api.update_settings({"concurrent_downloads": 3})
+    with engine.make_ydl() as ydl:
+        assert ydl.cache.load("soundcloud", "client_id") == CLIENT_ID

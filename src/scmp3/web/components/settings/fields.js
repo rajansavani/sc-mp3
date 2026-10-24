@@ -26,6 +26,7 @@ export const CHOICES = {
   cover_max_size: [300, 640, 1000, 1400],
   comment_mode: ["source_url", "description", "none"],
   concurrent_downloads: [1, 2, 3, 4],
+  engine_channel: ["stable", "nightly"],
 };
 
 export function fieldId(setting) {

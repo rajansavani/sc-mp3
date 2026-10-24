@@ -13,6 +13,7 @@ import pytest
 from scmp3 import cli, cli_get, cli_output
 from scmp3.core import paths, pipeline
 from scmp3.core.convert import AudioInfo
+from scmp3.core.engine_start import EngineStart
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.inputs import ParsedInput
 from scmp3.core.log import FILE_HANDLER, LOG_FILE
@@ -556,3 +557,13 @@ def test_input_that_ends_at_the_taken_name_question_stops_with_an_error(
     assert cli_output.INPUT_ENDED in err
     assert "didn't expect" not in err
     assert len(fake.prepared) == 1
+
+
+def test_an_engine_update_that_didnt_load_is_in_the_commands_log(
+    fake: FakePipeline, scmp3_home: Path
+) -> None:
+    failure = "2099.01.01: RuntimeError: a damaged update"
+    started = EngineStart(failed="2099.01.01", failure=failure)
+    argv = ["get", "--yes", URL, "--out", str(fake.library)]
+    assert cli.main(argv, started) == cli_output.EXIT_OK
+    assert failure in (scmp3_home / "logs" / LOG_FILE).read_text(encoding="utf-8")

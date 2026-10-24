@@ -13,6 +13,7 @@ import { SpotifyHelp } from "./components/SpotifyHelp.js";
 import { Toasts } from "./components/Toasts.js";
 import { TopBar } from "./components/TopBar.js";
 import { TrackEditor } from "./components/TrackEditor.js";
+import { watchUpdateNotices } from "./components/update-notices.js";
 import {
   applyEvent,
   closeDialog,
@@ -207,7 +208,10 @@ async function start() {
   const root = document.getElementById("app");
   render(html`<${App} />`, root);
   const snapshot = await firstSnapshot();
-  if (snapshot && showSnapshot(snapshot)) return;
+  if (snapshot && showSnapshot(snapshot)) {
+    watchUpdateNotices(snapshot.components);
+    return;
+  }
   render(html`<${StartFailed} />`, root);
 }
 

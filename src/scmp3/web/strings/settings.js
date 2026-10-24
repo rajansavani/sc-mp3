@@ -32,6 +32,8 @@ export default {
     cover_max_size: "Largest cover size",
     comment_mode: "Comment tag",
     concurrent_downloads: "Downloads at once",
+    engine_channel: "Engine channel",
+    soundcloud_client_id: "SoundCloud client ID override",
   },
   hints: {
     feat_wording: "Used by “feat. in the title”.",
@@ -39,6 +41,8 @@ export default {
     remove_promo_text: "Like “FREE DL”.",
     audio_format: "Spotify on phones only plays MP3 local files.",
     cover_max_size: "Smaller covers are never enlarged.",
+    engine_channel: "Nightly builds get fixes first, and break more often.",
+    soundcloud_client_id: "Only needed if SoundCloud blocks sc-mp3's usual way in.",
   },
   // The label of each choice, by its value as text, since object keys are always text.
   choices: {
@@ -67,6 +71,7 @@ export default {
       none: "Nothing",
     },
     concurrent_downloads: { 1: "1", 2: "2", 3: "3", 4: "4" },
+    engine_channel: { stable: "Stable", nightly: "Nightly" },
   },
   switches: {
     artist_folders: {
@@ -94,6 +99,14 @@ export default {
       label: "Offer links from the clipboard",
       hint: "Asks before adding anything.",
     },
+    check_app_updates: {
+      label: "Check for app updates",
+      hint: "Once a day, on GitHub. sc-mp3 never installs them by itself.",
+    },
+    check_engine_updates: {
+      label: "Check for engine updates",
+      hint: "Once a day. A newer engine installs by itself, and it's used from the next start.",
+    },
   },
   change: "Change",
   customWordsPlaceholder: "One per line, for example: [Bass Boosted]",
@@ -116,6 +129,7 @@ export default {
     FEAT_TOKEN: () => "There's no {feat} token. Write the wording yourself, as in (ft. {featured}).",
     OPEN_BRACE: () => "Each token needs both of its braces, as in {title}.",
     NO_TOKENS: () => "Use at least one of the tokens below.",
+    NOT_A_CLIENT_ID: () => "A client ID is 32 letters and digits. Check that you copied all of it.",
   },
   // Names a folder in a message when the problem didn't say which one.
   thisFolder: "this folder",
@@ -140,13 +154,63 @@ export default {
   },
   engine: {
     app: (version) => `sc-mp3 ${version}`,
+    appCurrent: "You have the latest version.",
+    appAvailable: (version) => `sc-mp3 ${version} is out.`,
+    releaseNotes: "See what's new",
+    appUnknown: "sc-mp3 hasn't checked for a newer version yet.",
+    checkNow: "Check now",
+    checking: "Checking…",
     engine: (version) => (version ? `Download engine: yt-dlp ${version}` : "Download engine: yt-dlp"),
-    builtIn: "Built in",
+    // Where the engine in use came from, by the source code the components object sends.
+    sources: { built_in: "Built in", updated: "Updated" },
+    channels: { stable: "stable channel", nightly: "nightly channel" },
     versionUnknown: "Its version couldn't be read.",
-    diagnostics: "Diagnostics",
-    diagnosticsDetail:
-      "The versions, your settings and the latest log lines, for a bug report. Folders show only their last part, and sign-in details are left out.",
-    notBuilt: "Update checks, engine updates and YouTube support aren't built yet.",
+    restartToUpdate: (version) => `yt-dlp ${version} is ready. Restart sc-mp3 to use it.`,
+    restartToBuiltIn: (version) =>
+      version
+        ? `Restart sc-mp3 to go back to the built-in engine, yt-dlp ${version}.`
+        : "Restart sc-mp3 to go back to the built-in engine.",
+    failed: (version) => `The update to yt-dlp ${version} didn't load, so sc-mp3 kept the engine it had.`,
+    updateNow: "Update now",
+    updating: (pct) => (pct === null ? "Updating…" : `Updating… ${Math.round(pct)}%`),
+    revert: "Revert to built-in",
+    // What Update now and Check now found, as toasts.
+    upToDate: (version) => `The download engine is up to date with yt-dlp ${version}.`,
+    refusedFailed: (version) =>
+      `yt-dlp ${version} didn't load before, so it wasn't installed again. Choose Update now to try it anyway.`,
+    refusedReverted: (version) =>
+      `You set yt-dlp ${version} aside, so it wasn't installed again. Choose Update now to install it anyway.`,
+    allUpToDate: "sc-mp3 and the download engine are up to date.",
+    appUpToDate: "sc-mp3 is up to date.",
+    reverted: "sc-mp3 uses the built-in download engine from the next time it opens.",
+    // Why a check, an update or an install didn't finish, by its error kind.
+    downloadErrors: {
+      offline: "sc-mp3 couldn't reach GitHub. Check your connection, then try again.",
+      rate_limited: "GitHub is limiting requests right now. Try again in an hour.",
+      service_down: "GitHub isn't responding. Try again in a few minutes.",
+      unavailable: "The latest release has no file sc-mp3 can use. Try again in a day or so.",
+      bad_download:
+        "The download didn't match its checksum or didn't work on this computer, so it wasn't installed. Try again later.",
+      disk: "sc-mp3 couldn't write to its data folder. Check that the drive has free space, then try again.",
+    },
+    youtube: "YouTube support",
+    youtubeMissing: "Not installed. About 40 MB, downloaded the first time you add a YouTube link.",
+    youtubeInstalling: (pct) => (pct === null ? "Installing…" : `Installing… ${Math.round(pct)}%`),
+    youtubeInstalled: (version) => `Installed: Deno ${version}`,
+    youtubeFailed: "YouTube support didn't install.",
+    installNow: "Install now",
+    logs: "Logs and diagnostics",
+    logsDetail:
+      "For bug reports. Diagnostics hold the versions, your settings and the latest log lines. Folders show only their last part, and sign-in details are left out.",
+    openLogs: "Open logs",
+    advanced: "Advanced",
+    clientIdPlaceholder: "Leave empty to use the one sc-mp3 finds",
+    // Shown once, outside Settings.
+    failedAtStart: (version) =>
+      `The update to yt-dlp ${version} didn't load, so sc-mp3 kept the engine it had. Settings has the details.`,
+    updatedInBackground: "The download engine was updated. It's used from the next start.",
+    appAvailableInBackground: (version) =>
+      `sc-mp3 ${version} is out. Settings › Engine and updates has the link.`,
   },
 
   firstRun: {

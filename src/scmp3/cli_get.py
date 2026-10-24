@@ -43,6 +43,7 @@ from scmp3.cli_review import (
     say,
 )
 from scmp3.core import paths, pipeline
+from scmp3.core.engine_start import log_start
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.inputs import ParsedInput, parse_inputs
 from scmp3.core.log import close_logging, setup_logging
@@ -124,6 +125,7 @@ def run_get(args: argparse.Namespace) -> int:
     options = GetOptions.from_args(args)
     tools = pipeline.Tools()
     with _logging_to_file():
+        log_start(args.engine_start)
         try:
             results = [_get_one(parsed, options, settings, tools) for parsed in inputs]
         except InputEnded:

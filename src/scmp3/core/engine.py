@@ -1,10 +1,12 @@
 """The download engine: yt-dlp instances with the standard options, and API calls made through them.
 
-yt-dlp is imported only through `load_yt_dlp`, so an updated copy can be put in its place first.
+yt-dlp is imported only through `load_yt_dlp`. Before anything does, engine_start.py puts a good
+updated copy first on sys.path.
 """
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 from collections.abc import Callable, Mapping
@@ -13,9 +15,10 @@ from types import ModuleType
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
-from scmp3.core import paths
+from scmp3.core import overlay, paths
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.log import redact, register_secret, safe_url
+from scmp3.core.releases import version_key
 
 if TYPE_CHECKING:
     from yt_dlp import YoutubeDL
@@ -45,6 +48,9 @@ QUIET_WARNINGS = (
     "Unable to extract metadata: ffprobe not found",
 )
 
+# Lets yt-dlp fetch the YouTube scripts from GitHub when its own copy doesn't fit (TECH_SPEC §7).
+REMOTE_EJS = ["ejs:github"]
+
 log = logging.getLogger(__name__)
 
 
@@ -60,9 +66,8 @@ class HttpStatusError(ScmpError):
 
 
 def load_yt_dlp() -> ModuleType:
-    """Import yt-dlp. All of sc-mp3 gets the engine through here."""
-    # TODO(T-071): Before this import, put a good updated copy from the components folder first
-    # on sys.path, and fall back to the bundled copy if it fails to import.
+    """Import yt-dlp, or get the copy start_engine imported. All of sc-mp3 gets the engine here."""
+    overlay.turn_off_plugins()
     import yt_dlp
 
     return yt_dlp
@@ -121,8 +126,39 @@ def make_ydl(
         params["password"] = auth_token
     if progress_hook:
         params["progress_hooks"] = [progress_hook]
+    if needs_remote_ejs():
+        params["remote_components"] = list(REMOTE_EJS)
     params.update(extra or {})
     return load_yt_dlp().YoutubeDL(params)
+
+
+@functools.cache
+def needs_remote_ejs() -> bool:
+    """Whether the loaded yt-dlp-ejs isn't the major.minor that the loaded yt-dlp asks for."""
+    load_yt_dlp()
+    try:
+        from yt_dlp.extractor.youtube.jsc._builtin import vendor
+    except ImportError as error:
+        log.info("Can't tell which YouTube scripts yt-dlp wants, so they may come from GitHub")
+        log.debug("Looking up yt-dlp's YouTube script version failed", exc_info=error)
+        return True
+    try:
+        import yt_dlp_ejs
+    except ImportError:
+        log.info("yt-dlp-ejs is missing, so the YouTube scripts may come from GitHub")
+        return True
+    loaded, wanted = yt_dlp_ejs.version, vendor.VERSION
+    if version_key(loaded)[:2] == version_key(wanted)[:2]:
+        return False
+    log.info("yt-dlp-ejs %s isn't the %s yt-dlp wants, so GitHub's may be used", loaded, wanted)
+    return True
+
+
+def store_client_id(client_id: str | None) -> None:
+    """Have yt-dlp use this SoundCloud client_id, or find its own again when it's None."""
+    # yt-dlp keeps it until SoundCloud rejects it, and then finds a new one by itself.
+    with make_ydl() as ydl:
+        ydl.cache.store("soundcloud", "client_id", client_id)
 
 
 def _find_ffmpeg() -> Path | None:

@@ -1,11 +1,12 @@
 """Which release file a component installs: the latest one when it can be verified, else the pin.
 
 Each component's repo, release files and pinned release are in components.toml, which ships
-inside the package.
+inside the package. The download engine has no pin, since its fallback is the built-in copy.
 """
 
 import functools
 import logging
+import re
 import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -15,9 +16,21 @@ from pathlib import PurePosixPath
 from scmp3.core import fetch, github
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.github import Clock, Release
+from scmp3.core.models import EngineChannel
 from scmp3.core.net import Opener
 
 SPEC_FILE = "components.toml"
+
+# The download engine: yt-dlp's zipapp, a zip of its Python code, and the checksum file beside it.
+ENGINE = "yt-dlp"
+ENGINE_ASSET = "yt-dlp"
+ENGINE_CHECKSUMS = "SHA2-256SUMS"
+ENGINE_FILE = "yt-dlp.zip"
+# Where each engine channel publishes its releases. A new channel is one more entry.
+ENGINE_REPOS: Mapping[EngineChannel, str] = {
+    "stable": "yt-dlp/yt-dlp",
+    "nightly": "yt-dlp/yt-dlp-nightly-builds",
+}
 
 log = logging.getLogger(__name__)
 
@@ -137,3 +150,52 @@ def _download_of(
         # Every component in components.toml is a program.
         executable=True,
     )
+
+
+def choose_engine_download(channel: EngineChannel, *, opener: Opener, clock: Clock) -> Download:
+    """The latest yt-dlp zipapp on a channel, with its SHA-256 from the release's SHA2-256SUMS.
+
+    A release that doesn't publish both is unavailable, and one whose SHA2-256SUMS and GitHub's
+    own digest disagree is a bad download.
+    """
+    repo = ENGINE_REPOS[channel]
+    release = github.github_latest(repo, opener=opener, clock=clock)
+    asset = release.assets.get(ENGINE_ASSET)
+    checksum_file = release.assets.get(ENGINE_CHECKSUMS)
+    if asset is None or checksum_file is None:
+        detail = f"{repo} {release.version} has no {ENGINE_ASSET} or no {ENGINE_CHECKSUMS}"
+        raise ScmpError(ErrorKind.unavailable, detail)
+    sha256 = fetch.fetch_checksums(checksum_file.url, opener=opener).get(ENGINE_ASSET)
+    if sha256 is None:
+        detail = f"{ENGINE_CHECKSUMS} of {repo} {release.version} doesn't list {ENGINE_ASSET}"
+        raise ScmpError(ErrorKind.unavailable, detail)
+    if asset.sha256 is not None and asset.sha256 != sha256:
+        detail = f"GitHub's digest of {ENGINE_ASSET} {release.version} isn't its SHA2-256SUMS hash"
+        raise ScmpError(ErrorKind.bad_download, detail)
+    return Download(
+        name=ENGINE,
+        version=release.version,
+        url=asset.url,
+        sha256=sha256,
+        file_name=ENGINE_FILE,
+    )
+
+
+def engine_channel_of(source_url: str) -> EngineChannel | None:
+    """The channel an installed engine update came from, by the repo it was downloaded from."""
+    for channel, repo in ENGINE_REPOS.items():
+        if f"/{repo}/releases/" in source_url:
+            return channel
+    return None
+
+
+def version_key(version: str) -> tuple[int, ...]:
+    """The numbers in a version, so 2026.10.10.233141 sorts after 2026.08.19 and 2026.8.19."""
+    return tuple(int(number) for number in re.findall(r"\d+", version))
+
+
+def is_newer(candidate: str, than: str | None) -> bool:
+    """Whether `candidate` is a later version. Anything is later than a version that isn't known."""
+    if than is None:
+        return True
+    return version_key(candidate) > version_key(than)

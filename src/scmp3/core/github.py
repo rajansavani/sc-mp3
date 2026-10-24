@@ -30,6 +30,8 @@ MAX_ERROR_BYTES = 64 * 1024
 REPO_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*")
 # A tag becomes a folder name, so it's held to the characters versions use.
 VERSION_PATTERN = re.compile(r"[0-9A-Za-z][0-9A-Za-z._+-]*")
+# GitHub's SHA-256 of an asset, which it has published since 2025 next to each file.
+DIGEST_PATTERN = re.compile(r"sha256:(?P<hash>[0-9a-f]{64})")
 
 # The wait when a rate limit doesn't say when it ends, as GitHub's docs advise.
 DEFAULT_LIMIT_WAIT = 60.0
@@ -54,19 +56,21 @@ def download_url(repo: str, tag: str, asset: str) -> str:
 
 @dataclass(frozen=True)
 class Asset:
-    """One file attached to a release."""
+    """One file attached to a release, with GitHub's SHA-256 of it when the release has one."""
 
     name: str
     url: str
+    sha256: str | None = None
 
 
 @dataclass(frozen=True)
 class Release:
-    """A GitHub release: its tag and its files by name."""
+    """A GitHub release: its tag, its page with the release notes, and its files by name."""
 
     repo: str
     tag: str
     assets: Mapping[str, Asset] = field(default_factory=dict)
+    html_url: str = ""
 
     @property
     def version(self) -> str:
@@ -74,11 +78,15 @@ class Release:
 
     def to_github_json(self) -> dict[str, Any]:
         """The release in the shape of GitHub's own JSON, which is how the cache keeps it."""
-        assets = [
-            {"name": asset.name, "browser_download_url": asset.url}
-            for asset in self.assets.values()
-        ]
-        return {"tag_name": self.tag, "assets": assets}
+        assets = [_asset_json(asset) for asset in self.assets.values()]
+        return {"tag_name": self.tag, "html_url": self.html_url, "assets": assets}
+
+
+def _asset_json(asset: Asset) -> dict[str, str]:
+    data = {"name": asset.name, "browser_download_url": asset.url}
+    if asset.sha256 is not None:
+        data["digest"] = f"sha256:{asset.sha256}"
+    return data
 
 
 @dataclass(frozen=True)
@@ -103,9 +111,7 @@ def github_latest(
     While the rate limit is used up, this returns the cached release without asking, and raises
     ScmpError(rate_limited) when there's none.
     """
-    if not REPO_PATTERN.fullmatch(repo):
-        raise ScmpError(ErrorKind.internal, f"{repo!r} isn't a GitHub repo name like owner/name")
-    cache_path = (cache_dir or _default_cache_dir()) / f"{repo}.json"
+    cache_path = _cache_path(repo, cache_dir)
     cached = _read_cache(repo, cache_path)
     if _still_limited(cached.limited_until, clock()):
         return _cached_or_rate_limited(cached, repo)
@@ -133,9 +139,16 @@ def github_latest(
     return release
 
 
-def _default_cache_dir() -> Path:
-    """Where answers from GitHub are cached, one file per repo."""
-    return paths.cache_dir() / "github"
+def cached_release(repo: str, *, cache_dir: Path | None = None) -> Release | None:
+    """The release github_latest last saw for a repo, without asking GitHub, or None."""
+    return _read_cache(repo, _cache_path(repo, cache_dir)).release
+
+
+def _cache_path(repo: str, cache_dir: Path | None) -> Path:
+    """Where answers for a repo are cached, after checking that it's a plain owner/name."""
+    if not REPO_PATTERN.fullmatch(repo):
+        raise ScmpError(ErrorKind.internal, f"{repo!r} isn't a GitHub repo name like owner/name")
+    return (cache_dir or paths.cache_dir() / "github") / f"{repo}.json"
 
 
 def _still_limited(limited_until: float | None, now: float) -> bool:
@@ -205,20 +218,31 @@ def _parse_release(repo: str, body: bytes) -> Release:
 
 
 def _release_from(repo: str, data: Any) -> Release:
-    """The tag and the files from GitHub's JSON for one release."""
+    """The tag, the release notes' page and the files from GitHub's JSON for one release."""
     try:
         tag = data["tag_name"]
-        assets = [
-            Asset(name=item["name"], url=item["browser_download_url"]) for item in data["assets"]
-        ]
-    except (LookupError, TypeError) as error:
+        html_url = data["html_url"]
+        assets = [_asset_from(item) for item in data["assets"]]
+    except (LookupError, TypeError, AttributeError) as error:
         raise _unreadable_release(repo) from error
-    texts = [tag, *(asset.name for asset in assets), *(asset.url for asset in assets)]
+    texts = [tag, html_url, *(asset.name for asset in assets), *(asset.url for asset in assets)]
     if not all(isinstance(text, str) for text in texts):
         raise _unreadable_release(repo)
     if not VERSION_PATTERN.fullmatch(tag_version(tag)):
         raise _unreadable_release(repo)
-    return Release(repo=repo, tag=tag, assets={asset.name: asset for asset in assets})
+    # The UI opens this page in the browser, so it must be a web page.
+    if not html_url.startswith("https://"):
+        raise _unreadable_release(repo)
+    assets_by_name = {asset.name: asset for asset in assets}
+    return Release(repo=repo, tag=tag, assets=assets_by_name, html_url=html_url)
+
+
+def _asset_from(item: Any) -> Asset:
+    """One asset from GitHub's JSON. A digest that isn't a SHA-256 is left out."""
+    digest = item.get("digest")
+    found = DIGEST_PATTERN.fullmatch(digest) if isinstance(digest, str) else None
+    sha256 = found["hash"] if found else None
+    return Asset(name=item["name"], url=item["browser_download_url"], sha256=sha256)
 
 
 def _unreadable_release(repo: str) -> ScmpError:

@@ -5,10 +5,12 @@ Anything else opens the app too, so files dropped on sc-mp3.exe arrive as if dro
 
 import argparse
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from scmp3 import __version__, cli, cli_output, frozen
+from scmp3.core import client_id, engine_start, overlay
+from scmp3.core.engine_start import EngineStart
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -40,16 +42,19 @@ def in_terminal() -> bool:
 
 
 def run_command(args: Sequence[str]) -> int:
-    """Run a CLI command, after the Windows app's own checks."""
+    """Run a CLI command, after the Windows app's own checks and the engine's start-up."""
     stopped = frozen.prepare()
     if stopped is not None:
         return stopped
-    return cli.main(args)
+    return with_engine(args, lambda started: cli.main(args, started))
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run a CLI command, print the version, or open the app, and return the exit code."""
     args = list(sys.argv[1:] if argv is None else argv)
+    # The app runs itself this way to check a downloaded engine, after its parent's checks.
+    if args[:1] == [overlay.CHECK_FLAG]:
+        return overlay.check_here(args[1:])
     if args and args[0] in cli.COMMANDS:
         return run_command(args)
 
@@ -78,7 +83,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     # Imported here so CLI commands never load the window toolkit.
     from scmp3.app import main as app_main
 
-    return app_main.run(paths)
+    return with_engine(args, lambda started: app_main.run(paths, started))
+
+
+def with_engine(args: Sequence[str], run: Callable[[EngineStart], int]) -> int:
+    """Settle which yt-dlp this process uses, then run. Nothing may import yt-dlp before this."""
+    started = engine_start.start_engine()
+    if started.restart:
+        return engine_start.restart_app(args, started)
+    client_id.apply_saved_override()
+    return run(started)
 
 
 if __name__ == "__main__":

@@ -21,7 +21,9 @@ MANIFEST_FILE = "manifest.json"
 # Names, versions and file names become path parts, so they're kept to these characters.
 SAFE_PART = re.compile(r"[0-9A-Za-z][0-9A-Za-z._+-]*")
 
-ComponentStatus = Literal["good", "bad"]
+# Good versions can be used. A bad one failed to load, and a reverted one was set aside in
+# Settings. Neither is used again until it's installed again.
+ComponentStatus = Literal["good", "bad", "reverted"]
 
 log = logging.getLogger(__name__)
 

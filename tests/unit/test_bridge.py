@@ -55,13 +55,19 @@ CALLS: dict[type, set[str]] = {
     },
     SettingsApi: {"update_settings", "preview_render"},
     AccountApi: {"sign_in_window", "sign_in_firefox", "sign_in_token", "sign_out"},
-    ComponentsApi: {"check_updates", "update_engine", "revert_engine", "install_youtube_support"},
+    ComponentsApi: {
+        "check_updates",
+        "update_engine",
+        "revert_engine",
+        "open_logs",
+        "install_youtube_support",
+    },
 }
 
 ALL_CALLS = sorted(name for names in CALLS.values() for name in names)
 # Calls that are built, so they no longer answer not_implemented. Each has its own test file.
 BUILT = {
-    "install_youtube_support",
+    *CALLS[ComponentsApi],
     "update_settings",
     "preview_render",
     *CALLS[JobsApi] - {"set_album_mode", "set_included"},
@@ -141,6 +147,17 @@ def test_the_snapshot_has_every_part(api: Api) -> None:
     assert snapshot["components"] == {
         "app_version": __version__,
         "engine_version": "2026.08.19",
+        "engine": {
+            "version": "2026.08.19",
+            "source": "built_in",
+            "channel": None,
+            "built_in_version": "2026.08.19",
+            "restart_to": None,
+            "failed_version": None,
+            "failed_now": None,
+        },
+        "app_update": {"state": "unknown", "version": None, "url": None},
+        "updates": {"running": None, "pct": None, "last": None},
         "youtube_support": {"state": "missing", "version": None, "pct": None, "error": None},
     }
 

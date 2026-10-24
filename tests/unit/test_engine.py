@@ -3,8 +3,10 @@
 import io
 import json
 import logging
+import os
 import secrets
 import socket
+import sys
 import threading
 import traceback
 from collections.abc import Callable, Iterator
@@ -14,12 +16,14 @@ from typing import Any, ClassVar
 
 import pytest
 import yt_dlp
+import yt_dlp_ejs
+from yt_dlp.extractor.youtube.jsc._builtin import vendor
 from yt_dlp.networking.common import Request, Response
 from yt_dlp.networking.exceptions import HTTPError, RequestError, TransportError
 from yt_dlp.networking.impersonate import ImpersonateTarget
 from yt_dlp.utils import DownloadError
 
-from scmp3.core import engine, paths
+from scmp3.core import engine, overlay, paths
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.log import MASK, redact, register_secret
 
@@ -475,3 +479,90 @@ def test_engine_version_is_the_loaded_yt_dlp_version() -> None:
 
 def test_load_yt_dlp_returns_the_module() -> None:
     assert engine.load_yt_dlp() is yt_dlp
+
+
+def test_load_yt_dlp_turns_plugins_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(overlay.NO_PLUGINS_ENV, raising=False)
+    engine.load_yt_dlp()
+    assert os.environ[overlay.NO_PLUGINS_ENV] == "1"
+
+
+# The YouTube scripts guard
+
+
+@pytest.fixture
+def ejs_version(monkeypatch: pytest.MonkeyPatch) -> Iterator[Callable[[str], None]]:
+    """Sets the version yt-dlp-ejs reports, with the guard's answer worked out again."""
+
+    def set_version(version: str) -> None:
+        monkeypatch.setattr(yt_dlp_ejs, "version", version)
+        engine.needs_remote_ejs.cache_clear()
+
+    yield set_version
+    engine.needs_remote_ejs.cache_clear()
+
+
+def test_matching_youtube_scripts_need_nothing_from_github(
+    fake_ffmpeg: Path, ejs_version: Callable[[str], None]
+) -> None:
+    ejs_version(f"{vendor.VERSION}.9")
+    assert engine.needs_remote_ejs() is False
+    with engine.make_ydl() as ydl:
+        # yt-dlp keeps the option as a set, empty when nothing was asked for.
+        assert ydl.params["remote_components"] == set()
+
+
+@pytest.mark.parametrize("version", ["0.7.0", "1.8.0", "0.9.0"])
+def test_mismatched_youtube_scripts_may_come_from_github(
+    fake_ffmpeg: Path, ejs_version: Callable[[str], None], version: str
+) -> None:
+    ejs_version(version)
+    assert vendor.VERSION.startswith("0.8.")
+    assert engine.needs_remote_ejs() is True
+    with engine.make_ydl() as ydl:
+        assert ydl.params["remote_components"] == {"ejs:github"}
+
+
+def test_the_guard_can_be_overridden_like_any_option(
+    fake_ffmpeg: Path, ejs_version: Callable[[str], None]
+) -> None:
+    ejs_version("0.7.0")
+    with engine.make_ydl(extra={"remote_components": []}) as ydl:
+        assert ydl.params["remote_components"] == set()
+
+
+def test_missing_youtube_scripts_may_come_from_github(
+    monkeypatch: pytest.MonkeyPatch, ejs_version: Callable[[str], None]
+) -> None:
+    ejs_version(vendor.VERSION)
+    # None in sys.modules makes the import raise ImportError.
+    monkeypatch.setitem(sys.modules, "yt_dlp_ejs", None)
+    engine.needs_remote_ejs.cache_clear()
+    assert engine.needs_remote_ejs() is True
+
+
+# The SoundCloud client_id override
+
+
+def test_a_client_id_override_is_what_yt_dlp_finds_in_its_cache(fake_ffmpeg: Path) -> None:
+    client_id = "a" * 32
+    engine.store_client_id(client_id)
+    with engine.make_ydl() as ydl:
+        assert ydl.cache.load("soundcloud", "client_id") == client_id
+
+
+def test_clearing_the_override_makes_yt_dlp_find_its_own_again(fake_ffmpeg: Path) -> None:
+    engine.store_client_id("a" * 32)
+    engine.store_client_id(None)
+    with engine.make_ydl() as ydl:
+        assert ydl.cache.load("soundcloud", "client_id") is None
+
+
+def test_the_override_reaches_soundclouds_extractor(fake_ffmpeg: Path) -> None:
+    client_id = "b" * 32
+    engine.store_client_id(client_id)
+    with engine.make_ydl() as ydl:
+        extractor = ydl.get_info_extractor("Soundcloud")
+        # What yt-dlp does first when it starts using the extractor, before any request.
+        extractor._initialize_pre_login()
+        assert client_id == extractor._CLIENT_ID

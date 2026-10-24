@@ -12,6 +12,7 @@ from typing import Any, cast, get_args
 
 from scmp3 import __version__
 from scmp3.app.clipboard import offered_link
+from scmp3.app.components_view import components_view
 from scmp3.app.context import AppContext
 from scmp3.app.diagnostics import diagnostics_text
 from scmp3.app.job_fields import EDITABLE_FIELDS
@@ -260,10 +261,12 @@ class JobsApi:
     def diagnostics(self) -> dict[str, Any]:
         """Versions, settings and recent log lines, with secrets and the home folder masked."""
         context = self._context
+        components = components_view(context)
         text = diagnostics_text(
             app_version=__version__,
-            engine_version=context.engine_version(),
+            engine_version=components["engine_version"],
             settings=context.settings.load(),
             log_file=paths.log_dir() / LOG_FILE,
+            components=components,
         )
         return {"text": text}

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, get_args
 
 from scmp3.app.context import AppContext
-from scmp3.core import library, paths
+from scmp3.core import client_id, engine, library, paths
 from scmp3.core.errors import ScmpError
 from scmp3.core.models import (
     AudioFormat,
@@ -117,6 +117,9 @@ class SettingsApi:
         except ScmpError as error:
             log.warning("The settings weren't saved: %s", error)
             return {"error": error.kind.value}
+        if client_id.SETTING in patch:
+            # yt-dlp reads it from its cache, where it also keeps the one it finds itself.
+            engine.store_client_id(saved.soundcloud_client_id)
         return {"settings": saved.to_dict()}
 
     def preview_render(
@@ -246,6 +249,7 @@ VALUE_CHECKS: dict[str, Callable[[Any], Problem | None]] = {
     FILENAME_TEMPLATE: filename_template_problem,
     "custom_title_template": title_template_problem,
     "custom_artist_template": title_template_problem,
+    client_id.SETTING: client_id.client_id_problem,
 }
 
 
