@@ -15,6 +15,9 @@ from collections.abc import Callable, Iterable, Iterator, Sequence
 from pathlib import Path, PureWindowsPath
 from urllib.parse import quote
 
+# packaging/ is on sys.path when this file runs as a script.
+import bundle_licenses
+
 PACKAGING_DIR = Path(__file__).resolve().parent
 REPO_ROOT = PACKAGING_DIR.parent
 SPEC = PACKAGING_DIR / "scmp3.spec"
@@ -27,8 +30,8 @@ TARGET_OS = "windows"
 TARGET_ARCH = "x64"
 # An editable install's metadata holds the builder's checkout path and build times (T-002).
 LOCAL_ONLY_FILES = frozenset({"direct_url.json", "uv_cache.json"})
-# Files from the repo that go next to sc-mp3.exe, by the name they get there.
-RELEASE_FILES = {"LICENSE": "LICENSE.txt"}
+# Files from the repo that go next to sc-mp3.exe, by the name they get there; .txt opens in Notepad.
+RELEASE_FILES = {"LICENSE": "LICENSE.txt", "THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.txt"}
 
 # A cold PyInstaller run takes about a minute, so this only stops a build that hangs.
 STEP_TIMEOUT_SECONDS = 1800
@@ -167,12 +170,21 @@ def check_bundle(folder: Path, private_paths: Sequence[str]) -> None:
 
 
 def add_release_files(folder: Path) -> None:
-    """Put the license next to sc-mp3.exe, where someone who unzipped the app finds it."""
+    """Put the license and the notices next to sc-mp3.exe, where people who unzip the app look."""
     for source, name in RELEASE_FILES.items():
         try:
             shutil.copyfile(REPO_ROOT / source, folder / name)
         except OSError as error:
             raise BuildError(f"Couldn't copy {source} into the app folder: {error}") from error
+
+
+def add_licenses(folder: Path) -> None:
+    """Fill licenses/ next to sc-mp3.exe with the license files of everything bundled."""
+    try:
+        packages = bundle_licenses.add_licenses(folder, APP_NAME, f"{TARGET_OS}-{TARGET_ARCH}")
+    except bundle_licenses.LicenseError as error:
+        raise BuildError(str(error)) from error
+    print(f"Licenses for {', '.join(packages)}, Python and ffmpeg", flush=True)
 
 
 def check_version(run: Runner, exe: Path, version: str) -> None:
@@ -257,6 +269,7 @@ def build(run: Runner, version: str, dist_dir: Path) -> None:
     folder = dist_dir / APP_NAME
     check_bundle(folder, [str(REPO_ROOT), str(Path.home())])
     add_release_files(folder)
+    add_licenses(folder)
     check_version(run, folder / f"{APP_NAME}.exe", version)
     print(f"Writing {target.name}...", flush=True)
     write_zip(folder, target)

@@ -1,6 +1,6 @@
 [project]
 name = "sc-mp3"
-version = "0.0.1"
+version = "0.1.0"
 description = "Save SoundCloud and YouTube links as tagged MP3 files for Spotify Local Files."
 readme = "README.md"
 license = "GPL-3.0-or-later"

@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  # The FFmpeg source the bundled ffmpeg.exe is built from, attached to each release for the GPL.
+  FFMPEG_SOURCE_URL: https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz
+  # Checked against FFmpeg's release signature, key FCF986EA15E6E293A5644F10B4322F04D67658D8.
+  FFMPEG_SOURCE_SHA256: 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e
+
+jobs:
+  build:
+    name: Build for Windows
+    runs-on: windows-2025
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    outputs:
+      app: ${{ steps.version.outputs.app }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Nothing here pushes, so the token doesn't need to stay in .git/config.
+          persist-credentials: false
+
+      # setup-uv only publishes exact version tags.
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          # Match the dev machine's uv, since setup-uv would otherwise pick the newest one that fits required-version.
+          version: "0.8.22"
+
+      - run: uv sync --locked
+
+      - name: Check the tag against the app's version
+        id: version
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          # A test tag like v0.1.0-rc1 builds the app's own version, 0.1.0.
+          if ($tag -cnotmatch '^v(?<version>\d+\.\d+\.\d+)(?<suffix>-rc\d+)?$') {
+            Write-Output "::error::The tag $tag isn't vX.Y.Z or vX.Y.Z-rcN."
+            exit 1
+          }
+          $tagVersion = $Matches.version
+          $prerelease = [bool]$Matches.suffix
+          $appVersion = uv run --locked python -c "import importlib.metadata; print(importlib.metadata.version('sc-mp3'))"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          if ($tagVersion -ne $appVersion) {
+            Write-Output "::error::The tag $tag doesn't match the version in pyproject.toml, $appVersion."
+            exit 1
+          }
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "app=$appVersion"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "prerelease=$($prerelease.ToString().ToLower())"
+
+      - name: Fetch the binaries
+        run: uv run --locked python packaging/fetch_binaries.py --os windows --arch x64
+
+      - name: Build
+        run: uv run --locked python packaging/build.py
+
+      - name: Smoke-test the zipped app
+        env:
+          APP_VERSION: ${{ steps.version.outputs.app }}
+        run: |
+          $zip = "dist/sc-mp3-$env:APP_VERSION-windows-x64.zip"
+          $unzipped = Join-Path $env:RUNNER_TEMP "smoke"
+          Expand-Archive -Path $zip -DestinationPath $unzipped
+          $printed = Join-Path $env:RUNNER_TEMP "version.txt"
+          # The exe is windowed, so wait on the process for its exit code; & exe wouldn't wait.
+          $app = Start-Process -FilePath (Join-Path $unzipped "sc-mp3/sc-mp3.exe") -ArgumentList "--version" -RedirectStandardOutput $printed -Wait -PassThru
+          # An empty file reads as null, so turn it into a string before trimming.
+          $output = "$(Get-Content -Raw $printed)".Trim()
+          if ($app.ExitCode -ne 0 -or $output -ne $env:APP_VERSION) {
+            Write-Output "::error::sc-mp3.exe --version exited with $($app.ExitCode) and printed '$output'."
+            exit 1
+          }
+
+      - name: Collect the release files
+        env:
+          APP_VERSION: ${{ steps.version.outputs.app }}
+        run: |
+          $release = New-Item -ItemType Directory -Path release
+          Copy-Item "dist/sc-mp3-$env:APP_VERSION-windows-x64.zip" $release
+          # build.py writes the checksum in sha256sum's format, which is what SHA256SUMS holds.
+          Copy-Item "dist/sc-mp3-$env:APP_VERSION-windows-x64.zip.sha256" (Join-Path $release "SHA256SUMS")
+          $source = Join-Path $release ([IO.Path]::GetFileName($env:FFMPEG_SOURCE_URL))
+          Invoke-WebRequest -Uri $env:FFMPEG_SOURCE_URL -OutFile $source
+          $hash = (Get-FileHash -Algorithm SHA256 $source).Hash.ToLower()
+          if ($hash -ne $env:FFMPEG_SOURCE_SHA256) {
+            Write-Output "::error::The FFmpeg source has SHA-256 $hash, not the pinned $env:FFMPEG_SOURCE_SHA256."
+            exit 1
+          }
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release
+          path: release/
+          if-no-files-found: error
+
+  release:
+    name: Draft the release
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      # Only this job, which runs no project code, can write releases.
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: release
+
+      - name: Create a draft release
+        env:
+          APP_VERSION: ${{ needs.build.outputs.app }}
+          PRERELEASE: ${{ needs.build.outputs.prerelease }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          zip="sc-mp3-${APP_VERSION}-windows-x64.zip"
+          source="$(basename "$FFMPEG_SOURCE_URL")"
+          notes="For 64-bit Windows. Download ${zip}, extract it, and open sc-mp3.exe in the extracted folder. The first time, Windows shows \"Windows protected your PC\". Select More info, then Run anyway. The README explains setup and how to add your songs to Spotify. SHA256SUMS holds the zip's SHA-256 checksum. ${source} is the source of the FFmpeg version the app bundles."
+          options=(--draft --verify-tag --repo "$GITHUB_REPOSITORY" --title "sc-mp3 ${GITHUB_REF_NAME#v}" --notes "$notes")
+          if [ "$PRERELEASE" = "true" ]; then options+=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" "release/${zip}" release/SHA256SUMS "release/${source}" "${options[@]}"

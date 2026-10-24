@@ -199,9 +199,9 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
 
 These need a person with the phones.
 
-1. **iPhone.** Copy the saved MP3 files, not the folders they're in, into Files › On My iPhone › Spotify, with AirDrop or Finder file sharing. In Spotify on the phone, turn on Settings › Apps and devices › Local audio files.
+1. **iPhone.** In Spotify on the phone, turn on Settings and privacy › Apps and devices › Local audio files. Then copy the saved MP3 files, not the folders they're in, into Files › On My iPhone › Spotify, with file sharing in the Apple Devices app or iTunes.
    - You should see: the tracks under Local Files with the right title, artist, album and cover, and they play.
-2. **Android.** Copy the MP3 files to the phone's Music folder over USB, and turn on the same setting.
+2. **Android.** Turn on the same setting, then copy the MP3 files to the phone's Music folder over USB.
    - You should see: the same as on the iPhone.
 3. **Changes.** Edit one track's title in sc-mp3 and save it again with Replace. If Spotify on the desktop still shows the old title, try the three steps in Spotify help, "Songs not showing up".
    - You should see: the new title after one of the three steps.

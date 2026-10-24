@@ -239,6 +239,17 @@
   gap: 10px 14px;
 }
 
+/* The save row stays at the bottom of the editor's view while the fields scroll under it. */
+.track-editor > .actions,
+.track-editor > .actions-waiting {
+  position: sticky;
+  /* The row covers the editor's 32 px bottom padding, so nothing shows below it. */
+  bottom: -32px;
+  margin-bottom: -32px;
+  padding: 12px 0 32px;
+  background: var(--bg);
+}
+
 .save-button .key {
   font-family: var(--font-mono);
 }

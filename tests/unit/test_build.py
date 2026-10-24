@@ -13,13 +13,14 @@ from typing import Any
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[2] / "packaging" / "build.py"
+PACKAGING = Path(__file__).resolve().parents[2] / "packaging"
+SCRIPT = PACKAGING / "build.py"
 VERSION = "1.2.3"
 
 
-def load_script() -> ModuleType:
-    """Import the script by its path, under a name that can't hide another module."""
-    spec = importlib.util.spec_from_file_location("scmp3_packaging_build", SCRIPT)
+def load_module(name: str, path: Path) -> ModuleType:
+    """Import a file by its path, under the given name."""
+    spec = importlib.util.spec_from_file_location(name, path)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -28,13 +29,41 @@ def load_script() -> ModuleType:
     return module
 
 
-build = load_script()
+# build.py imports its sibling by name, as it does when it runs from packaging/.
+licenses = load_module("bundle_licenses", PACKAGING / "bundle_licenses.py")
+# A name that can't hide another module.
+build = load_module("scmp3_packaging_build", SCRIPT)
+TARGET = f"{build.TARGET_OS}-{build.TARGET_ARCH}"
+FFMPEG_TOP = licenses.ffmpeg_top_folder(TARGET)
+
+
+def make_ffmpeg_archive(path: Path, members: dict[str, bytes]) -> Path:
+    """A pretend ffmpeg download holding the given members."""
+    with zipfile.ZipFile(path, "w") as archive:
+        for name, data in members.items():
+            archive.writestr(name, data)
+    return path
 
 
 @pytest.fixture(autouse=True)
-def nothing_packed(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The pretend exes here hold no PyInstaller archive to read."""
+def pretend_build_inputs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    """The pretend exes hold no PyInstaller archive, and the licenses come from pretend files."""
     monkeypatch.setattr(build, "packed_entries", lambda exe: iter(()))
+    monkeypatch.setattr(licenses, "packed_modules", lambda exe: iter(()))
+    folder = tmp_path_factory.mktemp("inputs")
+    python_license = folder / "LICENSE.txt"
+    python_license.write_text("PSF License", encoding="utf-8")
+    monkeypatch.setattr(licenses, "PYTHON_LICENSE", python_license)
+    members = {
+        f"{FFMPEG_TOP}/LICENSE": b"GPL",
+        f"{FFMPEG_TOP}/README.txt": b"build notes",
+        f"{FFMPEG_TOP}/bin/ffmpeg.exe": b"MZ",
+    }
+    (folder / TARGET).mkdir()
+    make_ffmpeg_archive(folder / TARGET / "ffmpeg.zip", members)
+    monkeypatch.setattr(licenses, "BIN_DIR", folder)
 
 
 def make_app(folder: Path, files: dict[str, bytes] | None = None) -> Path:
@@ -220,11 +249,17 @@ def test_a_private_path_packed_inside_the_exe_fails_the_check(
         build.check_bundle(make_app(tmp_path), ["C:\\Users\\builder"])
 
 
-def test_the_license_goes_next_to_the_exe(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("source", "name"),
+    [("LICENSE", "LICENSE.txt"), ("THIRD_PARTY_NOTICES.md", "THIRD_PARTY_NOTICES.txt")],
+)
+def test_the_license_and_the_notices_go_next_to_the_exe(
+    tmp_path: Path, source: str, name: str
+) -> None:
     build.build(FakeRunner(tmp_path), VERSION, tmp_path)
     with zipfile.ZipFile(tmp_path / build.zip_name(VERSION)) as archive:
-        license_text = archive.read("sc-mp3/LICENSE.txt")
-    assert license_text == (build.REPO_ROOT / "LICENSE").read_bytes()
+        text = archive.read(f"sc-mp3/{name}")
+    assert text == (build.REPO_ROOT / source).read_bytes()
 
 
 def test_the_zip_unpacks_as_one_folder_named_after_the_app(tmp_path: Path) -> None:
@@ -269,3 +304,13 @@ def test_the_checksum_file_is_in_sha256sum_format(tmp_path: Path) -> None:
     expected = hashlib.sha256(b"zip bytes").hexdigest()
     assert checksum.name == "sc-mp3-1.2.3-windows-x64.zip.sha256"
     assert checksum.read_bytes() == f"{expected}  sc-mp3-1.2.3-windows-x64.zip\n".encode()
+
+
+def test_the_zip_holds_the_licenses_of_pyinstaller_python_and_ffmpeg(tmp_path: Path) -> None:
+    build.build(FakeRunner(tmp_path), VERSION, tmp_path)
+    with zipfile.ZipFile(tmp_path / build.zip_name(VERSION)) as archive:
+        names = archive.namelist()
+        assert archive.read("sc-mp3/licenses/python/LICENSE.txt") == b"PSF License"
+        assert archive.read("sc-mp3/licenses/ffmpeg/LICENSE") == b"GPL"
+        assert archive.read("sc-mp3/licenses/ffmpeg/README.txt") == b"build notes"
+    assert "sc-mp3/licenses/pyinstaller/COPYING.txt" in names

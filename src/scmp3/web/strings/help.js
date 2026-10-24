@@ -20,18 +20,20 @@ export default {
 
   phoneIntro:
     "Spotify on a phone plays MP3s stored on the phone itself. You don't need Premium or Wi-Fi sync.",
+  // Local audio files goes on first, since that order works whether or not the iPhone's Spotify
+  // folder exists yet.
   phoneSections: [
     {
+      title: "First, in Spotify on the phone",
+      text: "Go to Settings and privacy › Apps and devices and turn on Local audio files.",
+    },
+    {
       title: "iPhone",
-      text: "Copy the MP3s into Files › On My iPhone › Spotify, for example with AirDrop or from your computer with Finder or iTunes file sharing. Copy the song files themselves, not the artist folders they're in, since Spotify on iPhone works best with every file in that one folder.",
+      text: "Then copy the MP3s into Files › On My iPhone › Spotify, for example with AirDrop or from your computer with Finder or iTunes file sharing. Copy the song files themselves, not the artist folders they're in, since Spotify on iPhone works best with every file in that one folder.",
     },
     {
       title: "Android",
-      text: "Copy the MP3s into your phone's storage, for example the Music folder, over USB.",
-    },
-    {
-      title: "Then, in Spotify on the phone",
-      text: "Go to Settings › Apps and devices and turn on Local audio files.",
+      text: "Then copy the MP3s into your phone's storage, for example the Music folder, over USB.",
     },
   ],
   phoneNote: "Spotify's old sync from your computer to your phone over Wi-Fi is no longer supported.",
