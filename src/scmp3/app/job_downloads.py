@@ -95,6 +95,7 @@ class DownloadTasks(CoverTasks):
             if isinstance(outcome, ScmpError):
                 self._fail(record, "download", outcome)
             elif isinstance(outcome, pipeline.Staged):
+                self._step_worked(record)
                 record.staged = outcome
                 record.job.staged_audio = outcome.path
                 self.save_if_ready(record)

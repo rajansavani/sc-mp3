@@ -1,6 +1,7 @@
 # The title corpus for the suggestion engine (core/suggest). Every case says what it checks.
 #
 # Input: `title`, `uploader`, and optionally the publisher `artists` and `settings` changes.
+# `kind = "youtube"` makes the source a YouTube video, whose `artists` are YouTube Music's.
 # Expected:
 # - `base_title`, `main`, `featured` and `version` ("" for none) of the suggestion
 # - `on` and `off`: the ids of the changes that start on and those offered switched off, in order.
@@ -3427,3 +3428,461 @@ off = ["remove_producer:(prod. Hazy)"]
 artist_field = ["(prod. Hazy) - Midnight Drive", "Kaia, Lou V"]
 feat_in_title = ["(prod. Hazy) - Midnight Drive (feat. Lou V)", "Kaia"]
 all_in_title = ["(prod. Hazy) - Midnight Drive (Kaia, Lou V)", "Kaia"]
+
+# YouTube (T-061): official, lyric and Topic uploads, VEVO channels and video labels.
+
+[[case]]
+checks = "an official video from the artist's channel loses its label and credits its features"
+kind = "youtube"
+title = "Future - WAIT FOR U (Official Music Video) ft. Drake, Tems"
+uploader = "Future"
+base_title = "WAIT FOR U"
+main = ["Future"]
+featured = ["Drake", "Tems"]
+version = ""
+on = ["strip_redundant_artist:Future", "remove_promo:(Official Music Video)", "extract_feature:ft. Drake, Tems"]
+off = ["fix_caps:WAIT FOR U"]
+artist_field = ["WAIT FOR U", "Future, Drake, Tems"]
+feat_in_title = ["WAIT FOR U (feat. Drake, Tems)", "Future"]
+all_in_title = ["WAIT FOR U (Future, Drake, Tems)", "Future"]
+
+[[case]]
+checks = "an official audio upload from the artist's channel is cleaned the same way"
+kind = "youtube"
+title = "Future - WAIT FOR U (Official Audio) ft. Drake, Tems"
+uploader = "Future"
+base_title = "WAIT FOR U"
+main = ["Future"]
+featured = ["Drake", "Tems"]
+version = ""
+on = ["strip_redundant_artist:Future", "remove_promo:(Official Audio)", "extract_feature:ft. Drake, Tems"]
+off = ["fix_caps:WAIT FOR U"]
+artist_field = ["WAIT FOR U", "Future, Drake, Tems"]
+feat_in_title = ["WAIT FOR U (feat. Drake, Tems)", "Future"]
+all_in_title = ["WAIT FOR U (Future, Drake, Tems)", "Future"]
+
+[[case]]
+checks = "a Topic upload takes YouTube Music's artists and loses the Topic suffix"
+kind = "youtube"
+title = "WAIT FOR U"
+uploader = "Future - Topic"
+artists = ["Future", "Drake", "Tems"]
+base_title = "WAIT FOR U"
+main = ["Future", "Drake", "Tems"]
+featured = []
+version = ""
+on = []
+off = ["fix_caps:WAIT FOR U"]
+artist_field = ["WAIT FOR U", "Future, Drake, Tems"]
+feat_in_title = ["WAIT FOR U", "Future, Drake, Tems"]
+all_in_title = ["WAIT FOR U (Future, Drake, Tems)", "Future, Drake, Tems"]
+
+[[case]]
+checks = "a Topic track name with a feature moves it out of the YouTube Music artists"
+kind = "youtube"
+title = "Wait for U (feat. Drake & Tems)"
+uploader = "Future - Topic"
+artists = ["Future", "Drake", "Tems"]
+base_title = "Wait for U"
+main = ["Future"]
+featured = ["Drake", "Tems"]
+version = ""
+on = ["extract_feature:(feat. Drake & Tems)"]
+artist_field = ["Wait for U", "Future, Drake, Tems"]
+feat_in_title = ["Wait for U (feat. Drake, Tems)", "Future"]
+all_in_title = ["Wait for U (Future, Drake, Tems)", "Future"]
+
+[[case]]
+checks = "a Topic track name keeps a dash ending like Remastered 2011 as the version"
+kind = "youtube"
+title = "Bohemian Rhapsody - Remastered 2011"
+uploader = "Queen - Topic"
+artists = ["Queen"]
+base_title = "Bohemian Rhapsody"
+main = ["Queen"]
+featured = []
+version = " - Remastered 2011"
+on = []
+artist_field = ["Bohemian Rhapsody - Remastered 2011", "Queen"]
+feat_in_title = ["Bohemian Rhapsody - Remastered 2011", "Queen"]
+all_in_title = ["Bohemian Rhapsody (Queen) - Remastered 2011", "Queen"]
+
+[[case]]
+checks = "a Topic channel with no YouTube Music fields still names the artist"
+kind = "youtube"
+title = "Midnight Drive"
+uploader = "Kaia - Topic"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a VEVO channel is the artist, spelled with the title's spaces"
+kind = "youtube"
+title = "Taylor Swift - Shake It Off"
+uploader = "TaylorSwiftVEVO"
+base_title = "Shake It Off"
+main = ["Taylor Swift"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Taylor Swift"]
+artist_field = ["Shake It Off", "Taylor Swift"]
+feat_in_title = ["Shake It Off", "Taylor Swift"]
+all_in_title = ["Shake It Off (Taylor Swift)", "Taylor Swift"]
+
+[[case]]
+checks = "an official music video from a VEVO channel loses its label"
+kind = "youtube"
+title = "Adele - Hello (Official Music Video)"
+uploader = "AdeleVEVO"
+base_title = "Hello"
+main = ["Adele"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Adele", "remove_promo:(Official Music Video)"]
+artist_field = ["Hello", "Adele"]
+feat_in_title = ["Hello", "Adele"]
+all_in_title = ["Hello (Adele)", "Adele"]
+
+[[case]]
+checks = "a VEVO channel's (Music Video) bracket is removed"
+kind = "youtube"
+title = "Kaia - Midnight Drive (Music Video)"
+uploader = "KaiaVEVO"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia", "remove_promo:(Music Video)"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a lyric video from a known channel takes the artist from the title"
+kind = "youtube"
+title = "Juice WRLD - Lucid Dreams (Official Lyric Video)"
+uploader = "Lyrical Lemonade"
+base_title = "Lucid Dreams"
+main = ["Juice WRLD"]
+featured = []
+version = ""
+on = ["artist_from_title:Juice WRLD", "remove_promo:(Official Lyric Video)"]
+artist_field = ["Lucid Dreams", "Juice WRLD"]
+feat_in_title = ["Lucid Dreams", "Juice WRLD"]
+all_in_title = ["Lucid Dreams (Juice WRLD)", "Juice WRLD"]
+
+[[case]]
+checks = "a lyrics channel on YouTube counts as a channel, so the title names the artist"
+kind = "youtube"
+title = "The Weeknd - Blinding Lights (Lyrics)"
+uploader = "7clouds"
+base_title = "Blinding Lights"
+main = ["The Weeknd"]
+featured = []
+version = ""
+on = ["artist_from_title:The Weeknd", "remove_promo:(Lyrics)"]
+artist_field = ["Blinding Lights", "The Weeknd"]
+feat_in_title = ["Blinding Lights", "The Weeknd"]
+all_in_title = ["Blinding Lights (The Weeknd)", "The Weeknd"]
+
+[[case]]
+checks = "a bare (Lyric) bracket from a lyrics channel is removed"
+kind = "youtube"
+title = "Kaia - Midnight Drive (Lyric)"
+uploader = "Some Lyrics Channel"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia", "remove_promo:(Lyric)"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "Artist - Title (Official Audio) from the artist's own channel"
+kind = "youtube"
+title = "Dua Lipa - Levitating (Official Audio)"
+uploader = "Dua Lipa"
+base_title = "Levitating"
+main = ["Dua Lipa"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Dua Lipa", "remove_promo:(Official Audio)"]
+artist_field = ["Levitating", "Dua Lipa"]
+feat_in_title = ["Levitating", "Dua Lipa"]
+all_in_title = ["Levitating (Dua Lipa)", "Dua Lipa"]
+
+[[case]]
+checks = "a visualizer label is removed"
+kind = "youtube"
+title = "Kaia - Midnight Drive (Visualizer)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia", "remove_promo:(Visualizer)"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "the British spelling of visualiser is removed too"
+kind = "youtube"
+title = "Kaia - Midnight Drive (Official Visualiser)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia", "remove_promo:(Official Visualiser)"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "an [HD] tag is removed"
+kind = "youtube"
+title = "Kaia - Midnight Drive [HD]"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia", "remove_promo:[HD]"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a bare (Audio) bracket is removed"
+kind = "youtube"
+title = "Kaia - Midnight Drive (Audio)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia", "remove_promo:(Audio)"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a bare (Official) bracket is removed"
+kind = "youtube"
+title = "Kaia - Midnight Drive (Official)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia", "remove_promo:(Official)"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a Spanish video label is removed"
+kind = "youtube"
+title = "Kaia - Noche (Video Oficial)"
+uploader = "Kaia"
+base_title = "Noche"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia", "remove_promo:(Video Oficial)"]
+artist_field = ["Noche", "Kaia"]
+feat_in_title = ["Noche", "Kaia"]
+all_in_title = ["Noche (Kaia)", "Kaia"]
+
+[[case]]
+checks = "an official video label after a pipe is removed"
+kind = "youtube"
+title = "Kaia - Midnight Drive | Official Video"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia", "remove_promo:| Official Video"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "an official video with no artist in the title is credited to its channel"
+kind = "youtube"
+title = "Midnight Drive (Official Video)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:(Official Video)"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "the channel's own name after the last dash is dropped from the title"
+kind = "youtube"
+title = "Midnight Drive - Kaia"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "two artists in the title of an official video with a 4K tag"
+kind = "youtube"
+title = "Kaia x Lou V - Midnight Drive (Official Music Video) [4K]"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia", "Lou V"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia x Lou V", "remove_promo:(Official Music Video)", "remove_promo:[4K]"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive", "Kaia, Lou V"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia, Lou V"]
+
+[[case]]
+checks = "a remix in brackets stays the version when an official audio label goes"
+kind = "youtube"
+title = "Midnight Drive (Kaia Remix) (Official Audio)"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (Kaia Remix)"
+on = ["remove_promo:(Official Audio)"]
+artist_field = ["Midnight Drive (Kaia Remix)", "Kaia"]
+feat_in_title = ["Midnight Drive (Kaia Remix)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (Kaia Remix)", "Kaia"]
+
+[[case]]
+checks = "without a video label, an unknown channel's dash split is only offered, as on SoundCloud"
+kind = "youtube"
+title = "Kaia - Midnight Drive - Live"
+uploader = "88rising"
+base_title = "Kaia - Midnight Drive"
+main = ["88rising"]
+featured = []
+version = " - Live"
+on = []
+off = ["artist_from_title:Kaia"]
+artist_field = ["Kaia - Midnight Drive - Live", "88rising"]
+feat_in_title = ["Kaia - Midnight Drive - Live", "88rising"]
+all_in_title = ["Kaia - Midnight Drive (88rising) - Live", "88rising"]
+
+[[case]]
+checks = "a COLORS show credits the artist before the dash and drops the show's name"
+kind = "youtube"
+title = "Ryan Beatty - Delancey | A COLORS SHOW"
+uploader = "COLORS"
+base_title = "Delancey"
+main = ["Ryan Beatty"]
+featured = []
+version = ""
+on = ["artist_from_title:Ryan Beatty", "remove_promo:| A COLORS SHOW"]
+artist_field = ["Delancey", "Ryan Beatty"]
+feat_in_title = ["Delancey", "Ryan Beatty"]
+all_in_title = ["Delancey (Ryan Beatty)", "Ryan Beatty"]
+
+[[case]]
+checks = "a Boiler Room set on YouTube credits the artist before the pipe, as on SoundCloud"
+kind = "youtube"
+title = "Okoye | Boiler Room London"
+uploader = "Boiler Room"
+base_title = "Boiler Room London"
+main = ["Okoye"]
+featured = []
+version = ""
+on = ["artist_from_title:Okoye"]
+artist_field = ["Boiler Room London", "Okoye"]
+feat_in_title = ["Boiler Room London", "Okoye"]
+all_in_title = ["Boiler Room London (Okoye)", "Okoye"]
+
+[[case]]
+checks = "an artist's own channel keeps its name as the artist with a pipe segment after the song"
+kind = "youtube"
+title = "Midnight Drive | Live at Red Rocks"
+uploader = "Kaia"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:| Live at Red Rocks"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a KEXP session credits the artist before the dash and keeps the live version"
+kind = "youtube"
+title = "Numeron - My Eternity (Live on KEXP)"
+uploader = "KEXP"
+base_title = "My Eternity"
+main = ["Numeron"]
+featured = []
+version = " (Live on KEXP)"
+on = ["artist_from_title:Numeron"]
+artist_field = ["My Eternity (Live on KEXP)", "Numeron"]
+feat_in_title = ["My Eternity (Live on KEXP)", "Numeron"]
+all_in_title = ["My Eternity (Numeron) (Live on KEXP)", "Numeron"]
+
+[[case]]
+checks = "an artist's channel naming itself after the dash keeps the live version"
+kind = "youtube"
+title = "Numb [Live in São Paulo] (Official Visualizer) - Linkin Park"
+uploader = "Linkin Park"
+base_title = "Numb [Live in São Paulo]"
+main = ["Linkin Park"]
+featured = []
+version = ""
+on = ["remove_promo:(Official Visualizer)", "strip_redundant_artist:Linkin Park"]
+artist_field = ["Numb [Live in São Paulo]", "Linkin Park"]
+feat_in_title = ["Numb [Live in São Paulo]", "Linkin Park"]
+all_in_title = ["Numb [Live in São Paulo] (Linkin Park)", "Linkin Park"]
+
+[[case]]
+checks = "a soundtrack title without a video label stays whole, with its split offered"
+kind = "youtube"
+title = "Interstellar - Main Theme"
+uploader = "Hans Zimmer"
+base_title = "Interstellar - Main Theme"
+main = ["Hans Zimmer"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Interstellar"]
+artist_field = ["Interstellar - Main Theme", "Hans Zimmer"]
+feat_in_title = ["Interstellar - Main Theme", "Hans Zimmer"]
+all_in_title = ["Interstellar - Main Theme (Hans Zimmer)", "Hans Zimmer"]
+
+[[case]]
+checks = "a VEVO channel without spaces takes the title's spelling of the artist"
+kind = "youtube"
+title = "Shakira - Waka Waka (This Time for Africa)"
+uploader = "shakiraVEVO"
+base_title = "Waka Waka (This Time for Africa)"
+main = ["Shakira"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Shakira"]
+artist_field = ["Waka Waka (This Time for Africa)", "Shakira"]
+feat_in_title = ["Waka Waka (This Time for Africa)", "Shakira"]
+all_in_title = ["Waka Waka (This Time for Africa) (Shakira)", "Shakira"]

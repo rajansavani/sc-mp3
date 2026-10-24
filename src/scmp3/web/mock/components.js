@@ -1,15 +1,14 @@
 // The update and component calls, with made-up versions, shaped like app/components_view.py.
+// YouTube support is in youtube.js.
 //
 // ?mock&engine=updated starts on a downloaded engine, ?mock&engine=failed with an update that
 // didn't load at start-up, and ?mock&app_update with a newer sc-mp3 out.
+import { cancelYouTubeSupport, installYouTubeSupport, youtubeSupport } from "./youtube.js";
 
 const BUILT_IN = "2026.8.19";
 const NEWER_ENGINE = "2026.10.10.233141";
 const NEWER_APP = "0.2.0";
 const RELEASE_PAGE = `https://github.com/rajansavani/sc-mp3/releases/tag/v${NEWER_APP}`;
-// Steps of the made-up YouTube support download, and the time between them.
-const INSTALL_STEPS = [0, 25, 50, 75, 100];
-const INSTALL_STEP_MS = 400;
 // How long Check now and Update now take.
 const TASK_MS = 700;
 
@@ -46,7 +45,7 @@ let components = {
   engine,
   app_update: startingAppUpdate(),
   updates: { running: null, pct: null, last: null },
-  youtube_support: { state: "missing", version: null, pct: null, error: null },
+  youtube_support: youtubeSupport(),
 };
 // Whether the newer engine was downloaded, so the next start would use it unless reverted.
 let downloaded = engine.source === "updated";
@@ -114,15 +113,17 @@ export function open_logs() {
   return {};
 }
 
+// Sends YouTube support's state as youtube.js has it now.
+function emitYouTubeSupport() {
+  change({ youtube_support: youtubeSupport() });
+}
+
 export function install_youtube_support() {
-  INSTALL_STEPS.forEach((pct, step) => {
-    setTimeout(() => {
-      const done = pct === 100;
-      const youtube = done
-        ? { state: "installed", version: "2.9.7", pct: null, error: null }
-        : { state: "installing", version: null, pct, error: null };
-      change({ youtube_support: youtube });
-    }, step * INSTALL_STEP_MS);
-  });
+  installYouTubeSupport(emitYouTubeSupport);
+  return {};
+}
+
+export function cancel_youtube_support() {
+  cancelYouTubeSupport(emitYouTubeSupport);
   return {};
 }

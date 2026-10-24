@@ -24,6 +24,13 @@ _WEB_SCHEMES = frozenset({"http", "https"})
 SOUNDCLOUD_UPSCALED = frozenset({"t1080x1080", "t3000x3000"})
 SOUNDCLOUD_IMAGE_HOST = "sndcdn.com"
 
+YOUTUBE_IMAGE_HOST = "ytimg.com"
+# YouTube's thumbnails, largest first: two names for 1280 x 720, which some videos lack, then
+# 640 x 480 and 480 x 360. None is square, so the cover is cropped from the middle.
+YOUTUBE_SIZES = ("maxresdefault", "hq720", "sddefault", "hqdefault")
+# The path of a YouTube thumbnail, as in /vi/dQw4w9WgXcQ/hq720.jpg or /vi_webp/…/hq720.webp.
+_YOUTUBE_THUMBNAIL = re.compile(r"/vi(?:_webp)?/(?P<id>[\w-]{11})/(?P<size>\w+)\.(?:jpg|webp)$")
+
 # The size at the end of a SoundCloud image URL, as in artworks-…-t500x500.jpg.
 _SOUNDCLOUD_SIZE = re.compile(r"-(?P<size>[0-9a-z]+)\.(?P<ext>jpg|png)(?=$|\?)")
 
@@ -104,6 +111,28 @@ def pick_largest(
     if not usable:
         return None
     return max(usable, key=_thumbnail_rank)["url"]
+
+
+def cover_candidates(source: SourceInfo | PlaylistInfo) -> list[str]:
+    """The cover URLs to try in order for a track or a set, by where its artwork is."""
+    url = source.artwork_url
+    if url and _is_on_host(url, YOUTUBE_IMAGE_HOST):
+        return youtube_candidates(url)
+    return soundcloud_candidates(source)
+
+
+def youtube_thumbnail(video_id: str, size: str = YOUTUBE_SIZES[0]) -> str:
+    """The URL of one size of a YouTube video's thumbnail, as a JPEG."""
+    return f"https://i.ytimg.com/vi/{video_id}/{size}.jpg"
+
+
+def youtube_candidates(url: str) -> list[str]:
+    """This thumbnail and each smaller size after it, since the largest isn't always there."""
+    match = _YOUTUBE_THUMBNAIL.search(urlsplit(url).path)
+    if match is None or match["size"] not in YOUTUBE_SIZES:
+        return [url]
+    start = YOUTUBE_SIZES.index(match["size"])
+    return [youtube_thumbnail(match["id"], size) for size in YOUTUBE_SIZES[start:]]
 
 
 def soundcloud_candidates(source: SourceInfo | PlaylistInfo) -> list[str]:
@@ -199,8 +228,13 @@ def _rank_value(value: object) -> float:
 
 def _is_soundcloud_image(url: str) -> bool:
     """Whether the URL is on SoundCloud's image servers, such as i1.sndcdn.com."""
+    return _is_on_host(url, SOUNDCLOUD_IMAGE_HOST)
+
+
+def _is_on_host(url: str, domain: str) -> bool:
+    """Whether the URL's host is `domain` or one under it, such as i.ytimg.com under ytimg.com."""
     host = urlsplit(url).hostname or ""
-    return host == SOUNDCLOUD_IMAGE_HOST or host.endswith(f".{SOUNDCLOUD_IMAGE_HOST}")
+    return host == domain or host.endswith(f".{domain}")
 
 
 def _with_size(url: str, match: re.Match[str], size: str, ext: str) -> str:

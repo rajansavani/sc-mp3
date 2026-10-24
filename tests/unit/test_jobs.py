@@ -97,7 +97,6 @@ def test_the_file_name_follows_the_audio_format_setting(tmp_path: Path) -> None:
     ("text", "reason"),
     [
         ("https://soundcloud.com/kaia/sets/night-drives", "SETS_NOT_SUPPORTED"),
-        ("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "YOUTUBE_NOT_SUPPORTED"),
         ("https://www.youtube.com/playlist?list=PL123", "YOUTUBE_PLAYLIST"),
         ("https://soundcloud.com/kaia", "SOUNDCLOUD_NOT_TRACK"),
         ("https://example.com/song", "NOT_SUPPORTED"),

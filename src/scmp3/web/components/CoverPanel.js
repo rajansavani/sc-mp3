@@ -6,7 +6,7 @@ import { strings } from "../strings/index.js";
 import { applyImageFile, ReplaceCoverDialog, setCover } from "./CoverDialogs.js";
 import { CropDialog } from "./CropDialog.js";
 import { Icon } from "./icons.js";
-import { coverSide, cropStyle, jobTitle, sourceKind } from "./job-view.js";
+import { coverCrop, coverSide, cropStyle, jobTitle, sourceKind } from "./job-view.js";
 
 const text = strings.main;
 
@@ -97,7 +97,7 @@ function useCoverImage(url) {
 
 function Preview({ job, image, editable }) {
   const drop = useImageDrop(job, editable);
-  const crop = job.artwork?.crop ?? null;
+  const crop = coverCrop(job);
   const showImage = job.cover_url && !image.failed;
   return html`
     <div

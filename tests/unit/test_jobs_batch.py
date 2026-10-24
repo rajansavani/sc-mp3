@@ -19,6 +19,7 @@ import pytest
 from scmp3.app import job_record
 from scmp3.app.events import EventBus
 from scmp3.app.job_downloads import DOWNLOAD_SPACING
+from scmp3.app.job_flow import RESOLVE_SPACING
 from scmp3.app.jobs import JobManager
 from scmp3.core import paths
 
@@ -69,6 +70,23 @@ def test_the_download_pool_paces_each_download_by_its_source(jobs: Harness) -> N
     jobs.add_and_resolve(TRACK)
     jobs.add_and_resolve(OTHER)
     assert pool.paces == ["soundcloud", "youtube"]
+
+
+def test_youtube_links_resolve_one_at_a_time_2_seconds_apart(jobs: Harness) -> None:
+    pool = jobs.pools["resolve"]
+    assert (pool.spacing, pool.serial) == (RESOLVE_SPACING, {"youtube"})
+    assert RESOLVE_SPACING == {"youtube": 2.0}
+    jobs.add(TRACK)
+    jobs.add("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    assert pool.paces == ["soundcloud", "youtube"]
+
+
+def test_a_removed_jobs_resolve_gives_up_its_paced_turn(jobs: Harness) -> None:
+    job_id = jobs.add("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    (wanted,) = jobs.pools["resolve"].wanted
+    assert wanted() is True
+    jobs.manager.remove(job_id)
+    assert wanted() is False
 
 
 def test_a_removed_jobs_download_gives_up_its_paced_turn(jobs: Harness) -> None:

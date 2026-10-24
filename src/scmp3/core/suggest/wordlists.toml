@@ -18,14 +18,22 @@ phrases = [
     "lyric video",
     "lyrics",
     "visualizer",
+    "visualiser",
+    "official mv",
     "hq",
     "hd",
     "4k",
+    # The labels Spanish and French YouTube videos carry.
+    "video oficial",
+    "audio oficial",
+    "videoclip oficial",
+    "clip officiel",
 ]
 # These take the rest of the segment with them, as in "OUT NOW ON Monstercat".
 with_tail = ["out now on", "supported by", "click buy"]
-# Removed only when they fill a whole bracket, since "Free" is also an ordinary word.
-bracket_only = ["free", "mv", "m/v"]
+# Removed only when they fill a whole bracket, since "Free" is also an ordinary word. The others
+# are YouTube's: "(Audio)", "(Official)", "(Lyric)" and "(Music Video)".
+bracket_only = ["free", "mv", "m/v", "audio", "video", "official", "lyric", "music video"]
 # A bracket that ends with one of these is promo, as in "[Monstercat Release]".
 bracket_endings = ["release"]
 
@@ -169,12 +177,30 @@ channels = [
     "the sound you need",
     "thissongissick",
     "dubstep.net",
+    "kexp",
 ]
 # One-word channels whose names are ordinary words, so artists share them. These match only
 # when written exactly like this, case and punctuation included.
 channels_exact = ["Selected.", "Proximity", "COLORS", "Cercle"]
 # An uploader named like a website, ending in one of these, is a channel: "Thissongissick.com".
 domains = [".com", ".net", ".org", ".co", ".fm", ".io", ".tv"]
+
+[youtube]
+# Words in a removed video label that mark another artist's song, as in "Kaia - Song (Lyrics)"
+# from a lyrics channel. On YouTube, such a title credits its "Artist - " part.
+video_labels = [
+    "official",
+    "lyrics",
+    "lyric",
+    "letra",
+    "testo",
+    "video",
+    "audio",
+    "visualizer",
+    "visualiser",
+    "mv",
+    "m/v",
+]
 
 [artists]
 # Words that join artists into one credit. The names around them stay whole, as in "Kaia vs. Lou V".

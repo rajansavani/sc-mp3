@@ -11,6 +11,7 @@ import { Icon } from "./icons.js";
 import { dialogIsOpen, isEditable, useInputDrop } from "./inputs.js";
 import { focusEditor, focusSelectedItem } from "./job-actions.js";
 import {
+  coverCrop,
   cropStyle,
   downloadPct,
   errorKind,
@@ -55,7 +56,7 @@ function Thumbnail({ job }) {
   if (!job.cover_url || failedUrl === job.cover_url) {
     return html`<span class="queue-thumb is-empty"><${Icon} name="music" size=${18} /></span>`;
   }
-  const crop = job.artwork?.crop ?? null;
+  const crop = coverCrop(job);
   return html`
     <span class="queue-thumb">
       <img

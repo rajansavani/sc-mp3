@@ -37,6 +37,7 @@ class Wordlists:
     domains: str  # top-level domains, dot included
     together: str
     caps_keep: frozenset[str]  # uppercase
+    video_labels: str  # YouTube's, marking another artist's song
 
 
 @functools.cache
@@ -68,6 +69,7 @@ def load_wordlists() -> Wordlists:
         domains=alternation(data["labels"]["domains"]),
         together=alternation(data["artists"]["together"]),
         caps_keep=frozenset(word.upper() for word in data["caps"]["keep"]),
+        video_labels=alternation(data["youtube"]["video_labels"]),
     )
 
 

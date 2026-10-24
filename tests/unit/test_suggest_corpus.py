@@ -35,12 +35,21 @@ def case_id(case: dict[str, Any]) -> str:
     return case["checks"]
 
 
+# The id and link each kind of source gets, since only the title and names matter here.
+SOURCE_IDS = {
+    "soundcloud": ("soundcloud:tracks:1", "https://soundcloud.com/kaia/midnight-drive"),
+    "youtube": ("youtube:q3StatBloom", "https://www.youtube.com/watch?v=q3StatBloom"),
+}
+
+
 def source_for(case: dict[str, Any]) -> SourceInfo:
-    """The source a case describes."""
+    """The source a case describes: SoundCloud unless its `kind` says otherwise."""
+    kind = case.get("kind", "soundcloud")
+    source_id, url = SOURCE_IDS[kind]
     return SourceInfo(
-        kind="soundcloud",
-        id="soundcloud:tracks:1",
-        url="https://soundcloud.com/kaia/midnight-drive",
+        kind=kind,
+        id=source_id,
+        url=url,
         title=case["title"],
         uploader=case["uploader"],
         artists=case.get("artists", []),
@@ -71,6 +80,17 @@ def test_corpus_has_at_least_60_cases_including_the_required_ones() -> None:
     present = {(case["title"], case["uploader"]) for case in CASES}
     assert len(CASES) >= 60
     assert [required for required in REQUIRED if required not in present] == []
+
+
+def test_corpus_has_at_least_15_youtube_cases_of_each_kind_t061_asks_for() -> None:
+    youtube = [case for case in CASES if case.get("kind") == "youtube"]
+    titles = [case["title"] for case in youtube]
+    assert len(youtube) >= 15
+    assert any("(Official Music Video)" in title for title in titles)
+    assert any("Lyric" in title for title in titles)
+    assert any(case["uploader"].endswith(" - Topic") for case in youtube)
+    assert any(case["uploader"].endswith("VEVO") for case in youtube)
+    assert any(" - " in title and title.endswith("(Official Audio)") for title in titles)
 
 
 def test_every_corpus_case_says_what_it_checks() -> None:

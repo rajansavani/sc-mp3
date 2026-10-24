@@ -1,5 +1,5 @@
 // The editor with nothing in the queue: how to start, and a zone that takes dropped links.
-// v0.1 saves SoundCloud tracks only; T-051 and T-062 add sets and re-tagging back here.
+// It names SoundCloud tracks and YouTube links; T-051 and T-062 add sets and re-tagging back here.
 import { html } from "htm/preact";
 
 import { openDialog } from "../store.js";

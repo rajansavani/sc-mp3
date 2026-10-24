@@ -27,6 +27,8 @@ T020_TOKENS = [
 ]
 
 STRINGS = WEB_DIR / "strings" / "main.js"
+# The job error texts, which main.js takes in.
+ERROR_STRINGS = WEB_DIR / "strings" / "errors.js"
 JOB_VIEW = WEB_DIR / "components" / "job-view.js"
 BANNERS = WEB_DIR / "components" / "EditorBanners.js"
 MOCK_FIELD_CHECKS = WEB_DIR / "mock" / "field-checks.js"
@@ -49,8 +51,20 @@ def keys_in_block(text: str, name: str) -> set[str]:
     return set(re.findall(rf"^{indent}  (\w+):", block, re.MULTILINE))
 
 
+def keys_in_every_block(text: str, name: str) -> set[str]:
+    """The keys of every `name: {` block in the text, put together."""
+    keys: set[str] = set()
+    for start in re.finditer(rf"^ *{re.escape(name)}: \{{", text, re.MULTILINE):
+        keys |= keys_in_block(text[start.start() :], name)
+    return keys
+
+
 def strings_text() -> str:
     return STRINGS.read_text(encoding="utf-8")
+
+
+def error_strings_text() -> str:
+    return ERROR_STRINGS.read_text(encoding="utf-8")
 
 
 def error_kinds() -> set[str]:
@@ -58,18 +72,19 @@ def error_kinds() -> set[str]:
 
 
 def test_every_error_kind_has_its_status_and_headline() -> None:
-    text = strings_text()
+    text = error_strings_text()
     assert keys_in_block(text, "errors") >= error_kinds()
     for kind in error_kinds():
         assert {"status", "headline"} <= keys_in_block(text, kind), kind
 
 
 def test_every_error_reason_and_the_data_folder_have_their_own_words() -> None:
-    # The variants under the disk error, by the names job-view.js's errorVariant() gives.
-    variants = keys_in_block(strings_text(), "variants")
+    # The variants under the error kinds, by the names job-view.js's errorVariant() gives: the
+    # disk error's, and the YouTube reasons a video is unavailable.
+    variants = keys_in_every_block(error_strings_text(), "variants")
     assert variants == {*get_args(ErrorReason), "data"}
     for variant in variants:
-        assert "headline" in keys_in_block(strings_text(), variant), variant
+        assert "headline" in keys_in_block(error_strings_text(), variant), variant
 
 
 def test_every_error_kind_has_a_banner_with_a_tone() -> None:
@@ -84,7 +99,7 @@ def test_every_banner_action_has_a_label_and_a_handler() -> None:
     lists = re.findall(r"actions: \[([^\]]*)\]", JOB_VIEW.read_text(encoding="utf-8"))
     actions = set(re.findall(r'"(\w+)"', " ".join(lists)))
     assert actions
-    assert actions <= keys_in_block(strings_text(), "errorActions")
+    assert actions <= keys_in_block(error_strings_text(), "errorActions")
     assert actions <= keys_in_block(BANNERS.read_text(encoding="utf-8"), "ACTIONS")
 
 

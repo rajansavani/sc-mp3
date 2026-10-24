@@ -6,6 +6,7 @@ import { api } from "../../api.js";
 import { addToast, reportError } from "../../store.js";
 import { strings } from "../../strings/index.js";
 import { copyDiagnostics } from "../diagnostics.js";
+import { youtubeProgressText } from "../YouTubeSupport.js";
 import { errorText } from "../update-notices.js";
 import { engineVersionLabel } from "../versions.js";
 import { SelectSetting, Switches, TextSetting, bind } from "./fields.js";
@@ -121,7 +122,7 @@ function youtubeDetail(youtube) {
     case "installed":
       return text.youtubeInstalled(youtube.version);
     case "installing":
-      return text.youtubeInstalling(youtube.pct);
+      return youtubeProgressText(youtube);
     case "failed":
       return `${text.youtubeFailed} ${errorText(youtube.error)}`;
     default:
@@ -130,11 +131,14 @@ function youtubeDetail(youtube) {
 }
 
 function YoutubeCard({ youtube }) {
-  const canInstall = !["installed", "installing"].includes(youtube?.state);
+  const installing = youtube?.state === "installing";
+  const canInstall = !installing && youtube?.state !== "installed";
   const install = async () => reportError(await api.install_youtube_support());
+  const cancel = async () => reportError(await api.cancel_youtube_support());
   return html`
     <${Card} title=${text.youtube} detail=${youtubeDetail(youtube)}>
       ${canInstall && html`<${Action} label=${text.installNow} onClick=${install} />`}
+      ${installing && html`<${Action} label=${strings.youtube.cancel} onClick=${cancel} />`}
     <//>
   `;
 }

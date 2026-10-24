@@ -12,11 +12,19 @@ from scmp3.core import convert, download
 from scmp3.core.conversion_choice import choose_conversion, original_holds_up
 from scmp3.core.errors import Cancelled
 from scmp3.core.models import FormatOption
-from scmp3.core.pipeline.common import Prepared, Staged, expected_duration, only_scmp_errors
-from scmp3.core.sources.soundcloud_formats import choose_format
+from scmp3.core.pipeline.common import (
+    Prepared,
+    Staged,
+    YdlMaker,
+    expected_duration,
+    only_scmp_errors,
+)
+from scmp3.core.pipeline.sources import choose_format, ydl_maker
 
 # Downloads are named source.*, which download() clears first, so converted files get this name.
 STAGED_STEM = "audio"
+# mutagen can't read these containers, so their codec is taken from the format the source listed.
+UNPROBED_SUFFIXES = frozenset({".webm"})
 
 
 def fetch(
@@ -32,7 +40,7 @@ def fetch(
     `on_progress` runs inside yt-dlp, so whatever it raises comes out as ScmpError(internal).
     """
     with only_scmp_errors(where="data"):
-        choice = choose_format(prepared.source, signed_in=bool(prepared.token))
+        choice = choose_format(prepared.source, prepared.settings, signed_in=bool(prepared.token))
         staging = download.new_staging(prepared.job_id)
         downloaded = choice.format
         path = _download(prepared, downloaded, staging, on_progress, cancel)
@@ -40,7 +48,7 @@ def fetch(
         if choice.needs_bitrate_check and fallback and not original_holds_up(path, fallback):
             downloaded = fallback
             path = _download(prepared, downloaded, staging, on_progress, cancel)
-        conversion = choose_conversion(prepared.settings.audio_format, convert.probe(path).codec)
+        conversion = choose_conversion(prepared.settings.audio_format, _codec(path, downloaded))
         staged_path = staging / f"{STAGED_STEM}.{conversion.fmt}"
         conversion.run(path, staged_path, cancel=cancel)
         if cancel is not None and cancel.is_set():
@@ -58,20 +66,33 @@ def _download(
     cancel: threading.Event | None,
 ) -> Path:
     """Download one format of the track and return the file's path."""
+    make_ydl = _ydl_maker(prepared)
     return download.download(
         prepared.info,
         fmt.format_id,
         staging,
-        ydl_factory=functools.partial(prepared.tools.make_ydl, prepared.token),
+        ydl_factory=functools.partial(make_ydl, prepared.token),
         on_progress=on_progress,
         cancel=cancel,
-        reextract=functools.partial(_extract_again, prepared),
+        reextract=functools.partial(_extract_again, prepared, make_ydl),
     )
 
 
-def _extract_again(prepared: Prepared) -> dict[str, Any]:
+def _ydl_maker(prepared: Prepared) -> YdlMaker:
+    """The track's source's YoutubeDL maker. YouTube's raises when Deno has gone since resolving."""
+    return ydl_maker(prepared.tools, prepared.source.kind)
+
+
+def _codec(path: Path, downloaded: FormatOption) -> str | None:
+    """The downloaded file's codec, read from the file unless mutagen can't read its container."""
+    if path.suffix.lower() in UNPROBED_SUFFIXES and downloaded.codec:
+        return downloaded.codec
+    return convert.probe(path).codec
+
+
+def _extract_again(prepared: Prepared, make_ydl: YdlMaker) -> dict[str, Any]:
     """yt-dlp's info for the track, extracted again because its stream links may have expired."""
-    with prepared.tools.make_ydl(prepared.token) as ydl:
+    with make_ydl(prepared.token) as ydl:
         info = ydl.extract_info(prepared.source.url, download=False)
     # Kept, so a second download or a retry starts from the fresh links too.
     prepared.info = info

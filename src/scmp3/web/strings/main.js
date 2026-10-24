@@ -1,4 +1,5 @@
 // Text for the main window: the top bar, the queue, the track editor and the cover.
+import jobErrors from "./errors.js";
 
 // A count as people read it, such as 2,000.
 const number = (count) => count.toLocaleString("en-US");
@@ -10,7 +11,7 @@ export default {
 
   // The top bar and the clipboard offer under it.
   pasteLabel: "Add links",
-  pastePlaceholder: "Paste SoundCloud track links",
+  pastePlaceholder: "Paste SoundCloud track or YouTube links",
   add: "Add",
   signIn: "Sign in to SoundCloud",
   settings: "Settings",
@@ -25,15 +26,15 @@ export default {
   alreadyQueuedMany: (count) => `${number(count)} of these are already in the queue.`,
 
   // Why an added item was rejected, by the reason code add_inputs returns. The codes are the
-  // constant names in core/urls.py and core/inputs.py. Worded for v0.1, which saves SoundCloud
-  // tracks only; T-051, T-061 and T-062 widen them.
+  // constant names in core/urls.py and core/inputs.py. Worded for SoundCloud tracks and YouTube
+  // videos; T-051 and T-062 widen them to sets and files.
   rejectReasons: {
-    NOT_SUPPORTED: "Not a link sc-mp3 can save. Paste a SoundCloud track link.",
+    NOT_SUPPORTED: "Not a link sc-mp3 can save. Paste a SoundCloud track or YouTube video link.",
     SOUNDCLOUD_NOT_TRACK: "This SoundCloud link isn't a track. Open the track and copy its link.",
     SHORT_LINK_DEAD_END:
       "This SoundCloud short link doesn't lead to a track. Open it in a browser and copy the track's link.",
-    YOUTUBE_PLAYLIST: "YouTube links can't be saved yet. Paste a SoundCloud track link instead.",
-    YOUTUBE_NOT_VIDEO: "YouTube links can't be saved yet. Paste a SoundCloud track link instead.",
+    YOUTUBE_PLAYLIST: "YouTube playlists can't be saved yet. Paste the link of one video instead.",
+    YOUTUBE_NOT_VIDEO: "This YouTube link isn't a video. Open the video and copy its link.",
     FILE_NOT_FOUND: "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead.",
     FOLDER_NOT_FILE: "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead.",
     NOT_RETAGGABLE: "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead.",
@@ -41,7 +42,6 @@ export default {
       "Only the first 2,000 links, up to 1,000,000 characters, were read. Add the rest in another paste.",
     ALREADY_IN_QUEUE: "Already in the queue.",
     SETS_NOT_SUPPORTED: "SoundCloud sets and albums can't be saved yet. Paste each track's own link instead.",
-    YOUTUBE_NOT_SUPPORTED: "YouTube links can't be saved yet. Paste a SoundCloud track link instead.",
     FILES_NOT_SUPPORTED:
       "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead.",
     // From the drop handler: two dropped files with the same name could get each other's paths.
@@ -85,7 +85,7 @@ export default {
   },
 
   // The editor with nothing selected.
-  emptyTitle: "Paste a SoundCloud track link to start",
+  emptyTitle: "Paste a SoundCloud track or YouTube link to start",
   emptyBody: "You check the title, artist and cover, then it saves as an MP3 ready for Spotify.",
   pasteKeys: { mac: "⌘V", other: "Ctrl+V" },
   pasteHint: "anywhere adds the links on your clipboard",
@@ -189,115 +189,8 @@ export default {
   duplicateTitle: (date) => `Already in your library, saved ${date}`,
   duplicateTitleUndated: "Already in your library",
 
-  // Each error kind: the short queue status, the headline and the detail. Some take the source's
-  // name, the library folder or the date of the earlier save.
-  errors: {
-    drm: {
-      status: "Copy-protected",
-      headline: () => "This track is copy-protected by its label, so it can't be saved.",
-      detail: () => "Signing in won't change that. Labels turn this on for some releases.",
-    },
-    preview_only: {
-      status: "Preview only",
-      headline: () => "Only a 30-second preview is available: this is a Go+ track.",
-      detail: () => "With a Go+ subscription you can save the whole track. Otherwise, remove it.",
-    },
-    unavailable: {
-      status: "Private or removed",
-      headline: () => "This track is private or was removed.",
-      detail: () => "If you have a private share link, paste that instead.",
-    },
-    geo_blocked: {
-      status: "Not available here",
-      headline: () => "This track isn't available in your country.",
-    },
-    rate_limited: {
-      status: "Waiting to retry",
-      headline: ({ source }) => `${source} asked us to slow down.`,
-      detail: () => "Trying again in a minute.",
-    },
-    auth_expired: {
-      status: "Sign-in expired",
-      headline: () => "Your SoundCloud sign-in expired.",
-      detail: () => "Sign in again, then retry.",
-    },
-    engine_outdated: {
-      status: "Couldn't read the track",
-      headline: ({ source }) => `${source} changed something on their end.`,
-      detail: () => "Updating the download engine usually fixes this. It takes a few seconds.",
-    },
-    bot_check: {
-      status: "YouTube bot check",
-      headline: () => "YouTube wants to confirm you're not a bot.",
-      detail: () => "This usually clears up after a while. Wait a few minutes, then retry.",
-    },
-    offline: {
-      status: "Offline",
-      headline: () => "You're offline.",
-      detail: () => "sc-mp3 tries again when the connection is back.",
-    },
-    convert_failed: {
-      status: "Couldn't convert",
-      headline: () => "sc-mp3 couldn't convert the audio.",
-      detail: () => "The download may be damaged. Retry to download and convert it again.",
-    },
-    disk: {
-      status: "Couldn't save",
-      headline: ({ folder }) => `Can't save to ${folder}.`,
-      detail: () => "Check that the drive is connected, or choose another folder.",
-      // By the error's reason, or "data" for sc-mp3's own folders, as errorVariant() names them.
-      variants: {
-        data: {
-          headline: () => "sc-mp3 couldn't write to its own data folder.",
-          detail: () => "Check that the drive has free space, then retry.",
-        },
-        file_in_use: {
-          status: "File in use",
-          headline: () => "The file is open in another program or is read-only.",
-          detail: () => "Close it and try again.",
-        },
-        path_too_long: {
-          status: "Folder path too long",
-          headline: () => "The folder path is too long for this file.",
-          detail: () => "Choose a folder closer to the top of the drive.",
-        },
-      },
-    },
-    duplicate: {
-      status: "Already saved",
-      headline: ({ savedOn }) => (savedOn ? `Already in your library, saved ${savedOn}.` : "Already in your library."),
-      detail: () => "Show the saved file, or save this one again.",
-    },
-    service_down: {
-      status: "Not responding",
-      headline: ({ source }) => `${source} isn't responding right now.`,
-      detail: () => "This usually passes. Retry in a few minutes.",
-    },
-    internal: {
-      status: "Unexpected error",
-      headline: () => "sc-mp3 hit an unexpected error with this track.",
-      detail: () => "Retry it. If it happens again, copy the diagnostics from Settings and include them in a bug report.",
-    },
-    bad_download: {
-      status: "YouTube support didn't install",
-      headline: () => "sc-mp3 couldn't install YouTube support: the download was damaged.",
-      detail: () => "Retry to download it again.",
-    },
-  },
-  // An error kind this version has no text for.
-  unknownErrorStatus: "Stopped with an error",
-  // The buttons the error banners offer, by action.
-  errorActions: {
-    remove: "Remove from the queue",
-    retry: "Retry",
-    retry_now: "Retry now",
-    update_engine: "Update engine",
-    sign_in_go_plus: "Sign in with Go+",
-    sign_in_again: "Sign in again",
-    choose_folder: "Choose another folder",
-    show_it: "Show it",
-    save_again: "Save again",
-  },
+  // Job errors and their buttons, from errors.js.
+  ...jobErrors,
 
   // The cover.
   coverAlt: (title) => (title ? `Cover art for ${title}` : "Cover art"),

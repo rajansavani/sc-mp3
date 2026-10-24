@@ -152,6 +152,8 @@ export function forTheUi(job) {
     format: format ? { format, needs_bitrate_check: false, fallback: null } : null,
     cover_url: coverUrl(job),
     cover_size: coverSize(job),
+    // Python cuts a letterboxed thumbnail from its picture, which sample jobs say themselves.
+    default_crop: job.default_crop ?? null,
     children: job.children.map(forTheUi),
   };
 }

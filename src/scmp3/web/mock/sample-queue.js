@@ -13,7 +13,7 @@ export const AAC_160 = {
   is_original: false,
 };
 
-const OPUS_160 = {
+export const OPUS_160 = {
   format_id: "251",
   ext: "webm",
   codec: "opus",

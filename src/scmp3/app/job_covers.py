@@ -54,6 +54,8 @@ class CoverView:
     url: str | None = None  # an https link, or a small data: preview
     width: int | None = None
     height: int | None = None
+    # The square a cover without a crop box is cut to, when it isn't the centered square.
+    default_crop: CropBox | None = None
 
     def size(self) -> dict[str, int] | None:
         """The size as the job dict sends it, or None when it isn't known."""
@@ -80,6 +82,14 @@ class ImageFacts:
     width: int
     height: int
     ext: str
+    default_crop: CropBox | None = None  # as artwork.Cover has it
+
+
+def _view(url: str, facts: ImageFacts) -> CoverView:
+    """What the UI shows for a checked image at `url`."""
+    return CoverView(
+        url=url, width=facts.width, height=facts.height, default_crop=facts.default_crop
+    )
 
 
 def inspect(data: bytes) -> ImageFacts:
@@ -88,7 +98,7 @@ def inspect(data: bytes) -> ImageFacts:
     cover = artwork.process(data, max_size=1)
     with Image.open(io.BytesIO(data), formats=artwork.COVER_FORMATS) as image:
         ext = (image.format or "img").lower()
-    return ImageFacts(cover.source_width, cover.source_height, ext)
+    return ImageFacts(cover.source_width, cover.source_height, ext, cover.default_crop)
 
 
 def preview_url(data: bytes) -> str:
@@ -124,7 +134,7 @@ class CoverReader:
         The image comes back too, so the save can use it without downloading it again. It's
         None when no size worked.
         """
-        urls = cover_sources.soundcloud_candidates(source)
+        urls = cover_sources.cover_candidates(source)
         if not urls:
             return NO_COVER, None
         with self._open_session() as session:
@@ -134,7 +144,7 @@ class CoverReader:
                 except ScmpError as error:
                     log.info("The cover at %s didn't work: %s", safe_url(url), error)
                     continue
-                view = CoverView(url=url, width=facts.width, height=facts.height)
+                view = _view(url, facts)
                 return view, KeptImage(data, facts.ext)
         # The page can still try the plain link, but there's no size to crop from.
         return CoverView(url=source.artwork_url), None
@@ -148,7 +158,7 @@ class CoverReader:
         """A cover from an image file, as a small preview. Raises ScmpError if it's unusable."""
         data = read_cover_file(path)
         facts = inspect(data)
-        return CoverView(url=preview_url(data), width=facts.width, height=facts.height)
+        return _view(preview_url(data), facts)
 
     def pasted(self, data_url: str, folder: Path) -> tuple[Path, CoverView]:
         """Save a pasted image in `folder`, and return its path and preview."""
@@ -160,13 +170,13 @@ class CoverReader:
         except OSError as error:
             reason = error.strerror or error
             raise ScmpError(ErrorKind.disk, f"can't keep the pasted image: {reason}") from error
-        return path, CoverView(url=preview_url(data), width=facts.width, height=facts.height)
+        return path, _view(preview_url(data), facts)
 
 
 def _fetched(url: str, session: Any) -> CoverView:
     """The image at a link, checked, with its size."""
     _, facts = _checked_image(url, session)
-    return CoverView(url=url, width=facts.width, height=facts.height)
+    return _view(url, facts)
 
 
 def _checked_image(url: str, session: Any) -> tuple[bytes, ImageFacts]:

@@ -55,6 +55,21 @@ export function videoFrame(width = 1280, height = 720) {
   );
 }
 
+// A 16:9 video frame letterboxed into YouTube's 480 × 360 thumbnail, with black bands.
+export function letterboxedFrame() {
+  return svgUrl(
+    480,
+    360,
+    "0 0 160 120",
+    '<rect width="160" height="120" fill="#000"/>' +
+      '<rect y="15" width="160" height="90" fill="#16304A"/>' +
+      '<circle cx="80" cy="60" r="24" fill="#BFD9F2"/>',
+  );
+}
+
+// The square Python cuts from letterboxedFrame(): the middle of its picture.
+export const LETTERBOXED_CROP = { left: 0.21875, top: 0.125, width: 0.5625, height: 0.75 };
+
 // A round profile picture, the kind SoundCloud falls back to when a track has no cover.
 export function avatar(size = 500) {
   return svgUrl(

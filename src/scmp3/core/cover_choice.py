@@ -33,7 +33,7 @@ def load_cover(
     if choice.kind == "file":
         return artwork.process(read_cover_file(choice.value), crop=choice.crop, max_size=max_size)
     if choice.kind == "source":
-        urls = cover_sources.soundcloud_candidates(source)
+        urls = cover_sources.cover_candidates(source)
     elif choice.value:
         urls = [choice.value]
     else:

@@ -267,3 +267,68 @@ def test_a_paced_task_with_nothing_left_to_do_runs_at_once_and_keeps_no_turn() -
     # The turn the removed one didn't use goes to the next, which waits only for the first.
     assert SPACING - 0.02 <= following - first < 2 * SPACING
     pool.close()
+
+
+class Spans:
+    """Records when each task starts and ends, holding each one a moment."""
+
+    def __init__(self, hold: float = 0.1) -> None:
+        self.hold = hold
+        self.spans: dict[str, tuple[float, float]] = {}
+        self._lock = threading.Lock()
+
+    def task(self, name: str, *, fail: bool = False) -> object:
+        def run() -> None:
+            start = time.monotonic()
+            time.sleep(self.hold)
+            with self._lock:
+                self.spans[name] = (start, time.monotonic())
+            if fail:
+                raise RuntimeError("a bug in the task")
+
+        return run
+
+
+def test_a_serial_key_runs_one_task_at_a_time_with_its_spacing_after_each_end() -> None:
+    pool = TaskPool("serial", 3, spacing={"youtube": SPACING}, serial={"youtube"})
+    spans = Spans()
+    for number in range(3):
+        pool.submit(spans.task(f"video {number}"), pace="youtube")
+    assert pool.wait_until_idle(WAIT)
+    ordered = [spans.spans[f"video {number}"] for number in range(3)]
+    gaps = [later[0] - earlier[1] for earlier, later in itertools.pairwise(ordered)]
+    assert all(gap >= SPACING - 0.02 for gap in gaps), gaps
+    pool.close()
+
+
+def test_other_tasks_run_alongside_a_serial_one() -> None:
+    pool = TaskPool("serial-mix", 3, spacing={"youtube": SPACING}, serial={"youtube"})
+    spans = Spans(hold=0.3)
+    pool.submit(spans.task("video"), pace="youtube")
+    pool.submit(spans.task("track"), pace="soundcloud")
+    pool.submit(spans.task("unpaced"))
+    assert pool.wait_until_idle(WAIT)
+    video, track, unpaced = (spans.spans[name] for name in ("video", "track", "unpaced"))
+    assert track[0] < video[1] and unpaced[0] < video[1]
+    pool.close()
+
+
+def test_a_serial_task_that_fails_still_ends_its_turn(caplog: pytest.LogCaptureFixture) -> None:
+    pool = TaskPool("serial-fail", 2, spacing={"youtube": SPACING}, serial={"youtube"})
+    spans = Spans(hold=0.01)
+    with caplog.at_level(logging.ERROR):
+        pool.submit(spans.task("broken video", fail=True), pace="youtube")
+        pool.submit(spans.task("next video"), pace="youtube")
+        assert pool.wait_until_idle(WAIT)
+    assert spans.spans["next video"][0] - spans.spans["broken video"][1] >= SPACING - 0.02
+    pool.close()
+
+
+def test_a_serial_task_with_nothing_left_to_do_runs_without_waiting_its_turn() -> None:
+    pool = TaskPool("serial-unwanted", 2, spacing={"youtube": 60.0}, serial={"youtube"})
+    spans = Spans(hold=0.3)
+    pool.submit(spans.task("video"), pace="youtube")
+    pool.submit(spans.task("removed video"), pace="youtube", wanted=lambda: False)
+    assert pool.wait_until_idle(WAIT)
+    assert spans.spans["removed video"][0] < spans.spans["video"][1]
+    pool.close()

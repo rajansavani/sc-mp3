@@ -64,6 +64,29 @@ def test_an_unknown_command_names_every_command(commands: list[str], listed: str
     assert message == f"Unknown command: gte. The commands are {listed}."
 
 
+@pytest.mark.parametrize(
+    ("reason", "start"),
+    [
+        ("private", "This video is private."),
+        ("age_restricted", "YouTube shows this video only to signed-in adults"),
+        ("members_only", "This video is only for the channel's members"),
+        ("paid", "YouTube shows this video only to people who paid for it"),
+        ("removed", "This video isn't available."),
+        ("live_stream", "This is a live stream that hasn't ended."),
+    ],
+)
+def test_a_video_youtube_wont_give_says_why(reason: ErrorReason, start: str) -> None:
+    error = ScmpError(ErrorKind.unavailable, "refused", reason=reason)
+    assert cli_output.error_message(error, Settings()).startswith(start)
+
+
+@pytest.mark.parametrize("kind", [ErrorKind.rate_limited, ErrorKind.engine_outdated])
+def test_messages_about_the_service_name_the_tracks_source(kind: ErrorKind) -> None:
+    assert cli_output.error_message(ScmpError(kind), Settings()).startswith("SoundCloud ")
+    youtube = cli_output.error_message(ScmpError(kind), Settings(), source="YouTube")
+    assert youtube.startswith("YouTube ")
+
+
 def test_every_reason_has_a_message() -> None:
     assert set(cli_output.REASON_MESSAGES) == set(get_args(ErrorReason))
 

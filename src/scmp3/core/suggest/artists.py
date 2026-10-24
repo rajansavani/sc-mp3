@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from scmp3.core.suggest import rules
+from scmp3.core.suggest import rules, youtube
 from scmp3.core.suggest.draft import VERSION, Context, Draft, Group, has_words, names_pattern
 from scmp3.core.suggest.names import (
     JOINERS,
@@ -221,7 +221,12 @@ def _claim_artist_part(draft: Draft, context: Context, part: ArtistPart, *, uncl
     if part.redundant:
         draft.claim("strip_redundant_artist", part.start, part.end, part_end=part.part_end)
         return
-    signal = part.from_publisher or part.is_list or uploader_is_label(context)
+    signal = (
+        part.from_publisher
+        or part.is_list
+        or uploader_is_label(context)
+        or youtube.names_another_artist(draft, context)
+    )
     draft.claim(
         "artist_from_title",
         part.start,

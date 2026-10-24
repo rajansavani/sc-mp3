@@ -409,3 +409,46 @@ def test_a_truncated_image_fails_to_convert() -> None:
     with pytest.raises(ScmpError) as caught:
         artwork.process(png[: len(png) // 2])
     assert caught.value.kind == ErrorKind.convert_failed
+
+
+# Letterboxed video thumbnails
+
+
+def letterboxed(width: int = 480, height: int = 360, band: int | None = None) -> Image.Image:
+    """A 16:9 picture between black bands, as YouTube's 480 x 360 thumbnails have it."""
+    band = round(height / 8) if band is None else band
+    image = Image.new("RGB", (width, height), (2, 2, 2))
+    image.paste(Image.new("RGB", (width, height - 2 * band), BLUE), (0, band))
+    return image
+
+
+def test_a_letterboxed_thumbnail_is_cut_from_its_picture_not_its_black_bands() -> None:
+    cover = artwork.process(encode(letterboxed(), "JPEG", quality=85))
+    assert (cover.width, cover.height) == (270, 270)
+    image = decoded(cover)
+    # JPEG blurs the picture's edge a little, so the corners are checked a few pixels in.
+    for point in [(8, 8), (261, 8), (8, 261), (261, 261), (135, 135)]:
+        assert_near(image.getpixel(point), BLUE, tolerance=30)
+    assert cover.default_crop == CropBox(105 / 480, 45 / 360, 270 / 480, 270 / 360)
+
+
+def test_a_480_by_360_frame_with_picture_at_its_edges_keeps_the_centered_square() -> None:
+    whole = Image.new("RGB", (480, 360), BLUE)
+    cover = artwork.process(encode(whole, "PNG"))
+    assert (cover.width, cover.default_crop) == (360, None)
+
+
+@pytest.mark.parametrize("size", [(1280, 720), (500, 500), (640, 400)])
+def test_only_a_4_by_3_frame_is_checked_for_bands(size: tuple[int, int]) -> None:
+    dark_edges = letterboxed(*size)
+    cover = artwork.process(encode(dark_edges, "PNG"))
+    assert cover.default_crop is None
+    assert cover.width == min(size)
+
+
+def test_a_crop_box_from_the_user_counts_over_the_bands() -> None:
+    crop = CropBox(0.0, 0.0, 1.0, 0.5)
+    cover = artwork.process(encode(letterboxed(), "PNG"), crop=crop)
+    assert (cover.width, cover.height) == (180, 180)
+    # The top left corner is in the black band, which the user chose to keep.
+    assert decoded(cover).getpixel((1, 1))[2] < 40

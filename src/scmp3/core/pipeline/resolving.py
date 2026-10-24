@@ -13,7 +13,8 @@ from scmp3.core.history import History
 from scmp3.core.inputs import ParsedInput, classify
 from scmp3.core.models import HistoryEntry, PlaylistEntry, Settings, SourceInfo
 from scmp3.core.pipeline.common import Prepared, PreparedSet, SetTrack, Tools, only_scmp_errors
-from scmp3.core.sources import soundcloud, soundcloud_sets
+from scmp3.core.pipeline.sources import link_ydl_maker
+from scmp3.core.sources import soundcloud, soundcloud_sets, youtube
 from scmp3.core.sources.soundcloud_formats import AVAILABILITY_KINDS
 from scmp3.core.suggest import suggest
 from scmp3.core.urls import NOT_SUPPORTED, UnsupportedInput
@@ -23,11 +24,9 @@ if TYPE_CHECKING:
 
 # Inputs a later version saves, with the reason given until then.
 SETS_NOT_SUPPORTED = "SoundCloud sets and albums can't be saved yet. Add each track's own link."
-YOUTUBE_NOT_SUPPORTED = "YouTube links can't be saved yet."
 FILES_NOT_SUPPORTED = "Fixing the tags of files you already have isn't possible yet."
 NOT_YET: dict[str, str] = {
     "soundcloud_set": SETS_NOT_SUPPORTED,  # T-051
-    "youtube_video": YOUTUBE_NOT_SUPPORTED,  # T-061
     "local_file": FILES_NOT_SUPPORTED,  # T-062
 }
 
@@ -50,6 +49,7 @@ def _resolve_soundcloud_short(
 RESOLVERS: dict[str, Resolver] = {
     "soundcloud_track": soundcloud.resolve_track,
     "soundcloud_short": _resolve_soundcloud_short,
+    "youtube_video": youtube.resolve_track,
 }
 
 
@@ -79,7 +79,7 @@ def prepare(
         raise UnsupportedInput(reason)
     tools = tools or Tools()
     with only_scmp_errors(where="data"):
-        with tools.make_ydl(token) as ydl:
+        with link_ydl_maker(tools, parsed.kind)(token) as ydl:
             resolved = RESOLVERS[parsed.kind](str(parsed.url), ydl, token)
         source = resolved.source
         _check_availability(source)

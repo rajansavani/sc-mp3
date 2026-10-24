@@ -28,8 +28,9 @@ def nothing_queued(url: str) -> bool:
         (f"listen to this: {TRACK}?si=abc123 so good", TRACK),
         ("https://www.soundcloud.com/kaia/midnight-drive/", TRACK),
         ("https://on.soundcloud.com/AbCdEfGh", "https://on.soundcloud.com/AbCdEfGh"),
+        ("https://youtu.be/dQw4w9WgXcQ", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
     ],
-    ids=["bare", "in chat text", "www and slash", "short link"],
+    ids=["bare", "in chat text", "www and slash", "short link", "youtube"],
 )
 def test_a_track_link_is_offered_normalized(text: str, offered: str) -> None:
     assert offered_link(text, nothing_queued) == offered
@@ -40,16 +41,16 @@ def test_a_track_link_is_offered_normalized(text: str, offered: str) -> None:
     [
         "https://soundcloud.com/kaia",
         "https://soundcloud.com/kaia/sets/night-drives",
-        "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        "https://www.youtube.com/playlist?list=PL123",
         "https://example.com/kaia/midnight-drive",
         "C:/Music/old-favorite.mp3",
         "just some words",
         "",
     ],
-    ids=["profile", "set", "youtube", "other site", "file", "words", "empty"],
+    ids=["profile", "set", "youtube playlist", "other site", "file", "words", "empty"],
 )
 def test_nothing_is_offered_that_adding_would_refuse(text: str) -> None:
-    # Sets and YouTube can't be saved in this version, so they aren't offered either.
+    # Sets can't be saved in this version, so they aren't offered either.
     assert offered_link(text, nothing_queued) is None
 
 

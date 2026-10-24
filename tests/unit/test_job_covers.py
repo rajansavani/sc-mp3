@@ -224,3 +224,18 @@ def test_a_checked_paste_becomes_a_file_in_the_jobs_staging_folder() -> None:
     choice, _ = checked_cover(covers, "job1", CoverRequest("data_url", data_url, None))
     assert choice.kind == "file"
     assert Path(choice.value or "").parent == paths.staging_dir() / "job1"
+
+
+def test_a_letterboxed_cover_says_where_python_cuts_it() -> None:
+    frame = Image.new("RGB", (480, 360), (0, 0, 0))
+    frame.paste(Image.new("RGB", (480, 270), "navy"), (0, 45))
+    buffer = io.BytesIO()
+    frame.save(buffer, "PNG")
+    web = FakeWeb({ARTWORK: buffer.getvalue()})
+    view, _kept = CoverReader(web.session).source(source())
+    assert view.default_crop == CropBox(105 / 480, 45 / 360, 270 / 480, 270 / 360)
+    assert view.size() == {"width": 480, "height": 360}
+
+
+def test_a_cover_that_fills_its_frame_has_no_default_crop() -> None:
+    assert inspect(image(1280, 720)).default_crop is None

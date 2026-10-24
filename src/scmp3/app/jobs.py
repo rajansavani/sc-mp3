@@ -205,6 +205,14 @@ class JobManager(JobEditing, SettingsFollowing):
             self._remove(record)
         return {}
 
+    def youtube_support_ready(self) -> None:
+        """Retry every job that stopped for want of YouTube support, now that it's installed."""
+        with self._flow.lock:
+            for record in list(self._flow.records.values()):
+                error = record.job.error
+                if error is not None and error.kind == ErrorKind.youtube_support_missing:
+                    self._flow.retry(record)
+
     def remove_jobs(self, job_ids: Iterable[str]) -> Answer:
         """Take many jobs out of the queue in one call, as Clear finished does. Unknown ids are
         left out, since a job may have left meanwhile."""

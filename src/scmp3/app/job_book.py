@@ -11,7 +11,9 @@ from a snapshot, outside the lock, so a queue of thousands never holds it for lo
 
 import logging
 import threading
+import time
 from collections.abc import Callable
+from datetime import UTC, datetime
 
 from scmp3.app.events import Deferred, EventBus
 from scmp3.app.job_record import JobRecord, Step, Ticket
@@ -20,8 +22,12 @@ from scmp3.app.workers import Pool, Timers
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.models import JobError, JobState, Settings
 
-# The automatic retries the error messages promise, in seconds.
-AUTO_RETRY_SECONDS: dict[ErrorKind, float] = {ErrorKind.offline: 30.0, ErrorKind.rate_limited: 60.0}
+# The automatic retries the error messages promise, in seconds: the first wait, the second and
+# so on, with the last one repeating. A rate limit backs off, since YouTube's can last an hour.
+AUTO_RETRY_WAITS: dict[ErrorKind, tuple[float, ...]] = {
+    ErrorKind.offline: (30.0,),
+    ErrorKind.rate_limited: (60.0, 120.0, 300.0, 600.0, 1800.0),
+}
 
 log = logging.getLogger(__name__)
 
@@ -92,6 +98,8 @@ class JobBook:
         self._events = events
         self._steps = steps
         self._timers = timers
+        # The time on the wall, in seconds, for when an automatic retry will run.
+        self._clock: Callable[[], float] = time.time
         # Covers, deleting staging folders, and refreshing the jobs after a settings change.
         self.misc_pool = misc_pool
         # Reentrant, since the helpers that change a job call each other.
@@ -145,9 +153,13 @@ class JobBook:
         self._schedule_auto_retry(record, job.error)
 
     def _schedule_auto_retry(self, record: JobRecord, error: JobError) -> None:
-        delay = AUTO_RETRY_SECONDS.get(error.kind)
-        if delay is None:
+        waits = AUTO_RETRY_WAITS.get(error.kind)
+        if waits is None:
+            record.auto_retries = 0
             return
+        delay = waits[min(record.auto_retries, len(waits) - 1)]
+        record.auto_retries += 1
+        record.retry_at = datetime.fromtimestamp(self._clock() + delay, UTC)
         record.retry_timer = self._timers.call_later(delay, lambda: self._auto_retry(record, error))
 
     def _auto_retry(self, record: JobRecord, error: JobError) -> None:
@@ -156,7 +168,12 @@ class JobBook:
             if record.closed or record.job.error is not error:
                 return
             record.retry_timer = None
+            record.retry_at = None
             self.retry(record)
+
+    def _step_worked(self, record: JobRecord) -> None:
+        """A step went through, so the next failure's automatic retry starts at the first wait."""
+        record.auto_retries = 0
 
     # Skipping and removing
 
@@ -184,6 +201,7 @@ class JobBook:
         self.on_change()
 
     def _cancel_auto_retry(self, record: JobRecord) -> None:
+        record.retry_at = None
         if record.retry_timer is not None:
             record.retry_timer.cancel()
             record.retry_timer = None

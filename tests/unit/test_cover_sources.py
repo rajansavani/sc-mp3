@@ -1,4 +1,4 @@
-"""Tests for fetching cover images and choosing SoundCloud cover sizes, with fake openers only."""
+"""Tests for fetching cover images and choosing SoundCloud and YouTube cover sizes, with fakes."""
 
 import base64
 import io
@@ -344,3 +344,48 @@ def test_soundcloud_candidates_keep_any_other_url_alone(url: str) -> None:
 
 def test_soundcloud_candidates_are_empty_without_artwork() -> None:
     assert cover_sources.soundcloud_candidates(soundcloud_track(None)) == []
+
+
+# YouTube's thumbnails, and cover_candidates choosing between the sources
+
+YT = "https://i.ytimg.com/vi/y9qO_xgE34Q"
+
+
+def youtube_video(artwork_url: str | None) -> SourceInfo:
+    return SourceInfo(
+        kind="youtube",
+        id="youtube:y9qO_xgE34Q",
+        url="https://www.youtube.com/watch?v=y9qO_xgE34Q",
+        title="WAIT FOR U",
+        uploader="Future",
+        artwork_url=artwork_url,
+    )
+
+
+def test_youtube_candidates_try_each_smaller_size_after_the_largest() -> None:
+    assert cover_sources.youtube_candidates(f"{YT}/maxresdefault.jpg") == [
+        f"{YT}/maxresdefault.jpg",
+        f"{YT}/hq720.jpg",
+        f"{YT}/sddefault.jpg",
+        f"{YT}/hqdefault.jpg",
+    ]
+
+
+def test_youtube_candidates_start_at_the_size_given_and_come_as_jpeg() -> None:
+    webp = "https://i.ytimg.com/vi_webp/y9qO_xgE34Q/sddefault.webp"
+    assert cover_sources.youtube_candidates(webp) == [f"{YT}/sddefault.jpg", f"{YT}/hqdefault.jpg"]
+
+
+@pytest.mark.parametrize(
+    "url", [f"{YT}/mqdefault.jpg", "https://i.ytimg.com/an_webp/y9qO_xgE34Q/mqdefault_6s.webp"]
+)
+def test_youtube_candidates_keep_a_thumbnail_of_another_kind_alone(url: str) -> None:
+    assert cover_sources.youtube_candidates(url) == [url]
+
+
+def test_cover_candidates_follow_where_the_artwork_is() -> None:
+    youtube = cover_sources.cover_candidates(youtube_video(f"{YT}/hq720.jpg"))
+    assert youtube == [f"{YT}/hq720.jpg", f"{YT}/sddefault.jpg", f"{YT}/hqdefault.jpg"]
+    soundcloud = cover_sources.cover_candidates(soundcloud_track(f"{SC}-large.jpg"))
+    assert soundcloud == JPG_FIRST
+    assert cover_sources.cover_candidates(youtube_video(None)) == []

@@ -9,7 +9,7 @@ import threading
 import time
 import zlib
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -278,10 +278,13 @@ class FakeCovers:
 class ManualPool:
     """A pool whose tasks wait until the test runs them. Pacing is only noted, never waited for."""
 
-    def __init__(self, name: str, size: int, spacing: Spacing | None = None) -> None:
+    def __init__(
+        self, name: str, size: int, spacing: Spacing | None = None, serial: Collection[str] = ()
+    ) -> None:
         self.name = name
         self.size = size
         self.spacing = dict(spacing or {})
+        self.serial = frozenset(serial)
         self.tasks: deque[Task] = deque()
         # The pace key each task was submitted with, and whether it was still wanted, in order.
         self.paces: list[str | None] = []
@@ -320,8 +323,15 @@ class ManualPools:
     def __init__(self) -> None:
         self.by_name: dict[str, ManualPool] = {}
 
-    def __call__(self, name: str, size: int, *, spacing: Spacing | None = None) -> ManualPool:
-        pool = ManualPool(name, size, spacing)
+    def __call__(
+        self,
+        name: str,
+        size: int,
+        *,
+        spacing: Spacing | None = None,
+        serial: Collection[str] = (),
+    ) -> ManualPool:
+        pool = ManualPool(name, size, spacing, serial)
         self.by_name[name] = pool
         return pool
 

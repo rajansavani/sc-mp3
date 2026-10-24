@@ -14,7 +14,7 @@ EXIT_USAGE = 2
 EXIT_STOPPED = 130  # what shells report for Ctrl+C
 
 NOT_IMPLEMENTED = "Not implemented yet."
-NOTHING_TO_SAVE = "Give at least one SoundCloud link."
+NOTHING_TO_SAVE = "Give at least one SoundCloud or YouTube link."
 TITLE_NEEDS_ONE_LINK = "--title only works with one link, since every track would get it."
 FFMPEG_MISSING = (
     "ffmpeg wasn't found. Install it and put it on your PATH, or set SCMP3_FFMPEG to its full path."
@@ -33,7 +33,7 @@ COVER_PROBLEMS: dict[ErrorKind, str] = {
 }
 
 # What each error kind means for you, and what to do next, in PLAN §4.11's wording where it has
-# one. The app's own wording is in web/strings.
+# one. {source} is SoundCloud or YouTube. The app's own wording is in web/strings.
 ERROR_MESSAGES: dict[ErrorKind, str] = {
     ErrorKind.drm: (
         "This track is copy-protected by its label, so it can't be saved. "
@@ -44,10 +44,10 @@ ERROR_MESSAGES: dict[ErrorKind, str] = {
         "This track is private or was removed. If you have a private share link, use that instead."
     ),
     ErrorKind.geo_blocked: "This track isn't available in your country.",
-    ErrorKind.rate_limited: "SoundCloud asked us to slow down. Try again in a minute.",
+    ErrorKind.rate_limited: "{source} asked us to slow down. Wait a few minutes, then try again.",
     ErrorKind.auth_expired: "Your SoundCloud sign-in expired. Sign in again.",
     ErrorKind.engine_outdated: (
-        "SoundCloud changed something on their end. "
+        "{source} changed something on their end. "
         "Updating the download engine (yt-dlp) usually fixes this."
     ),
     ErrorKind.bot_check: (
@@ -60,9 +60,13 @@ ERROR_MESSAGES: dict[ErrorKind, str] = {
     ),
     ErrorKind.disk: "Can't save to {folder}. Choose another folder with --out.",
     ErrorKind.duplicate: "Already in your library (saved {saved}).",
-    ErrorKind.service_down: "SoundCloud isn't responding right now. Try again later.",
+    ErrorKind.service_down: "{source} isn't responding right now. Try again later.",
     ErrorKind.bad_download: (
         "A download sc-mp3 needed was damaged, so it wasn't installed. Try again."
+    ),
+    ErrorKind.youtube_support_missing: (
+        "YouTube links need Deno, which sc-mp3 downloads once, about 40 MB. Add a YouTube link "
+        "in the app to download it, or install Deno 2.3 or later and put it on your PATH."
     ),
     ErrorKind.internal: (
         "sc-mp3 ran into a problem it didn't expect. The log has the details: {log}"
@@ -82,6 +86,30 @@ REASON_MESSAGES: dict[ErrorReason, str] = {
         "The folder path is too long for this file. "
         "Choose a folder closer to the top of the drive with --out."
     ),
+    "private": (
+        "This video is private. Only people the uploader shares it with can watch it, "
+        "so sc-mp3 can't save it."
+    ),
+    "age_restricted": (
+        "YouTube shows this video only to signed-in adults, and sc-mp3 doesn't sign in to "
+        "YouTube. Try another upload of the song."
+    ),
+    "members_only": (
+        "This video is only for the channel's members, so sc-mp3 can't save it. "
+        "Try another upload of the song."
+    ),
+    "paid": (
+        "YouTube shows this video only to people who paid for it, so sc-mp3 can't save it. "
+        "Try another upload of the song."
+    ),
+    "removed": (
+        "This video isn't available. It may have been removed. "
+        "Check the link, or try another upload of the song."
+    ),
+    "live_stream": (
+        "This is a live stream that hasn't ended. "
+        "Try again once it's over and YouTube has the recording."
+    ),
 }
 
 
@@ -94,15 +122,18 @@ def saved_on(entry: HistoryEntry) -> str:
     return day if when.year == datetime.now().year else f"{day}, {when.year}"
 
 
-def error_message(error: ScmpError, settings: Settings) -> str:
-    """The message for a failure's reason, or else its kind and place, with the blanks filled in."""
+def error_message(error: ScmpError, settings: Settings, *, source: str = "SoundCloud") -> str:
+    """The message for a failure's reason, or else its kind and place, with the blanks filled in.
+
+    `source` names where the track comes from, such as YouTube.
+    """
     message = ERROR_MESSAGES[error.kind]
     if error.where is not None:
         message = PLACE_MESSAGES.get((error.kind, error.where), message)
     if error.reason is not None:
         message = REASON_MESSAGES[error.reason]
     return message.format(
-        folder=settings.library_dir, log=paths.log_dir() / LOG_FILE, saved="before"
+        folder=settings.library_dir, log=paths.log_dir() / LOG_FILE, saved="before", source=source
     )
 
 

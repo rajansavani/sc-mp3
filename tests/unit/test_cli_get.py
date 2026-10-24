@@ -349,6 +349,26 @@ def test_a_failure_prints_the_message_for_its_kind(
     assert "details for the log" not in shown.err
 
 
+VIDEO = "https://www.youtube.com/watch?v=y9qO_xgE34Q"
+
+
+def test_a_youtube_link_without_youtube_support_says_how_to_get_deno(
+    fake: FakePipeline, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake.errors[VIDEO] = ScmpError(ErrorKind.youtube_support_missing, "Deno isn't installed")
+    assert get("--yes", "https://youtu.be/y9qO_xgE34Q", out=fake.library) == cli_output.EXIT_ERROR
+    message = cli_output.ERROR_MESSAGES[ErrorKind.youtube_support_missing]
+    assert f"{VIDEO}: {message}" in capsys.readouterr().err
+
+
+def test_a_youtube_failure_names_youtube(
+    fake: FakePipeline, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake.errors[VIDEO] = ScmpError(ErrorKind.service_down, "HTTP 503")
+    assert get("--yes", VIDEO, out=fake.library) == cli_output.EXIT_ERROR
+    assert f"{VIDEO}: YouTube isn't responding right now." in capsys.readouterr().err
+
+
 def test_one_failure_doesnt_stop_the_other_links(
     fake: FakePipeline, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -412,7 +432,6 @@ def test_missing_ffmpeg_stops_before_anything_is_fetched(
     [
         (["https://example.com/song"], "https://example.com/song: Not a supported link."),
         (["https://soundcloud.com/kaia/sets/nights"], pipeline.SETS_NOT_SUPPORTED),
-        (["https://youtu.be/dQw4w9WgXcQ"], pipeline.YOUTUBE_NOT_SUPPORTED),
         (["   "], cli_output.NOTHING_TO_SAVE),
         (["--title", "Same", URL, OTHER_URL], cli_output.TITLE_NEEDS_ONE_LINK),
     ],

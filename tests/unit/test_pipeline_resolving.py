@@ -139,7 +139,6 @@ def test_a_short_link_to_a_set_is_refused_with_a_reason(
     ("text", "reason"),
     [
         ("https://soundcloud.com/the80m/sets/singles", pipeline.SETS_NOT_SUPPORTED),
-        ("https://youtu.be/dQw4w9WgXcQ", pipeline.YOUTUBE_NOT_SUPPORTED),
         ("https://example.com/song", "Not a supported link."),
     ],
 )

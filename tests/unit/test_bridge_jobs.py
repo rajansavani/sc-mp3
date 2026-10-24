@@ -530,8 +530,8 @@ def web_file(*parts: str) -> str:
 
 
 def test_every_error_kind_and_job_state_has_text_in_the_ui() -> None:
-    main = web_file("strings", "main.js")
-    assert keys_in_block(main, "errors") >= {kind.value for kind in ErrorKind}
+    errors = web_file("strings", "errors.js")
+    assert keys_in_block(errors, "errors") >= {kind.value for kind in ErrorKind}
     # job-view.js turns each state into its status line from strings/main.js.
     assert keys_in_block(web_file("components", "job-view.js"), "STATUS") == {
         state.value for state in JobState

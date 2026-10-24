@@ -37,7 +37,7 @@ def add_retag_arguments(parser: argparse.ArgumentParser) -> None:
 # Every CLI command by name; the parser and the top-level help are both built from this.
 COMMANDS: dict[str, Command] = {
     "get": Command(
-        help="save SoundCloud links as tagged MP3 files",
+        help="save SoundCloud and YouTube links as tagged MP3 files",
         add_arguments=add_get_arguments,
         run=run_get,
     ),

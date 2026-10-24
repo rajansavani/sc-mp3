@@ -34,7 +34,6 @@ from scmp3.core.pipeline.resolving import (
     NOT_YET,
     RESOLVERS,
     SETS_NOT_SUPPORTED,
-    YOUTUBE_NOT_SUPPORTED,
     Resolver,
     find_duplicate,
     prepare,
@@ -50,17 +49,18 @@ from scmp3.core.pipeline.saving_sets import (
     finalize_set,
     finalize_set_track,
 )
+from scmp3.core.pipeline.sources import LINK_SOURCES, choose_format
 from scmp3.core.pipeline.tags import COMMENTS, NUMBER_RANGES, render_tags
 
 __all__ = [
     "COMMENTS",
     "FILES_NOT_SUPPORTED",
+    "LINK_SOURCES",
     "NOT_YET",
     "NUMBER_RANGES",
     "RESOLVERS",
     "SETS_NOT_SUPPORTED",
     "STAGED_STEM",
-    "YOUTUBE_NOT_SUPPORTED",
     "AlbumPlace",
     "LoadedCover",
     "Prepared",
@@ -77,6 +77,7 @@ __all__ = [
     "album_fields",
     "album_overrides",
     "album_places",
+    "choose_format",
     "destination",
     "discard",
     "expected_duration",

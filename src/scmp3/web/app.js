@@ -15,6 +15,11 @@ import { TopBar } from "./components/TopBar.js";
 import { TrackEditor } from "./components/TrackEditor.js";
 import { watchUpdateNotices } from "./components/update-notices.js";
 import {
+  useYouTubeSupportPrompt,
+  YOUTUBE_SUPPORT_DIALOG,
+  YouTubeSupportDialog,
+} from "./components/YouTubeSupport.js";
+import {
   applyEvent,
   closeDialog,
   loadSnapshot,
@@ -31,6 +36,7 @@ const VIEWS = { settings: Settings };
 const DIALOGS = {
   sign_in: { Content: SignInDialog, frame: "dialog" },
   spotify_help: { Content: SpotifyHelp, frame: "side-panel" },
+  [YOUTUBE_SUPPORT_DIALOG]: { Content: YouTubeSupportDialog, frame: "dialog" },
 };
 
 // The editor for each kind of job.
@@ -142,6 +148,7 @@ function DialogLayer({ name, props, children }) {
 
 function App() {
   const state = useStore();
+  useYouTubeSupportPrompt(state.ready ? state.jobs : null);
   const toasts = html`<${Toasts} toasts=${state.toasts} />`;
   // An open modal dialog makes the rest of the page inert, so toasts move into it meanwhile.
   const dialogOpen = Boolean(DIALOGS[state.dialog]);

@@ -27,6 +27,7 @@ const ACTIONS = {
   choose_folder: (job) => chooseAnotherFolder(job),
   show_it: (job) => revealPath(job.duplicate?.saved_path),
   save_again: (job, onSave) => onSave(),
+  add_youtube_support: () => openDialog("youtube_support"),
 };
 
 function ActionButtons({ job, onSave, small, primaryLast }) {

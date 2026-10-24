@@ -4,5 +4,6 @@ import help from "./help.js";
 import main from "./main.js";
 import settings from "./settings.js";
 import shell from "./shell.js";
+import youtube from "./youtube.js";
 
-export const strings = { account, help, main, settings, shell };
+export const strings = { account, help, main, settings, shell, youtube };

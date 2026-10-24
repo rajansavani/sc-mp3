@@ -4,6 +4,7 @@ import { useState } from "preact/hooks";
 
 import { strings } from "../strings/index.js";
 import { DialogHead, setCover, useModal } from "./CoverDialogs.js";
+import { coverCrop } from "./job-view.js";
 
 const text = strings.main;
 
@@ -118,7 +119,7 @@ function dragWith(event, scale, onDelta) {
 
 export function CropDialog({ job, size, onClose }) {
   const modal = useModal(onClose);
-  const [square, setSquare] = useState(() => squareFromCrop(job.artwork?.crop ?? null, size));
+  const [square, setSquare] = useState(() => squareFromCrop(coverCrop(job), size));
   const scale = Math.min(STAGE_MAX.width / size.width, stageHeight() / size.height);
   const step = Math.max(1, Math.round(Math.min(size.width, size.height) / 100));
 
@@ -146,7 +147,8 @@ export function CropDialog({ job, size, onClose }) {
     event.preventDefault();
     setSquare(change(square, event.shiftKey ? step * 10 : step, size));
   };
-  const center = () => setSquare(centeredSquare(size));
+  // Back to the square Python cuts without a crop: centered, or in a letterboxed picture.
+  const center = () => setSquare(squareFromCrop(job.default_crop ?? null, size));
 
   const stage = { width: `${size.width * scale}px`, height: `${size.height * scale}px` };
   const box = {

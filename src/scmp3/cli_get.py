@@ -1,4 +1,5 @@
-"""`scmp3 get`: save SoundCloud links, after a review in the terminal unless --yes is given.
+"""`scmp3 get`: save SoundCloud and YouTube links, after a review in the terminal unless --yes
+is given.
 
 Reviews, progress and errors go to stderr, so stdout holds only the paths of the saved files.
 """
@@ -56,13 +57,17 @@ from scmp3.core.urls import UnsupportedInput
 FIELD_FLAGS = ("title", "artist", "album", "year", "genre")
 TITLE_STYLES: tuple[TitleStyle, ...] = get_args(TitleStyle)
 YES_ANSWERS = frozenset({"y", "yes"})
+# How messages name each source.
+SOURCE_NAMES = {"soundcloud": "SoundCloud", "youtube": "YouTube"}
 
 log = logging.getLogger(__name__)
 
 
 def add_get_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the arguments for `scmp3 get`."""
-    parser.add_argument("urls", nargs="+", metavar="url", help="a SoundCloud track link")
+    parser.add_argument(
+        "urls", nargs="+", metavar="url", help="a SoundCloud track link or a YouTube video link"
+    )
     parser.add_argument(
         "--yes", "-y", action="store_true", help="save with the suggested tags, without a review"
     )
@@ -174,12 +179,12 @@ def _get_one(
         say(f"{label}: {error}")
         return False
     except ScmpError as error:
-        _report(label, error, settings)
+        _report(label, error, settings, _source_name(parsed))
         return False
     try:
         return _save(prepared, options, settings)
     except ScmpError as error:
-        _report(label, error, settings)
+        _report(label, error, settings, _source_name(parsed))
         return False
     finally:
         # finalize deletes the folder after a save; this covers skips and failures.
@@ -269,10 +274,16 @@ class ProgressLine:
             print(file=self._stream)
 
 
-def _report(label: str, error: ScmpError, settings: Settings) -> None:
+def _source_name(parsed: ParsedInput) -> str:
+    """How messages name the source a link comes from."""
+    source = pipeline.LINK_SOURCES.get(parsed.kind, "soundcloud")
+    return SOURCE_NAMES[source]
+
+
+def _report(label: str, error: ScmpError, settings: Settings, source: str) -> None:
     """Say why a link failed, and log the details."""
     log.warning("Couldn't save %s: %s", label, error, exc_info=error.kind == ErrorKind.internal)
-    say(f"{label}: {error_message(error, settings)}")
+    say(f"{label}: {error_message(error, settings, source=source)}")
 
 
 def _set_up_streams() -> None:

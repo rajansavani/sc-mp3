@@ -3,17 +3,19 @@
 // A link ending in /error-<kind>, such as https://soundcloud.com/x/error-drm, fails with that
 // kind, while fetching info or while saving.
 import { forTheUi } from "./review.js";
-import { horizon, PALETTES } from "./sample-art.js";
+import { horizon, PALETTES, videoFrame } from "./sample-art.js";
 import {
   makeSource,
   makeSuggestion,
   manyTracks,
+  OPUS_160,
   SAMPLE_HISTORY,
   sampleQueue,
   staticBloomInfo,
 } from "./sample-queue.js";
 import { FROZEN_DOWNLOADS, sampleStates } from "./sample-states.js";
 import { snapshotPart as settingsPart } from "./settings.js";
+import { hasYouTubeSupport, whenYouTubeSupportArrives } from "./youtube.js";
 
 // How long each simulated step takes, such as fetching info or saving.
 const STEP_MS = 700;
@@ -100,7 +102,9 @@ function scheduleAutoRetry(job) {
 
 function fail(job, kind) {
   job.state = "error";
-  job.error = { kind, detail: null };
+  const wait = AUTO_RETRY_MS[kind];
+  const retryAt = wait ? new Date(Date.now() + wait).toISOString() : null;
+  job.error = { kind, detail: null, retry_at: retryAt };
   job.progress = null;
   downloading.delete(job.id);
   if (kind === "duplicate") {
@@ -115,11 +119,28 @@ function newSource(job) {
   const title = titleFromInput(job.input);
   const fields = { kind, id: `mock:${job.id}`, url: job.input, title, uploader: "Sample Artist" };
   if (kind === "file") return makeSource({ ...fields, formats: [] });
+  // YouTube's covers are wide video frames, which the cover crops to the middle square.
+  if (kind === "youtube") {
+    return makeSource({ ...fields, artwork_url: videoFrame(1280, 720), formats: [OPUS_160] });
+  }
   return makeSource({ ...fields, artwork_url: horizon(PALETTES.dusk) });
 }
 
-// A retried job keeps the source it already had.
+// Sample jobs whose info is written out already, by id.
+const SAMPLE_INFO = { "static-bloom": staticBloomInfo };
+
+// A retried job keeps the source it already had. A YouTube link waits for YouTube support.
 function resolve(job) {
+  if (sourceKind(job) === "youtube" && !job.source && !hasYouTubeSupport()) {
+    fail(job, "youtube_support_missing");
+    return;
+  }
+  const sample = SAMPLE_INFO[job.id];
+  if (sample && !job.source) {
+    Object.assign(job, sample(), { state: "needs_review" });
+    startDownload(job);
+    return;
+  }
   job.source = job.source ?? newSource(job);
   const failure = failingKind(job);
   if (failure && !SAVE_ERRORS.has(failure)) {
@@ -242,10 +263,24 @@ function startSampleActivity() {
   if (!bloom) return;
   later(STATIC_BLOOM_STEPS, () => {
     if (!ownerOf(bloom) || bloom.state !== "resolving") return;
+    if (!hasYouTubeSupport()) {
+      fail(bloom, "youtube_support_missing");
+      publish(bloom);
+      return;
+    }
     Object.assign(bloom, staticBloomInfo(), { state: "needs_review" });
     startDownload(bloom);
     publish(bloom);
   });
 }
+
+// Once YouTube support is in, the links that waited for it fetch their info, as in Python.
+whenYouTubeSupportArrives(() => {
+  for (const job of jobs) {
+    if (job.state !== "error" || job.error?.kind !== "youtube_support_missing") continue;
+    retryJob(job);
+    publish(job);
+  }
+});
 
 startSampleActivity();

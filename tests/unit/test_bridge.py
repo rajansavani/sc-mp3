@@ -22,6 +22,7 @@ from scmp3.core import paths
 from scmp3.core.history import History
 from scmp3.core.models import Settings
 from scmp3.core.settings import SettingsStore
+from scmp3.core.sources import deno
 
 # Every call the UI can make, by the mixin it belongs in.
 CALLS: dict[type, set[str]] = {
@@ -61,6 +62,7 @@ CALLS: dict[type, set[str]] = {
         "revert_engine",
         "open_logs",
         "install_youtube_support",
+        "cancel_youtube_support",
     },
 }
 
@@ -88,7 +90,9 @@ def store() -> SettingsStore:
 
 
 @pytest.fixture
-def api(store: SettingsStore) -> Api:
+def api(store: SettingsStore, monkeypatch: pytest.MonkeyPatch) -> Api:
+    # A Deno on this computer's PATH would count as YouTube support, so none is found.
+    monkeypatch.setattr(deno, "locate_system_deno", lambda: None)
     context = AppContext(
         settings=store,
         history=History(paths.data_dir() / "history.db"),
@@ -158,7 +162,14 @@ def test_the_snapshot_has_every_part(api: Api) -> None:
         },
         "app_update": {"state": "unknown", "version": None, "url": None},
         "updates": {"running": None, "pct": None, "last": None},
-        "youtube_support": {"state": "missing", "version": None, "pct": None, "error": None},
+        "youtube_support": {
+            "state": "missing",
+            "version": None,
+            "pct": None,
+            "error": None,
+            "downloaded": None,
+            "total": None,
+        },
     }
 
 

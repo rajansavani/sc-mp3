@@ -1,4 +1,5 @@
-"""Tests for the YouTube support calls: the status in the snapshot, and the install's events."""
+"""Tests for the YouTube support calls: the status in the snapshot, the install's events, a
+cancel, and the jobs that start again once it's installed."""
 
 import hashlib
 import io
@@ -27,6 +28,7 @@ from scmp3.core.engine_updates import EngineUpdates
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.history import History
 from scmp3.core.settings import SettingsStore
+from scmp3.core.sources import deno
 
 ASSET = "deno-x86_64-pc-windows-msvc.zip"
 API = "https://api.github.com/repos/denoland/deno/releases/latest"
@@ -34,6 +36,16 @@ DOWNLOADS = "https://github.com/denoland/deno/releases/download/v2.9.8"
 # Long enough to come in several chunks, so the install reports progress more than once.
 DENO_EXE = b"deno binary " * 100_000
 FINISHED = ("installed", "failed")
+
+
+@pytest.fixture(autouse=True)
+def no_deno_on_this_computer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A Deno on PATH would count as YouTube support in a uv install, so none is found.
+
+    The fake downloads aren't programs, so running one says the version its release has.
+    """
+    monkeypatch.setattr(deno, "locate_system_deno", lambda: None)
+    monkeypatch.setattr(deno, "read_deno_version", lambda binary: "2.9.8")
 
 
 def make_zip(files: Mapping[str, bytes]) -> bytes:
@@ -117,18 +129,40 @@ class RecordingBus(EventBus):
     def youtube_states(self) -> list[dict[str, Any]]:
         return [event["components"]["youtube_support"] for event in self.events]
 
-    def wait_until_finished(self) -> dict[str, Any]:
-        """The last YouTube support status, once the install has finished one way or the other."""
+    def wait_until_finished(self, states: Sequence[str] = FINISHED) -> dict[str, Any]:
+        """The last YouTube support status, once it's one of `states`. By default that's once the
+        install has finished one way or the other."""
         with self._changed:
             finished = self._changed.wait_for(
-                lambda: bool(self.events) and self.youtube_states()[-1]["state"] in FINISHED,
+                lambda: bool(self.events) and self.youtube_states()[-1]["state"] in states,
                 timeout=30,
             )
         assert finished, self.events
         return self.youtube_states()[-1]
 
+    def wait_for_progress(self) -> None:
+        """Wait until the install has reported some bytes downloaded."""
+        with self._changed:
+            started = self._changed.wait_for(
+                lambda: any(state["downloaded"] for state in self.youtube_states()), timeout=30
+            )
+        assert started, self.events
 
-def make_api(tmp_path: Path, web: FakeDenoReleases, run: FakeRunner | None = None) -> Api:
+
+class RecordingJobs:
+    """Stands in for the job manager, counting the calls that say YouTube support is ready."""
+
+    def __init__(self) -> None:
+        self.ready_calls = 0
+
+    def youtube_support_ready(self) -> None:
+        self.ready_calls += 1
+
+    def views(self) -> list[dict[str, Any]]:
+        return []
+
+
+def make_api(tmp_path: Path, web: Any, run: FakeRunner | None = None) -> Api:
     components = Components(
         tmp_path / "components", opener=web, run=run or FakeRunner(), target="windows-x64"
     )
@@ -138,8 +172,15 @@ def make_api(tmp_path: Path, web: FakeDenoReleases, run: FakeRunner | None = Non
         events=RecordingBus(),
         engine_version=lambda: "2026.08.19",
         components=components,
+        make_jobs=lambda context: RecordingJobs(),  # type: ignore[arg-type, return-value]
     )
     return Api(context)
+
+
+def jobs_of(api: Api) -> RecordingJobs:
+    jobs = api._context.jobs
+    assert isinstance(jobs, RecordingJobs)
+    return jobs
 
 
 def bus(api: Api) -> RecordingBus:
@@ -149,7 +190,8 @@ def bus(api: Api) -> RecordingBus:
 
 
 def youtube(state: str, **values: Any) -> dict[str, Any]:
-    return {"state": state, "version": None, "pct": None, "error": None, **values}
+    empty = {"version": None, "pct": None, "error": None, "downloaded": None, "total": None}
+    return {"state": state, **empty, **values}
 
 
 def test_the_snapshot_says_youtube_support_is_missing_until_deno_is_installed(
@@ -175,6 +217,36 @@ def test_installing_returns_at_once_then_reports_progress_and_the_version(
     assert progress == sorted(progress)
     assert progress[-1] == 100.0
     assert api._context.components.active_path("deno") is not None
+
+
+def test_progress_says_how_many_bytes_of_the_whole_have_arrived(tmp_path: Path) -> None:
+    api = make_api(tmp_path, FakeDenoReleases())
+    api.install_youtube_support()
+    bus(api).wait_until_finished()
+    sizes = [
+        (state["downloaded"], state["total"])
+        for state in bus(api).youtube_states()
+        if state["downloaded"] is not None
+    ]
+    assert len(sizes) > 1
+    assert {total for _, total in sizes} == {len(DENO_ZIP)}
+    assert sizes[-1][0] == len(DENO_ZIP)
+
+
+def test_the_jobs_waiting_for_youtube_support_start_once_it_is_installed(tmp_path: Path) -> None:
+    api = make_api(tmp_path, FakeDenoReleases())
+    api.install_youtube_support()
+    bus(api).wait_until_finished()
+    assert jobs_of(api).ready_calls == 1
+
+
+def test_a_failed_install_leaves_the_waiting_jobs_waiting(tmp_path: Path) -> None:
+    web = FakeDenoReleases()
+    web.files.clear()
+    api = make_api(tmp_path, web)
+    api.install_youtube_support()
+    bus(api).wait_until_finished()
+    assert jobs_of(api).ready_calls == 0
 
 
 def test_every_event_carries_the_whole_components_object(tmp_path: Path) -> None:
@@ -223,6 +295,8 @@ def test_installing_when_installed_says_so_without_downloading(tmp_path: Path) -
     # Answered before the call returns, with no thread and no request.
     assert bus(api).youtube_states() == [youtube("installed", version="2.9.8")]
     assert web.requests == []
+    # Jobs that failed while it was being installed start again too.
+    assert jobs_of(api).ready_calls == 1
 
 
 def test_a_tampered_download_reports_a_bad_download(tmp_path: Path) -> None:
@@ -256,6 +330,115 @@ def test_an_unexpected_error_reports_internal_and_is_logged(
         assert bus(api).wait_until_finished() == youtube("failed", error="internal")
     assert "Installing YouTube support failed unexpectedly" in caplog.text
     assert "a bug" in caplog.text
+
+
+class GatedResponse(FakeResponse):
+    """A download that holds back everything after its first chunk until the gate opens."""
+
+    def __init__(self, body: bytes, headers: Mapping[str, str], gate: threading.Event) -> None:
+        super().__init__(body, headers)
+        self.gate = gate
+        self.reads = 0
+
+    def read(self, size: int | None = -1) -> bytes:
+        self.reads += 1
+        if self.reads > 1:
+            assert self.gate.wait(30)
+        return super().read(size)
+
+
+class GatedReleases(FakeDenoReleases):
+    """FakeDenoReleases whose zip download waits at its second chunk."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.gate = threading.Event()
+
+    def __call__(self, url: str, headers: Mapping[str, str]) -> FakeResponse:
+        response = super().__call__(url, headers)
+        if not url.endswith(".zip"):
+            return response
+        body = self.files[url]
+        return GatedResponse(body, {"Content-Length": str(len(body))}, self.gate)
+
+
+def test_cancelling_stops_the_download_and_keeps_nothing(tmp_path: Path) -> None:
+    web = GatedReleases()
+    api = make_api(tmp_path, web)
+    api.install_youtube_support()
+    bus(api).wait_for_progress()
+    assert api.cancel_youtube_support() == {}
+    web.gate.set()
+
+    assert bus(api).wait_until_finished(("missing", *FINISHED)) == youtube("missing")
+    assert api._context.components.active_path("deno") is None
+    assert list((tmp_path / "components").glob("**/*")) == []
+    assert jobs_of(api).ready_calls == 0
+    assert api.snapshot()["components"]["youtube_support"] == youtube("missing")
+
+
+def test_cancelling_with_no_install_running_does_nothing(tmp_path: Path) -> None:
+    api = make_api(tmp_path, FakeDenoReleases())
+    assert api.cancel_youtube_support() == {}
+    assert bus(api).events == []
+
+
+def test_a_second_click_during_an_install_starts_no_second_download(tmp_path: Path) -> None:
+    web = GatedReleases()
+    api = make_api(tmp_path, web)
+    api.install_youtube_support()
+    bus(api).wait_for_progress()
+    api.install_youtube_support()
+    web.gate.set()
+
+    assert bus(api).wait_until_finished() == youtube("installed", version="2.9.8")
+    assert web.requests.count(f"{DOWNLOADS}/{ASSET}") == 1
+
+
+def test_a_deno_of_its_own_counts_in_a_uv_install(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(deno, "locate_system_deno", lambda: tmp_path / "deno.exe")
+    monkeypatch.setattr(deno, "read_deno_version", lambda binary: "2.5.1")
+    monkeypatch.setattr(deno, "is_frozen", lambda: False)
+    web = FakeDenoReleases()
+    api = make_api(tmp_path, web)
+
+    expected = youtube("installed", version="2.5.1")
+    assert api.snapshot()["components"]["youtube_support"] == expected
+    assert api.install_youtube_support() == {}
+    assert bus(api).youtube_states() == [expected]
+    assert web.requests == []
+
+
+def test_the_packaged_app_counts_only_its_own_deno(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(deno, "locate_system_deno", lambda: tmp_path / "deno.exe")
+    monkeypatch.setattr(deno, "read_deno_version", lambda binary: "2.5.1")
+    monkeypatch.setattr(deno, "is_frozen", lambda: True)
+    api = make_api(tmp_path, FakeDenoReleases())
+    assert api.snapshot()["components"]["youtube_support"] == youtube("missing")
+
+
+def test_a_downloaded_deno_that_doesnt_run_is_missing_and_installs_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    web = FakeDenoReleases()
+    api = make_api(tmp_path, web)
+    api._context.components.install_deno()
+    web.requests.clear()
+    zip_url = f"{DOWNLOADS}/{ASSET}"
+    # The installed copy doesn't run, and the one downloaded again does.
+    monkeypatch.setattr(
+        deno, "read_deno_version", lambda binary: "2.9.8" if zip_url in web.requests else None
+    )
+    assert api.snapshot()["components"]["youtube_support"] == youtube("missing")
+
+    api.install_youtube_support()
+    assert bus(api).wait_until_finished() == youtube("installed", version="2.9.8")
+    assert zip_url in web.requests
+    assert jobs_of(api).ready_calls == 1
 
 
 # Engine updates and the app's latest release

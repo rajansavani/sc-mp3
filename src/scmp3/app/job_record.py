@@ -9,6 +9,7 @@ import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -30,7 +31,6 @@ from scmp3.core.models import (
     TagSuggestion,
 )
 from scmp3.core.pipeline import Prepared, Staged
-from scmp3.core.sources.soundcloud_formats import choose_format
 from scmp3.core.suggest import InvalidOverride, apply_changes
 from scmp3.core.tagger import FileFormat
 
@@ -84,6 +84,8 @@ class JobRecord:
     # The user's answer, with the file it was about, so it never applies to another file.
     collision_answer: tuple[Path, CollisionChoice] | None = None
     retry_timer: Cancellable | None = None
+    retry_at: datetime | None = None  # when the automatic retry runs, which the error view says
+    auto_retries: int = 0  # automatic retries since a step last went through, which space out
     closed: bool = False  # skipped or removed, so nothing in flight may change it
     removed: bool = False
     discarded: bool = False  # its staging folder is deleted, or about to be
@@ -194,18 +196,24 @@ def planned_format(record: JobRecord, settings: Settings) -> FileFormat:
     """The saved file's format: the staged file's, or the one the download will convert to."""
     if record.staged is not None:
         return record.staged.fmt
-    choice = format_choice(record)
+    choice = format_choice(record, settings)
     codec = choice.format.codec if choice else None
     return choose_conversion(settings.audio_format, codec).fmt
 
 
-def format_choice(record: JobRecord) -> FormatChoice | None:
-    """What the download takes from the source, or None when it can't be told."""
+def format_choice(record: JobRecord, settings: Settings) -> FormatChoice | None:
+    """What the download takes from the source, or None when it can't be told.
+
+    Before the download, YouTube's choice follows the audio format setting as it is now. After
+    it, the choice is what was downloaded.
+    """
     prepared = record.prepared
     if prepared is None:
         return None
+    if record.staged is not None:
+        return FormatChoice(record.staged.downloaded)
     try:
-        return choose_format(prepared.source, signed_in=bool(prepared.token))
+        return pipeline.choose_format(prepared.source, settings, signed_in=bool(prepared.token))
     except ScmpError as error:
         log.info("No format to show for a job: %s", error)
         return None
@@ -242,13 +250,14 @@ def job_view(record: JobRecord, settings: Settings) -> dict[str, Any]:
     view = record.job.to_dict()
     tags = rendered_tags(record, settings)
     path = planned_path(record, tags, settings) if tags else None
-    choice = format_choice(record)
+    choice = format_choice(record, settings)
     cover = record.cover
     view["tags"] = tags.to_dict() if tags else None
     view["filename"] = _relative_name(path, settings.library_dir)
     view["format"] = choice.to_dict() if choice else None
     view["cover_url"] = cover.url
     view["cover_size"] = cover.size()
+    view["default_crop"] = cover.default_crop.to_dict() if cover.default_crop else None
     view["collision"] = {"path": str(record.collision)} if record.collision else None
     view["cover_missing"] = record.cover_error is not None
     view["cover_problem"] = record.cover_problem
@@ -256,6 +265,7 @@ def job_view(record: JobRecord, settings: Settings) -> dict[str, Any]:
         # The UI offers "Choose another folder" only for the library (TECH_SPEC §9).
         view["error"]["where"] = record.error_where
         view["error"]["reason"] = record.error_reason
+        view["error"]["retry_at"] = record.retry_at.isoformat() if record.retry_at else None
     return view
 
 

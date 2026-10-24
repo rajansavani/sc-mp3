@@ -46,6 +46,16 @@ _DECODE_ERRORS = (
     Image.DecompressionBombError,
 )
 
+# A 16:9 picture in a 4:3 frame, as YouTube's smaller thumbnails are, has black bands of an
+# eighth of the height above and below it. A cover without a crop box leaves them out.
+LETTERBOX_FRAME = 4 / 3
+LETTERBOX_FRAME_SLACK = 0.02
+LETTERBOX_BAND = 1 / 8
+# The brightest a band's pixels may be, out of 255, and still count as black under JPEG noise.
+LETTERBOX_BLACK = 24
+# Rows next to the picture aren't checked, since JPEG smears the picture's edge into them.
+LETTERBOX_EDGE_ROWS = 2
+
 CoverWarning = Literal["small_source"]
 
 
@@ -60,6 +70,9 @@ class Cover:
     source_width: int
     source_height: int
     warnings: list[CoverWarning] = field(default_factory=list)
+    # The square a cover without a crop box is cut to, when it isn't the centered square: the
+    # middle of a letterboxed picture.
+    default_crop: CropBox | None = None
 
 
 def process(data: bytes, *, crop: CropBox | None = None, max_size: int = DEFAULT_MAX_SIZE) -> Cover:
@@ -67,7 +80,8 @@ def process(data: bytes, *, crop: CropBox | None = None, max_size: int = DEFAULT
     if max_size < 1:
         raise ScmpError(ErrorKind.internal, f"the cover size must be positive, not {max_size}")
     image = _decode(data)
-    box = _square_box(image.width, image.height, crop)
+    picture = picture_box(image)
+    box = _square_box(picture if crop is None else _crop_pixels(image.width, image.height, crop))
     side = box[2] - box[0]
     # Never upscale: a small source stays its own size.
     out_side = min(side, max_size)
@@ -80,7 +94,30 @@ def process(data: bytes, *, crop: CropBox | None = None, max_size: int = DEFAULT
         source_width=image.width,
         source_height=image.height,
         warnings=warnings,
+        default_crop=_as_crop(_square_box(picture), image) if picture[1] > 0 else None,
     )
+
+
+def picture_box(image: Image.Image) -> tuple[int, int, int, int]:
+    """The part of the image that's picture: all of it, or a letterboxed frame's middle band."""
+    width, height = image.size
+    whole = (0, 0, width, height)
+    if abs(width / height - LETTERBOX_FRAME) > LETTERBOX_FRAME_SLACK:
+        return whole
+    band = round(height * LETTERBOX_BAND)
+    gray = image.convert("L")
+    above = gray.crop((0, 0, width, band - LETTERBOX_EDGE_ROWS))
+    below = gray.crop((0, height - band + LETTERBOX_EDGE_ROWS, width, height))
+    if max(above.getextrema()[1], below.getextrema()[1]) > LETTERBOX_BLACK:
+        return whole
+    return 0, band, width, height - band
+
+
+def _as_crop(box: tuple[int, int, int, int], image: Image.Image) -> CropBox:
+    """A box in pixels as a crop box, in fractions of the image's size."""
+    left, top, right, bottom = box
+    width, height = image.size
+    return CropBox(left / width, top / height, (right - left) / width, (bottom - top) / height)
 
 
 def _decode(data: bytes) -> Image.Image:
@@ -144,12 +181,9 @@ def _apply_profile(image: Image.Image, profile: bytes) -> Image.Image:
     return converted
 
 
-def _square_box(width: int, height: int, crop: CropBox | None) -> tuple[int, int, int, int]:
-    """The square to cut, in pixels: the largest one centered in the crop box or the image."""
-    if crop is None:
-        left, top, right, bottom = 0, 0, width, height
-    else:
-        left, top, right, bottom = _crop_pixels(width, height, crop)
+def _square_box(area: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+    """The square to cut, in pixels: the largest one centered in the area, a box in pixels."""
+    left, top, right, bottom = area
     side = min(right - left, bottom - top)
     left += (right - left - side) // 2
     top += (bottom - top - side) // 2

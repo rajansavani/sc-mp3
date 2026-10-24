@@ -2,7 +2,14 @@
 // name, a cover that couldn't be used, a save without its cover, and one job for each error kind,
 // so every banner can be seen without making anything fail.
 import { artistFolder } from "./names.js";
-import { avatar, horizon, nightRoad, PALETTES } from "./sample-art.js";
+import {
+  avatar,
+  horizon,
+  LETTERBOXED_CROP,
+  letterboxedFrame,
+  nightRoad,
+  PALETTES,
+} from "./sample-art.js";
 import { makeChange, makeJob, makeSource, makeSuggestion } from "./sample-queue.js";
 
 let nextSample = 1;
@@ -137,6 +144,18 @@ function savedWithoutCover() {
   });
 }
 
+// An older YouTube video without an HD thumbnail: its cover is cut from the picture between the
+// black bands.
+function letterboxedCover() {
+  return track({
+    title: "Old Session",
+    artist: "Mara Lune",
+    kind: "youtube",
+    source: { artwork_url: letterboxedFrame() },
+    job: { default_crop: LETTERBOXED_CROP },
+  });
+}
+
 // One job per error kind. `reviewed` ones failed while saving, so their review stays up.
 // `where` and `reason` say more about a disk error, as T-022's bridge does.
 const ERROR_SAMPLES = [
@@ -152,6 +171,13 @@ const ERROR_SAMPLES = [
   { kind: "service_down", title: "Satellite", artist: "Ilo", source: "youtube" },
   { kind: "internal", title: "Paper Boats", artist: "Mara Lune" },
   { kind: "bad_download", title: "Velvet", artist: "Juno Vale", source: "youtube" },
+  { kind: "youtube_support_missing", title: "Paper Kites", artist: "Ilo", source: "youtube" },
+  { kind: "unavailable", title: "Night Swim", artist: "Kaia", source: "youtube", reason: "private" },
+  { kind: "unavailable", title: "Red Room", artist: "Teo Marr", source: "youtube", reason: "age_restricted" },
+  { kind: "unavailable", title: "Backstage", artist: "Mara Lune", source: "youtube", reason: "members_only" },
+  { kind: "unavailable", title: "Box Office", artist: "Teo Marr", source: "youtube", reason: "paid" },
+  { kind: "unavailable", title: "Lost Tape", artist: "Ilo", source: "youtube", reason: "removed" },
+  { kind: "unavailable", title: "Sunset Set", artist: "Juno Vale", source: "youtube", reason: "live_stream" },
   { kind: "disk", title: "Daybreak", artist: "Kaia", reviewed: true },
   { kind: "disk", title: "Undertow", artist: "Ilo", reviewed: true, where: "data" },
   { kind: "disk", title: "Window Seat", artist: "Mara Lune", reviewed: true, reason: "file_in_use" },
@@ -162,7 +188,15 @@ const ERROR_SAMPLES = [
 
 function failed({ kind, title, artist, source = "soundcloud", reviewed = false, ...more }) {
   const job = track({ title, artist, kind: source, state: "error", art: PALETTES.moss });
-  job.error = { kind, detail: null, where: more.where ?? null, reason: more.reason ?? null };
+  // A rate limit's next try is a few minutes off, as after its second wait.
+  const retryAt = kind === "rate_limited" ? new Date(Date.now() + 120000).toISOString() : null;
+  job.error = {
+    kind,
+    detail: null,
+    where: more.where ?? null,
+    reason: more.reason ?? null,
+    retry_at: retryAt,
+  };
   if (!reviewed) {
     job.suggestion = null;
     job.staged_audio = null;
@@ -181,6 +215,7 @@ export function sampleStates() {
     nameTaken(),
     unusableCover(),
     savedWithoutCover(),
+    letterboxedCover(),
     ...ERROR_SAMPLES.map(failed),
   ];
 }

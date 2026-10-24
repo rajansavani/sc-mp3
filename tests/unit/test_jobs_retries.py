@@ -63,7 +63,13 @@ def test_a_resolve_failure_puts_the_job_in_error(jobs: Harness) -> None:
     job_id = jobs.add_and_resolve()
     job = jobs.job(job_id)
     assert job["state"] == "error"
-    assert job["error"] == {"kind": "unavailable", "detail": "404", "where": None, "reason": None}
+    assert job["error"] == {
+        "kind": "unavailable",
+        "detail": "404",
+        "where": None,
+        "reason": None,
+        "retry_at": None,
+    }
     assert job["tags"] is None
 
 
@@ -92,7 +98,13 @@ def test_a_disk_error_says_which_folder_it_was_about(jobs: Harness, where: str) 
     jobs.manager.save([job_id])
     jobs.pools.run_all()
     error = jobs.job(job_id)["error"]
-    assert error == {"kind": "disk", "detail": "can't write", "where": where, "reason": None}
+    assert error == {
+        "kind": "disk",
+        "detail": "can't write",
+        "where": where,
+        "reason": None,
+        "retry_at": None,
+    }
 
 
 @pytest.mark.parametrize("reason", ["file_in_use", "path_too_long"])
@@ -212,6 +224,52 @@ def test_offline_and_rate_limited_jobs_retry_by_themselves(
     assert jobs.job(job_id)["state"] == "needs_review"
 
 
+def test_a_rate_limit_that_comes_back_waits_longer_each_time(jobs: Harness) -> None:
+    jobs.steps.prepare_errors.extend([ScmpError(ErrorKind.rate_limited)] * 7)
+    job_id = jobs.add_and_resolve()
+    waits = []
+    for _ in range(7):
+        timer = jobs.timers.waiting()[-1]
+        waits.append(timer.delay)
+        timer.callback()
+        jobs.pools.run("resolve")
+    assert waits == [60.0, 120.0, 300.0, 600.0, 1800.0, 1800.0, 1800.0]
+    assert jobs.job(job_id)["state"] == "needs_review"
+
+
+def test_a_rate_limit_after_a_step_went_through_starts_at_a_minute_again(jobs: Harness) -> None:
+    jobs.steps.prepare_errors.extend([ScmpError(ErrorKind.rate_limited)] * 2)
+    jobs.steps.fetch_errors.append(ScmpError(ErrorKind.rate_limited))
+    job_id = jobs.add_and_resolve()
+    for _ in range(2):
+        jobs.timers.waiting()[-1].callback()
+        jobs.pools.run("resolve")
+    jobs.pools.run("download")
+    assert jobs.job(job_id)["error"]["kind"] == "rate_limited"
+    assert jobs.timers.waiting()[-1].delay == 60.0
+
+
+def test_the_error_says_when_the_automatic_retry_runs(jobs: Harness) -> None:
+    jobs.manager._flow._clock = lambda: 1_800_000_000.0
+    jobs.steps.prepare_errors.extend([ScmpError(ErrorKind.rate_limited)] * 2)
+    job_id = jobs.add_and_resolve()
+    assert jobs.job(job_id)["error"]["retry_at"] == "2027-01-15T08:01:00+00:00"
+    jobs.timers.waiting()[-1].callback()
+    assert jobs.job(job_id)["error"] is None
+    jobs.pools.run("resolve")
+    assert jobs.job(job_id)["error"]["retry_at"] == "2027-01-15T08:02:00+00:00"
+    jobs.manager.remove(job_id)
+
+
+def test_a_retry_by_hand_clears_the_time_of_the_automatic_one(jobs: Harness) -> None:
+    jobs.steps.prepare_errors.extend([ScmpError(ErrorKind.rate_limited), ScmpError(ErrorKind.drm)])
+    job_id = jobs.add_and_resolve()
+    assert jobs.job(job_id)["error"]["retry_at"] is not None
+    jobs.manager.retry(job_id)
+    jobs.pools.run("resolve")
+    assert jobs.job(job_id)["error"]["retry_at"] is None
+
+
 def test_other_errors_wait_for_the_user(jobs: Harness) -> None:
     jobs.steps.prepare_errors.append(ScmpError(ErrorKind.drm))
     jobs.add_and_resolve()
@@ -280,3 +338,40 @@ def test_save_or_retry_on_a_duplicate_error_saves_anyway(no_review: Harness, cal
         no_review.manager.retry(job_id)
     no_review.pools.run_all()
     assert no_review.job(job_id)["state"] == "saved"
+
+
+# YouTube support
+
+VIDEO = "https://www.youtube.com/watch?v=y9qO_xgE34Q"
+
+
+def test_a_youtube_link_waits_in_error_until_youtube_support_is_installed(jobs: Harness) -> None:
+    jobs.steps.prepare_errors.append(ScmpError(ErrorKind.youtube_support_missing, "no Deno"))
+    job_id = jobs.add_and_resolve(VIDEO)
+    assert jobs.job(job_id)["error"]["kind"] == "youtube_support_missing"
+    # It isn't retried on a timer, since only installing YouTube support helps.
+    assert jobs.timers.waiting() == []
+
+    jobs.manager.youtube_support_ready()
+    assert jobs.job(job_id)["state"] == "queued"
+    jobs.pools.run("resolve")
+    assert jobs.job(job_id)["state"] == "needs_review"
+
+
+def test_youtube_support_arriving_leaves_other_failed_jobs_alone(jobs: Harness) -> None:
+    jobs.steps.prepare_errors.extend(
+        [ScmpError(ErrorKind.unavailable, "404"), ScmpError(ErrorKind.youtube_support_missing)]
+    )
+    failed = jobs.add_and_resolve()
+    waiting = jobs.add_and_resolve(VIDEO)
+    jobs.manager.youtube_support_ready()
+    assert jobs.job(failed)["state"] == "error"
+    assert jobs.job(waiting)["state"] == "queued"
+
+
+def test_youtube_support_arriving_with_nothing_waiting_changes_nothing(jobs: Harness) -> None:
+    job_id = jobs.add_and_resolve(VIDEO)
+    before = len(jobs.events.events)
+    jobs.manager.youtube_support_ready()
+    assert jobs.job(job_id)["state"] == "needs_review"
+    assert len(jobs.events.events) == before

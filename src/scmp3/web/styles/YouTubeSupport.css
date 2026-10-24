@@ -1,0 +1,45 @@
+/* The YouTube support dialog, from the design's A-youtube-support screen. The frame is the shell's
+   .dialog in controls.css. */
+
+.youtube-support {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.youtube-support-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* The ask's fine print and the download's sizes are small; how it ended is body size. */
+.youtube-support-detail {
+  color: var(--text-2);
+  font-size: var(--text-small);
+}
+
+.youtube-support-note {
+  color: var(--text-2);
+}
+
+.youtube-support .dialog-actions {
+  padding-top: 4px;
+}
+
+/* Dialogs use the 6px bar, where lists and the editor use 4px. */
+.youtube-support-progress {
+  height: 6px;
+  border-radius: 3px;
+}
+
+.youtube-support-ready {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.youtube-support-check {
+  flex: none;
+  color: var(--ok);
+}

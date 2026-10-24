@@ -195,7 +195,6 @@ export default {
     },
     youtube: "YouTube support",
     youtubeMissing: "Not installed. About 40 MB, downloaded the first time you add a YouTube link.",
-    youtubeInstalling: (pct) => (pct === null ? "Installing…" : `Installing… ${Math.round(pct)}%`),
     youtubeInstalled: (version) => `Installed: Deno ${version}`,
     youtubeFailed: "YouTube support didn't install.",
     installNow: "Install now",

@@ -4,7 +4,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 
 from scmp3.core.models import Change, Settings, SourceInfo, TagSuggestion
-from scmp3.core.suggest import artist_lists, artists, rules
+from scmp3.core.suggest import artist_lists, artists, rules, youtube
 from scmp3.core.suggest.draft import VERSION, Claim, Context, Draft, assemble
 from scmp3.core.suggest.labels import change_label
 from scmp3.core.suggest.names import any_same_artist
@@ -26,6 +26,7 @@ TITLE_STEPS: tuple[Step, ...] = (
     rules.claim_trailing_promo,
     rules.claim_emoji,
     rules.claim_inline_producers,
+    youtube.claim_artist_at_end,  # before the dash split, so "Numb - Linkin Park" isn't read as one
     artists.claim_title_artist,
     artists.claim_inline_features,
     rules.claim_custom_words,
@@ -112,7 +113,7 @@ class _Drafts:
 def _detect(source: SourceInfo, settings: Settings, words: Wordlists) -> _Drafts:
     """Run the rules on every text, with each claim at its default."""
     context = Context(source, settings, words)
-    uploader = _run(source.uploader, UPLOADER_STEPS, context)
+    uploader = _run(youtube.uploader_name(source), UPLOADER_STEPS, context)
     credits = [_run(name, ARTIST_FIELD_STEPS, context) for name in source.artists]
     credits = [credit for credit in credits if credit.text]
     context = replace(

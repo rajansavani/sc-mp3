@@ -354,6 +354,7 @@ def test_error_kinds_are_exactly_the_spec_list() -> None:
         "duplicate",
         "service_down",
         "bad_download",
+        "youtube_support_missing",
         "internal",
     ]
 

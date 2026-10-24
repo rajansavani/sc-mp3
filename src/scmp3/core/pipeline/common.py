@@ -3,7 +3,7 @@ error mapping that makes every failure a ScmpError."""
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -27,6 +27,8 @@ from scmp3.core.models import (
     TitleStyle,
 )
 from scmp3.core.sources import soundcloud, ytdlp_errors
+from scmp3.core.sources.deno import Deno, find_deno
+from scmp3.core.sources.youtube import make_ydl as make_youtube_ydl
 from scmp3.core.tagger import FileFormat
 from scmp3.core.urls import UnsupportedInput
 
@@ -46,16 +48,31 @@ class YdlMaker(Protocol):
     ) -> YoutubeDL: ...
 
 
+class YoutubeYdlMaker(Protocol):
+    """Builds a YoutubeDL that runs YouTube's scripts on Deno, like `youtube.make_ydl`."""
+
+    def __call__(
+        self,
+        deno: Path,
+        *,
+        progress_hook: ProgressHook | None = None,
+        extra: Mapping[str, Any] | None = None,
+    ) -> YoutubeDL: ...
+
+
 def _default_history() -> History:
     return History(default_history_path())
 
 
 @dataclass(frozen=True)
 class Tools:
-    """How the pipeline reaches yt-dlp and the history. Tests pass fakes."""
+    """How the pipeline reaches yt-dlp, Deno and the history. Tests pass fakes."""
 
     make_ydl: YdlMaker = soundcloud.make_ydl
     history: History = field(default_factory=_default_history)
+    make_youtube_ydl: YoutubeYdlMaker = make_youtube_ydl
+    # Finds the Deno YouTube needs, or None when YouTube support isn't installed.
+    find_deno: Callable[[], Deno | None] = find_deno
 
 
 @dataclass

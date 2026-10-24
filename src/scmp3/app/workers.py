@@ -3,8 +3,8 @@
 import logging
 import threading
 import time
-from collections import deque
-from collections.abc import Callable, Mapping
+from collections import Counter, deque
+from collections.abc import Callable, Collection, Mapping
 from typing import Protocol
 
 Task = Callable[[], None]
@@ -38,8 +38,9 @@ class TaskPool:
     A smaller size takes effect as threads finish their tasks, so a running task is never cut
     short. Threads are daemons, so a task still running when the app quits doesn't hold it open.
     A task with a pace key in `spacing` waits until that long after the last one with its key
-    started, and other tasks go ahead of it meanwhile. One whose `wanted` says it has nothing left
-    to do, such as the download of a removed job, runs at once and leaves the turn to the next.
+    started, and other tasks go ahead of it meanwhile. A key in `serial` runs one task at a time,
+    and its spacing counts from when the last one ended. One whose `wanted` says it has nothing
+    left to do, such as the download of a removed job, runs at once and leaves the turn to the next.
     """
 
     def __init__(
@@ -48,15 +49,19 @@ class TaskPool:
         size: int,
         *,
         spacing: Spacing | None = None,
+        serial: Collection[str] = (),
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._name = name
         self._size = size
         self._tasks: deque[tuple[Task, str | None, StillWanted | None]] = deque()
         self._spacing = dict(spacing or {})
+        self._serial = frozenset(serial)
         self._clock = clock
         # When each pace key in `spacing` may start its next task.
         self._next_start: dict[str, float] = {}
+        # How many tasks of each serial key are running: one at most.
+        self._running_serial: Counter[str] = Counter()
         self._changed = threading.Condition()
         self._threads: set[threading.Thread] = set()
         self._running = 0
@@ -131,9 +136,10 @@ class TaskPool:
 
     def _work(self) -> None:
         while True:
-            task = self._next_task()
-            if task is None:
+            taken = self._next_task()
+            if taken is None:
                 return
+            task, serial_key = taken
             try:
                 task()
             except Exception:
@@ -142,10 +148,17 @@ class TaskPool:
             finally:
                 with self._changed:
                     self._running -= 1
+                    if serial_key is not None:
+                        self._end_serial_turn(serial_key)
                     self._changed.notify_all()
 
-    def _next_task(self) -> Task | None:
-        """The next task to run, or None when this thread should stop."""
+    def _end_serial_turn(self, key: str) -> None:
+        """Let the next task of a serial key start, its spacing after this one ended."""
+        self._running_serial[key] -= 1
+        self._next_start[key] = self._clock() + self._spacing[key]
+
+    def _next_task(self) -> tuple[Task, str | None] | None:
+        """The next task to run with its serial key, or None when this thread should stop."""
         me = threading.current_thread()
         with self._changed:
             while True:
@@ -153,27 +166,36 @@ class TaskPool:
                     self._threads.discard(me)
                     self._changed.notify_all()
                     return None
-                task, wait = self._take_ready_task()
-                if task is not None:
+                taken, wait = self._take_ready_task()
+                if taken is not None:
                     self._running += 1
-                    return task
-                # None waits for the next submit, and a number for a paced task's turn.
+                    return taken
+                # None waits for the next submit or a serial task's end, a number for a turn.
                 self._changed.wait(wait)
 
-    def _take_ready_task(self) -> tuple[Task | None, float | None]:
-        """The first task that may start now, or else how long until one may."""
+    def _take_ready_task(self) -> tuple[tuple[Task, str | None] | None, float | None]:
+        """The first task that may start now with its serial key, or else how long until one may."""
         now = self._clock()
         soonest: float | None = None
         for index, (task, pace, wanted) in enumerate(self._tasks):
-            paced = pace in self._spacing and (wanted is None or wanted())
+            paced = pace is not None and pace in self._spacing and (wanted is None or wanted())
+            if paced and self._running_serial[pace] > 0:
+                # Its key's running task wakes the pool when it ends.
+                continue
             start_at = self._next_start.get(pace, now) if paced else now
             if start_at <= now:
                 del self._tasks[index]
-                if paced:
-                    self._next_start[pace] = now + self._spacing[pace]
-                return task, None
+                return (task, self._take_turn(pace, now) if paced else None), None
             soonest = start_at if soonest is None else min(soonest, start_at)
         return None, None if soonest is None else soonest - now
+
+    def _take_turn(self, key: str, now: float) -> str | None:
+        """Start a paced task's turn. Returns the key when it's serial, so its end is counted."""
+        if key in self._serial:
+            self._running_serial[key] += 1
+            return key
+        self._next_start[key] = now + self._spacing[key]
+        return None
 
 
 class Cancellable(Protocol):

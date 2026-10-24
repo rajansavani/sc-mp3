@@ -22,7 +22,7 @@ REASONS_BY_MODULE: dict[ModuleType, tuple[str, ...]] = {
         "YOUTUBE_NOT_VIDEO",
     ),
     inputs: ("FILE_NOT_FOUND", "FOLDER_NOT_FILE", "NOT_RETAGGABLE", "PASTE_TOO_LONG"),
-    pipeline: ("SETS_NOT_SUPPORTED", "YOUTUBE_NOT_SUPPORTED", "FILES_NOT_SUPPORTED"),
+    pipeline: ("SETS_NOT_SUPPORTED", "FILES_NOT_SUPPORTED"),
 }
 
 REASON_CODES: dict[str, str] = {

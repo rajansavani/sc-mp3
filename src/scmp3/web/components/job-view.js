@@ -18,7 +18,13 @@ export const ERROR_KINDS = {
     actions: ["sign_in_go_plus", "remove"],
     primary: true,
   },
-  unavailable: { tone: "danger", icon: "error", actions: ["remove"] },
+  unavailable: {
+    tone: "danger",
+    icon: "error",
+    actions: ["remove"],
+    // A live stream can be saved once it's over.
+    variants: { live_stream: { tone: "warn", icon: "clock", actions: ["retry", "remove"] } },
+  },
   geo_blocked: { tone: "danger", icon: "error", actions: ["remove"] },
   rate_limited: { tone: "neutral", icon: "clock", actions: ["remove"] },
   auth_expired: {
@@ -50,6 +56,12 @@ export const ERROR_KINDS = {
   service_down: { tone: "warn", icon: "error", actions: ["retry", "remove"] },
   internal: { tone: "danger", icon: "error", actions: ["retry", "remove"] },
   bad_download: { tone: "danger", icon: "error", actions: ["retry", "remove"] },
+  youtube_support_missing: {
+    tone: "warn",
+    icon: "download",
+    actions: ["add_youtube_support", "remove"],
+    primary: true,
+  },
 };
 
 // What an unknown error kind gets, so a newer backend never leaves the editor blank.
@@ -130,11 +142,17 @@ export function waitsForDownload(job) {
   return job.state === "saving" && job.kind === "track" && !job.staged_audio;
 }
 
+// The crop the cover is cut to: the one chosen, or the one Python cuts without it, such as the
+// picture of a letterboxed video thumbnail. null means the centered square.
+export function coverCrop(job) {
+  return job.artwork?.crop ?? job.default_crop ?? null;
+}
+
 // The side of the square that gets embedded, in the pixels Python crops from, or null.
 export function coverSide(job) {
   const size = job.cover_size;
   if (!size) return null;
-  const crop = job.artwork?.crop;
+  const crop = coverCrop(job);
   if (!crop) return Math.min(size.width, size.height);
   return Math.round(Math.min(crop.width * size.width, crop.height * size.height));
 }
@@ -183,8 +201,17 @@ export function errorText(job, settings) {
     source: sourceName(job),
     folder: folderLabel(settings?.library_dir ?? ""),
     savedOn: job.duplicate ? savedOn(job.duplicate.saved_at) : null,
+    retryAt: clockTime(job.error?.retry_at),
   };
   return { headline: entry.headline(context), detail: entry.detail?.(context) ?? null };
+}
+
+// "2:35 PM", the time of day an automatic retry runs, or null.
+function clockTime(isoTime) {
+  if (!isoTime) return null;
+  const time = new Date(isoTime);
+  if (Number.isNaN(time.getTime())) return null;
+  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(time);
 }
 
 function reviewStatus(job) {

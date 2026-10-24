@@ -14,6 +14,7 @@ from scmp3.core.components import DENO, Components
 from scmp3.core.engine_updates import EngineUpdate
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.releases import engine_channel_of, version_key
+from scmp3.core.sources.deno import find_deno
 
 if TYPE_CHECKING:
     from scmp3.app.context import AppContext
@@ -31,19 +32,29 @@ def youtube_support(
     version: str | None = None,
     pct: float | None = None,
     error: ErrorKind | None = None,
+    downloaded: int | None = None,
+    total: int | None = None,
 ) -> dict[str, Any]:
-    """YouTube support's status for the UI, with every key always there."""
+    """YouTube support's status for the UI, with every key always there.
+
+    While it installs, `downloaded` and `total` are the bytes so far and the size, when known.
+    """
     return {
         "state": state,
         "version": version,
         "pct": pct,
         "error": error.value if error else None,
+        "downloaded": downloaded,
+        "total": total,
     }
 
 
 def youtube_status(components: Components) -> dict[str, Any]:
-    """YouTube support's status as the components folder shows it."""
-    installed = components.active(DENO)
+    """YouTube support's status as the components folder shows it.
+
+    In a uv install, a Deno of its own counts too (deno.find_deno).
+    """
+    installed = find_deno(components)
     if installed is not None:
         return youtube_support("installed", version=installed.version)
     # So a page reloaded mid-install doesn't offer the install again.

@@ -15,6 +15,14 @@ ErrorReason = Literal[
     "file_in_use",
     # The library folder's path leaves no room for a file name under Windows' path limit.
     "path_too_long",
+    # Why a YouTube video is unavailable: only its uploader's invitees, signed-in adults, the
+    # channel's members or buyers can watch it, it was taken down, or it's a stream still running.
+    "private",
+    "age_restricted",
+    "members_only",
+    "paid",
+    "removed",
+    "live_stream",
 ]
 
 
@@ -37,6 +45,8 @@ class ErrorKind(StrEnum):
     service_down = "service_down"
     # A downloaded component didn't match its checksum or didn't run, so it wasn't installed.
     bad_download = "bad_download"
+    # A YouTube link needs Deno, which isn't installed yet. Installing it retries the job.
+    youtube_support_missing = "youtube_support_missing"
     # An unexpected exception in sc-mp3's own code.
     internal = "internal"
 

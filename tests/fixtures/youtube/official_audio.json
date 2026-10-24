@@ -1,0 +1,487 @@
+{
+  "url": "https://www.youtube.com/watch?v=Y2QpQP8wPG8",
+  "recorded": "2026-10-22",
+  "yt_dlp": "2026.08.19",
+  "info": {
+    "id": "Y2QpQP8wPG8",
+    "title": "Future - WAIT FOR U (Official Audio) ft. Drake, Tems",
+    "uploader": "Future",
+    "channel": "Future",
+    "description": "Future feat. Drake & Tems - WAIT FOR U (Official Audio)\n\nPURPLE + BUTTERCREAM “I NEVER LIKED YOU” VINYL NOW AVAILABLE FOR PRE-ORDER: https://future.lnk.to/INEVERLIKEDYOU\n…\n(C) & (P) 2022 Epic Records, a division of Sony Music Entertainment. With Freebandz. / (C) Gregory Harris, originally published in GQ May 2022\n\n#Future #Drake #Tems",
+    "track": null,
+    "artists": null,
+    "album": null,
+    "release_year": null,
+    "release_date": null,
+    "upload_date": "20220429",
+    "duration": 191,
+    "live_status": "not_live",
+    "webpage_url": "https://www.youtube.com/watch?v=Y2QpQP8wPG8",
+    "thumbnails": [
+      {
+        "id": "0",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/3.jpg",
+        "width": null,
+        "height": null,
+        "preference": -37
+      },
+      {
+        "id": "1",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/3.webp",
+        "width": null,
+        "height": null,
+        "preference": -36
+      },
+      {
+        "id": "2",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/2.jpg",
+        "width": null,
+        "height": null,
+        "preference": -35
+      },
+      {
+        "id": "3",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/2.webp",
+        "width": null,
+        "height": null,
+        "preference": -34
+      },
+      {
+        "id": "4",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/1.jpg",
+        "width": null,
+        "height": null,
+        "preference": -33
+      },
+      {
+        "id": "5",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/1.webp",
+        "width": null,
+        "height": null,
+        "preference": -32
+      },
+      {
+        "id": "6",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/mq3.jpg",
+        "width": null,
+        "height": null,
+        "preference": -31
+      },
+      {
+        "id": "7",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/mq3.webp",
+        "width": null,
+        "height": null,
+        "preference": -30
+      },
+      {
+        "id": "8",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/mq2.jpg",
+        "width": null,
+        "height": null,
+        "preference": -29
+      },
+      {
+        "id": "9",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/mq2.webp",
+        "width": null,
+        "height": null,
+        "preference": -28
+      },
+      {
+        "id": "10",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/mq1.jpg",
+        "width": null,
+        "height": null,
+        "preference": -27
+      },
+      {
+        "id": "11",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/mq1.webp",
+        "width": null,
+        "height": null,
+        "preference": -26
+      },
+      {
+        "id": "12",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/hq3.jpg",
+        "width": null,
+        "height": null,
+        "preference": -25
+      },
+      {
+        "id": "13",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/hq3.webp",
+        "width": null,
+        "height": null,
+        "preference": -24
+      },
+      {
+        "id": "14",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/hq2.jpg",
+        "width": null,
+        "height": null,
+        "preference": -23
+      },
+      {
+        "id": "15",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/hq2.webp",
+        "width": null,
+        "height": null,
+        "preference": -22
+      },
+      {
+        "id": "16",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/hq1.jpg",
+        "width": null,
+        "height": null,
+        "preference": -21
+      },
+      {
+        "id": "17",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/hq1.webp",
+        "width": null,
+        "height": null,
+        "preference": -20
+      },
+      {
+        "id": "18",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/sd3.jpg",
+        "width": null,
+        "height": null,
+        "preference": -19
+      },
+      {
+        "id": "19",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/sd3.webp",
+        "width": null,
+        "height": null,
+        "preference": -18
+      },
+      {
+        "id": "20",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/sd2.jpg",
+        "width": null,
+        "height": null,
+        "preference": -17
+      },
+      {
+        "id": "21",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/sd2.webp",
+        "width": null,
+        "height": null,
+        "preference": -16
+      },
+      {
+        "id": "22",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/sd1.jpg",
+        "width": null,
+        "height": null,
+        "preference": -15
+      },
+      {
+        "id": "23",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/sd1.webp",
+        "width": null,
+        "height": null,
+        "preference": -14
+      },
+      {
+        "id": "24",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/default.jpg",
+        "width": null,
+        "height": null,
+        "preference": -13
+      },
+      {
+        "id": "25",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/default.webp",
+        "width": null,
+        "height": null,
+        "preference": -12
+      },
+      {
+        "id": "26",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/mqdefault.jpg",
+        "width": 320,
+        "height": 180,
+        "preference": -11
+      },
+      {
+        "id": "27",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/mqdefault.webp",
+        "width": null,
+        "height": null,
+        "preference": -10
+      },
+      {
+        "id": "28",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/0.jpg",
+        "width": null,
+        "height": null,
+        "preference": -9
+      },
+      {
+        "id": "29",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/0.webp",
+        "width": null,
+        "height": null,
+        "preference": -8
+      },
+      {
+        "id": "30",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/hqdefault.jpg",
+        "width": null,
+        "height": null,
+        "preference": -7
+      },
+      {
+        "id": "31",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/hqdefault.jpg",
+        "width": 168,
+        "height": 94,
+        "preference": -7
+      },
+      {
+        "id": "32",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/hqdefault.jpg",
+        "width": 196,
+        "height": 110,
+        "preference": -7
+      },
+      {
+        "id": "33",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/hqdefault.jpg",
+        "width": 246,
+        "height": 138,
+        "preference": -7
+      },
+      {
+        "id": "34",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/hqdefault.jpg",
+        "width": 336,
+        "height": 188,
+        "preference": -7
+      },
+      {
+        "id": "35",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/hqdefault.webp",
+        "width": null,
+        "height": null,
+        "preference": -6
+      },
+      {
+        "id": "36",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/sddefault.jpg",
+        "width": null,
+        "height": null,
+        "preference": -5
+      },
+      {
+        "id": "37",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/sddefault.webp",
+        "width": null,
+        "height": null,
+        "preference": -4
+      },
+      {
+        "id": "38",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/hq720.jpg",
+        "width": 1280,
+        "height": 720,
+        "preference": -3
+      },
+      {
+        "id": "39",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/hq720.webp",
+        "width": null,
+        "height": null,
+        "preference": -2
+      },
+      {
+        "id": "40",
+        "url": "https://i.ytimg.com/vi/Y2QpQP8wPG8/maxresdefault.jpg",
+        "width": 1920,
+        "height": 1080,
+        "preference": -1
+      },
+      {
+        "id": "41",
+        "url": "https://i.ytimg.com/vi_webp/Y2QpQP8wPG8/maxresdefault.webp",
+        "width": null,
+        "height": null,
+        "preference": 0
+      }
+    ],
+    "formats": [
+      {
+        "format_id": "sb2",
+        "ext": "mhtml",
+        "acodec": "none",
+        "vcodec": "none",
+        "abr": 0,
+        "tbr": null,
+        "language": null,
+        "language_preference": null,
+        "preference": null,
+        "has_drm": null,
+        "protocol": "mhtml",
+        "format_note": "storyboard"
+      },
+      {
+        "format_id": "sb1",
+        "ext": "mhtml",
+        "acodec": "none",
+        "vcodec": "none",
+        "abr": 0,
+        "tbr": null,
+        "language": null,
+        "language_preference": null,
+        "preference": null,
+        "has_drm": null,
+        "protocol": "mhtml",
+        "format_note": "storyboard"
+      },
+      {
+        "format_id": "sb0",
+        "ext": "mhtml",
+        "acodec": "none",
+        "vcodec": "none",
+        "abr": 0,
+        "tbr": null,
+        "language": null,
+        "language_preference": null,
+        "preference": null,
+        "has_drm": null,
+        "protocol": "mhtml",
+        "format_note": "storyboard"
+      },
+      {
+        "format_id": "233",
+        "ext": "mp4",
+        "acodec": null,
+        "vcodec": "none",
+        "abr": null,
+        "tbr": null,
+        "language": null,
+        "language_preference": null,
+        "preference": null,
+        "has_drm": false,
+        "protocol": "m3u8_native",
+        "format_note": "Default, low"
+      },
+      {
+        "format_id": "234",
+        "ext": "mp4",
+        "acodec": null,
+        "vcodec": "none",
+        "abr": null,
+        "tbr": null,
+        "language": null,
+        "language_preference": null,
+        "preference": null,
+        "has_drm": false,
+        "protocol": "m3u8_native",
+        "format_note": "Default, high"
+      },
+      {
+        "format_id": "139",
+        "ext": "m4a",
+        "acodec": "mp4a.40.5",
+        "vcodec": "none",
+        "abr": 48.817,
+        "tbr": 48.817,
+        "language": null,
+        "language_preference": -1,
+        "preference": null,
+        "has_drm": false,
+        "protocol": "https",
+        "format_note": "low"
+      },
+      {
+        "format_id": "249",
+        "ext": "webm",
+        "acodec": "opus",
+        "vcodec": "none",
+        "abr": 55.719,
+        "tbr": 55.719,
+        "language": null,
+        "language_preference": -1,
+        "preference": null,
+        "has_drm": false,
+        "protocol": "https",
+        "format_note": "low"
+      },
+      {
+        "format_id": "250",
+        "ext": "webm",
+        "acodec": "opus",
+        "vcodec": "none",
+        "abr": 72.867,
+        "tbr": 72.867,
+        "language": null,
+        "language_preference": -1,
+        "preference": null,
+        "has_drm": false,
+        "protocol": "https",
+        "format_note": "low"
+      },
+      {
+        "format_id": "140",
+        "ext": "m4a",
+        "acodec": "mp4a.40.2",
+        "vcodec": "none",
+        "abr": 129.506,
+        "tbr": 129.506,
+        "language": null,
+        "language_preference": -1,
+        "preference": null,
+        "has_drm": false,
+        "protocol": "https",
+        "format_note": "medium"
+      },
+      {
+        "format_id": "251",
+        "ext": "webm",
+        "acodec": "opus",
+        "vcodec": "none",
+        "abr": 142.6,
+        "tbr": 142.6,
+        "language": null,
+        "language_preference": -1,
+        "preference": null,
+        "has_drm": false,
+        "protocol": "https",
+        "format_note": "medium"
+      },
+      {
+        "format_id": "602",
+        "ext": "mp4",
+        "acodec": "none",
+        "vcodec": "vp09.00.10.08",
+        "abr": 0,
+        "tbr": 75.62,
+        "language": null,
+        "language_preference": null,
+        "preference": null,
+        "has_drm": false,
+        "protocol": "m3u8_native",
+        "format_note": null
+      },
+      {
+        "format_id": "269",
+        "ext": "mp4",
+        "acodec": "none",
+        "vcodec": "avc1.4D400C",
+        "abr": 0,
+        "tbr": 65.537,
+        "language": null,
+        "language_preference": null,
+        "preference": null,
+        "has_drm": false,
+        "protocol": "m3u8_native",
+        "format_note": null
+      }
+    ]
+  }
+}

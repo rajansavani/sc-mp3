@@ -7,6 +7,7 @@ job_cover_tasks.py.
 
 import logging
 import uuid
+from collections.abc import Collection
 from typing import Protocol
 
 from scmp3.app.events import EventBus
@@ -26,6 +27,9 @@ from scmp3.core.suggest import InvalidOverride
 from scmp3.core.urls import UnsupportedInput
 
 RESOLVE_WORKERS = 4
+# Sources whose links resolve one at a time, this many seconds after the last one ended. Each
+# YouTube resolve asks for a player page, and asking too fast brings on a bot check.
+RESOLVE_SPACING: dict[str, float] = {"youtube": 2.0}
 # Saves run one at a time, so two can't pick the same free file name (T-016).
 SAVE_WORKERS = 1
 MISC_WORKERS = 2
@@ -38,7 +42,14 @@ log = logging.getLogger(__name__)
 class PoolMaker(Protocol):
     """Makes a named pool of `size` workers, like TaskPool."""
 
-    def __call__(self, name: str, size: int, *, spacing: Spacing | None = None) -> Pool: ...
+    def __call__(
+        self,
+        name: str,
+        size: int,
+        *,
+        spacing: Spacing | None = None,
+        serial: Collection[str] = (),
+    ) -> Pool: ...
 
 
 class JobFlow(DownloadTasks):
@@ -57,7 +68,9 @@ class JobFlow(DownloadTasks):
         misc_pool = make_pool("misc", MISC_WORKERS)
         super().__init__(settings, events, steps=steps, timers=timers, misc_pool=misc_pool)
         self._covers = covers
-        self._resolve_pool = make_pool("resolve", RESOLVE_WORKERS)
+        self._resolve_pool = make_pool(
+            "resolve", RESOLVE_WORKERS, spacing=RESOLVE_SPACING, serial=RESOLVE_SPACING.keys()
+        )
         self._download_pool = make_pool(
             "download", settings.concurrent_downloads, spacing=DOWNLOAD_SPACING
         )
@@ -83,7 +96,11 @@ class JobFlow(DownloadTasks):
     def _start_resolving(self, record: JobRecord) -> None:
         record.job.state = JobState.queued
         ticket = self._new_ticket(record, "resolve")
-        self._resolve_pool.submit(lambda: self._resolve(record, ticket))
+        self._resolve_pool.submit(
+            lambda: self._resolve(record, ticket),
+            pace=pipeline.LINK_SOURCES.get(record.parsed.kind),
+            wanted=lambda: not record.closed and record.tickets.get("resolve") is ticket,
+        )
 
     def _resolve(self, record: JobRecord, ticket: Ticket) -> None:
         with self.lock:
@@ -111,6 +128,7 @@ class JobFlow(DownloadTasks):
                 self._resolved(record, outcome)
 
     def _resolved(self, record: JobRecord, prepared: pipeline.Prepared) -> None:
+        self._step_worked(record)
         job = record.job
         record.prepared = prepared
         job.source = prepared.source
@@ -216,6 +234,7 @@ class JobFlow(DownloadTasks):
             record.wants_save = False
             job.state = JobState.needs_review
         else:
+            self._step_worked(record)
             # finalize deletes the staging folder, whether it saved or skipped.
             record.staged = None
             job.staged_audio = None
