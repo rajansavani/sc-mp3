@@ -417,3 +417,29 @@ def test_a_burst_bigger_than_a_batch_goes_out_over_several_batches_in_order() ->
     bus.close()
     assert [len(batch) for batch in window.batches] == [3, 3, 3, 1]
     assert [event["job"]["id"] for event in window.events] == [f"job {n}" for n in range(10)]
+
+
+def test_a_built_event_lost_in_a_failed_send_says_so(bus: EventBus) -> None:
+    window = FakeWindow(fail_first=1)
+    lost: list[str] = []
+    bus.emit(Deferred("job", "a", lambda: job_event("a", 1), on_lost=lambda: lost.append("a")))
+    bus.attach(window)
+    window.wait_for(lambda w: len(w.sent_at) == 1)
+    bus.emit(Deferred("job", "a", lambda: job_event("a", 2), on_lost=lambda: lost.append("again")))
+    window.wait_for(lambda w: len(w.events) == 1)
+    assert window.events == [job_event("a", 2)]
+    assert lost == ["a"]
+
+
+def test_a_deferred_event_that_fails_to_build_counts_as_lost(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def broken() -> dict[str, Any]:
+        raise RuntimeError("a bug in the job view")
+
+    lost: list[str] = []
+    pending = PendingEvents()
+    pending.add(Deferred("job", "a", broken, on_lost=lambda: lost.append("a")))
+    with caplog.at_level(logging.ERROR, logger="scmp3.app.events"):
+        assert list(as_json(pending.take())) == []
+    assert lost == ["a"]

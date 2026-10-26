@@ -1,6 +1,8 @@
 """The job manager's editing calls: hand edits, cleanups, title styles and covers.
 
 Edits apply to jobs in review, and to jobs whose save failed, so they can be fixed and saved again.
+A set's tracks take the same calls by their own ids. A set's own id takes the album's fields and
+cover, until a track of the album saves.
 """
 
 import logging
@@ -11,6 +13,7 @@ from scmp3.app.job_covers import CoverRequest
 from scmp3.app.job_fields import field_problems, render_problem
 from scmp3.app.job_flow import JobFlow
 from scmp3.app.job_record import JobRecord, rebuilt_suggestion
+from scmp3.app.set_tracks import ALBUM_FIELDS, render_track, set_is_editable
 from scmp3.core import pipeline
 from scmp3.core.errors import ErrorKind
 from scmp3.core.models import (
@@ -57,30 +60,49 @@ class JobEditing:
         if problems:
             return {"error": INVALID_FIELDS, "fields": problems}
         with self._flow.lock:
-            record, refusal = self._editable(job_id)
+            record, refusal = self._editable(job_id, sets=True)
             if record is None:
                 return refusal
             job = record.job
             overrides = {**job.overrides, **patch}
-            try:
-                # Rendering is the last word, as it's what a save does with the values.
-                pipeline.render_tags(
-                    job.source,
-                    job.suggestion,
-                    self._flow.settings,
-                    style=job.style,
-                    overrides=overrides,
-                )
-            except InvalidOverride as error:
-                return {"error": INVALID_FIELDS, "fields": render_problem(error)}
+            if job.kind == "set" and not set(patch) <= set(ALBUM_FIELDS):
+                log.warning("The UI sent a set fields that only a track has")
+                return {"error": INTERNAL}
+            if job.kind != "set":
+                refused = self._render_problem(record, overrides)
+                if refused is not None:
+                    return refused
             job.overrides = overrides
             self._edited(record)
         return {}
 
+    def _render_problem(self, record: JobRecord, overrides: dict[str, str]) -> Answer | None:
+        """Why the track can't be tagged with these hand edits, or None when it can.
+
+        Rendering is the last word, as it's what a save does with the values. A track of an
+        album is rendered with its number, so a typed total smaller than its number is refused.
+        """
+        job = record.job
+        place = self._flow.place_of(record)
+        if place is not None:
+            overrides = pipeline.album_overrides(place.fields, overrides)
+        try:
+            render_track(
+                job.source,
+                job.suggestion,
+                self._flow.settings,
+                style=job.style,
+                overrides=overrides,
+                place=place,
+            )
+        except InvalidOverride as error:
+            return {"error": INVALID_FIELDS, "fields": render_problem(error)}
+        return None
+
     def reset_field(self, job_id: str, field: str) -> Answer:
         """Drop a hand edit, so the field follows the suggestion again."""
         with self._flow.lock:
-            record, refusal = self._editable(job_id)
+            record, refusal = self._editable(job_id, sets=True)
             if record is None:
                 return refusal
             if field in record.job.overrides:
@@ -126,7 +148,7 @@ class JobEditing:
         cover until then.
         """
         with self._flow.lock:
-            record, refusal = self._editable(job_id)
+            record, refusal = self._editable(job_id, sets=True)
             if record is None:
                 return refusal
             # A problem with an earlier cover no longer applies.
@@ -143,18 +165,25 @@ class JobEditing:
             self._edited(record)
         return {}
 
-    def _editable(self, job_id: str) -> tuple[JobRecord, None] | tuple[None, Answer]:
-        """The job to edit, or the answer that says why it can't be edited."""
-        record = self._flow.records.get(job_id)
+    def _editable(
+        self, job_id: str, *, sets: bool = False
+    ) -> tuple[JobRecord, None] | tuple[None, Answer]:
+        """The job to edit, or the answer that says why it can't be edited. With `sets`, a set's
+        own id may be edited too, for its album."""
+        record = self._flow.find(job_id)
         if record is None:
             return None, {"error": UNKNOWN_JOB}
         job = record.job
+        if job.kind == "set":
+            editable = sets and set_is_editable(record)
+            return (record, None) if editable else (None, {"error": NOT_EDITABLE})
         if job.state not in EDITABLE_STATES or job.suggestion is None or record.saving_now:
             return None, {"error": NOT_EDITABLE}
         return record, None
 
     def _edited(self, record: JobRecord) -> None:
         # An edit can change the file name, so a question about the old name no longer applies.
-        record.collision = None
-        record.collision_answer = None
+        # A set's edit changes every track's.
+        for edited in (record, *record.children):
+            edited.forget_name_question()
         self._flow.publish(record)

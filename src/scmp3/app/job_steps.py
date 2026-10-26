@@ -1,6 +1,7 @@
 """The pipeline's slow steps as the job manager calls them, so tests can pass fakes."""
 
 import threading
+from collections.abc import Mapping, Sequence
 from typing import Protocol
 
 from scmp3.core import pipeline
@@ -10,17 +11,29 @@ from scmp3.core.library import AskFn
 from scmp3.core.models import (
     ArtworkChoice,
     HistoryEntry,
+    PlaylistInfo,
     Settings,
     SourceInfo,
     Tags,
     TagSuggestion,
     TitleStyle,
 )
-from scmp3.core.pipeline import Prepared, Saved, Staged, Tools
+from scmp3.core.pipeline import (
+    AlbumPlace,
+    Prepared,
+    PreparedSet,
+    Saved,
+    SetTrack,
+    Staged,
+    Tools,
+    TrackResult,
+)
+from scmp3.core.sources import soundcloud_sets
 
 
 class Steps(Protocol):
-    """Resolving, downloading, saving, cleaning up and restoring a job. Only restore is quick."""
+    """Resolving, downloading, saving, cleaning up and restoring a job, and listing and saving a
+    set. Only the restores are quick."""
 
     def prepare(self, parsed: ParsedInput, *, settings: Settings, job_id: str) -> Prepared: ...
 
@@ -55,6 +68,26 @@ class Steps(Protocol):
     ) -> Saved | None: ...
 
     def discard(self, prepared: Prepared) -> None: ...
+
+    def prepare_set(self, parsed: ParsedInput, *, settings: Settings) -> PreparedSet: ...
+
+    def restore_set(
+        self, url: str, playlist: PlaylistInfo, *, settings: Settings
+    ) -> PreparedSet: ...
+
+    def album_places(
+        self,
+        prepared_set: PreparedSet,
+        tracks: Sequence[SetTrack],
+        settings: Settings,
+        *,
+        album: Mapping[str, str],
+        cover: ArtworkChoice,
+    ) -> list[AlbumPlace | None]: ...
+
+    def finalize_set_track(
+        self, track: SetTrack, place: AlbumPlace | None, settings: Settings, *, ask: AskFn
+    ) -> TrackResult: ...
 
 
 class PipelineSteps:
@@ -125,3 +158,33 @@ class PipelineSteps:
 
     def discard(self, prepared: Prepared) -> None:
         pipeline.discard(prepared)
+
+    def prepare_set(self, parsed: ParsedInput, *, settings: Settings) -> PreparedSet:
+        # TODO(T-041): Pass auth.current_token() to prepare_set.
+        return pipeline.prepare_set(parsed, settings=settings, tools=self._tools)
+
+    def restore_set(self, url: str, playlist: PlaylistInfo, *, settings: Settings) -> PreparedSet:
+        """What prepare_set gave a set before a restart, without listing it again."""
+        return PreparedSet(
+            url=url,
+            playlist=playlist,
+            default_mode=soundcloud_sets.default_mode(playlist),
+            settings=settings,
+            tools=self._tools,
+        )
+
+    def album_places(
+        self,
+        prepared_set: PreparedSet,
+        tracks: Sequence[SetTrack],
+        settings: Settings,
+        *,
+        album: Mapping[str, str],
+        cover: ArtworkChoice,
+    ) -> list[AlbumPlace | None]:
+        return pipeline.album_places(prepared_set, tracks, settings, album=album, cover=cover)
+
+    def finalize_set_track(
+        self, track: SetTrack, place: AlbumPlace | None, settings: Settings, *, ask: AskFn
+    ) -> TrackResult:
+        return pipeline.finalize_set_track(track, place, settings, ask=ask)

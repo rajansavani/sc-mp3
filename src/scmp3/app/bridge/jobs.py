@@ -20,7 +20,7 @@ from scmp3.core import paths
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.library import CollisionChoice
 from scmp3.core.log import LOG_FILE
-from scmp3.core.models import CropBox, TitleStyle
+from scmp3.core.models import AlbumMode, CropBox, TitleStyle
 
 INTERNAL = ErrorKind.internal.value
 INVALID_ARTWORK = "invalid_artwork"
@@ -36,6 +36,7 @@ MAX_QUERY_CHARACTERS = 1_000
 MAX_HISTORY_LIMIT = 500
 
 COLLISION_CHOICES = get_args(CollisionChoice)
+ALBUM_MODES = get_args(AlbumMode)
 CROP_SIDES = ("left", "top", "width", "height")
 # How far a crop may reach past the image's edge, for rounding in the UI.
 CROP_SLACK = 1e-6
@@ -226,22 +227,31 @@ class JobsApi:
             return refused("remove_jobs")
         return self._context.jobs.remove_jobs(job_ids)
 
-    def answer_collision(self, job_id: str, choice: str) -> dict[str, Any]:
-        """Say what to do about a file with the same name: replace, keep both or skip."""
-        if not is_id(job_id) or choice not in COLLISION_CHOICES:
+    def answer_collision(
+        self, job_id: str, choice: str, rest_of_set: bool = False
+    ) -> dict[str, Any]:
+        """Say what to do about a file with the same name: replace, keep both or skip. With
+        `rest_of_set`, the answer goes for the other tracks of the same set too."""
+        valid_choice = choice in COLLISION_CHOICES and isinstance(rest_of_set, bool)
+        if not is_id(job_id) or not valid_choice:
             return refused("answer_collision")
-        return self._context.jobs.answer_collision(job_id, cast(CollisionChoice, choice))
+        return self._context.jobs.answer_collision(
+            job_id, cast(CollisionChoice, choice), rest_of_set
+        )
 
     # Sets
 
-    # TODO(T-051): Implement these with the sets core.
     def set_album_mode(self, job_id: str, mode: str) -> dict[str, Any]:
         """Save a set as one album or as separate singles."""
-        return {"error": "not_implemented"}
+        if not is_id(job_id) or mode not in ALBUM_MODES:
+            return refused("set_album_mode")
+        return self._context.jobs.set_album_mode(job_id, cast(AlbumMode, mode))
 
     def set_included(self, job_id: str, child_id: str, included: bool) -> dict[str, Any]:
         """Choose whether one track of a set gets saved."""
-        return {"error": "not_implemented"}
+        if not is_id(job_id) or not is_id(child_id) or not isinstance(included, bool):
+            return refused("set_included")
+        return self._context.jobs.set_included(job_id, child_id, included)
 
     # Misc
 

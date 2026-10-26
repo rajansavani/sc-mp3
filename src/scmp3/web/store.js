@@ -2,6 +2,7 @@
 // Keys from Python stay snake_case, and the UI's own keys follow them, so nothing is renamed.
 import { useEffect, useState } from "preact/hooks";
 
+import { api } from "./api.js";
 import { strings } from "./strings/index.js";
 
 // How long a toast stays up before it closes by itself.
@@ -24,6 +25,9 @@ let state = {
 const listeners = new Set();
 // Events that arrive before the snapshot wait here, then apply on top of it.
 let earlyEvents = [];
+// Events that arrive while the jobs are fetched again, applied on top of the answer, or null when
+// no fetch is out. Only one fetch runs at a time.
+let heldEvents = null;
 let nextToastId = 1;
 // Set while listeners are due to hear about the latest changes.
 let notifying = false;
@@ -113,6 +117,40 @@ function withProgress(event) {
   return jobs;
 }
 
+// A set's event that carries only the tracks whose dicts changed since the last one. Python
+// sends the whole set first, so the set is always here, unless something went wrong.
+function withChangedTracks(event) {
+  const { jobs } = draftJobs();
+  const position = positionOf(event.job.id);
+  const before = position === undefined ? null : jobs[position];
+  if (!before || before.children.length !== event.count) {
+    console.warn("A set's changes came without the set itself, so the queue is fetched again");
+    fetchJobsAgain();
+    return jobs;
+  }
+  const children = [...before.children];
+  for (const [index, child] of event.tracks) children[index] = child;
+  jobs[position] = { ...event.job, children };
+  return jobs;
+}
+
+async function fetchJobsAgain() {
+  if (heldEvents !== null) return;
+  heldEvents = [];
+  let snapshot = null;
+  try {
+    snapshot = await api.snapshot();
+  } finally {
+    const waiting = heldEvents;
+    heldEvents = null;
+    if (snapshot?.jobs) {
+      draft = null;
+      update({ jobs: snapshot.jobs });
+    }
+    for (const event of waiting) applyEvent(event);
+  }
+}
+
 function withoutJob(state, jobId) {
   const jobs = draftJobs().jobs.filter((job) => job.id !== jobId);
   draft = { jobs, positions: null };
@@ -123,6 +161,7 @@ function withoutJob(state, jobId) {
 // How each event type changes the state. A new event type needs one entry here.
 const EVENT_HANDLERS = {
   job: (current, event) => ({ jobs: upsertJob(event.job) }),
+  set_tracks: (current, event) => ({ jobs: withChangedTracks(event) }),
   progress: (current, event) => ({ jobs: withProgress(event) }),
   job_removed: (current, event) => withoutJob(current, event.job_id),
   account: (current, event) => ({ account: event.account }),
@@ -138,6 +177,10 @@ const EVENT_HANDLERS = {
 export function applyEvent(event) {
   if (!state.ready) {
     earlyEvents.push(event);
+    return;
+  }
+  if (heldEvents !== null) {
+    heldEvents.push(event);
     return;
   }
   const handler = EVENT_HANDLERS[event.type];

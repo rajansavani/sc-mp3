@@ -1,5 +1,5 @@
 // The editor with nothing in the queue: how to start, and a zone that takes dropped links.
-// It names SoundCloud tracks and YouTube links; T-051 and T-062 add sets and re-tagging back here.
+// It names SoundCloud and YouTube links and sets; T-062 adds re-tagging back here.
 import { html } from "htm/preact";
 
 import { openDialog } from "../store.js";
@@ -24,6 +24,7 @@ export function EmptyEditor() {
             <kbd class="empty-key">${pasteKeys()}</kbd>
             <span>${text.pasteHint}</span>
           </span>
+          <span>${text.setsToo}</span>
         </div>
         <div class="empty-actions">
           <button

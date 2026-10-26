@@ -1,11 +1,11 @@
-"""One queue item as the job manager tracks it, and the dict the UI gets for it.
+"""One queue item as the job manager tracks it, and the copy the UI's dict is built from.
 
 The model `Job` is what the UI sees. The record adds what only Python needs: the pipeline's own
-results, the tasks in flight, and the cover previews. A `Snapshot` copies a record under the lock,
-so the dicts made from it can be built outside the lock.
+results, the tasks in flight, and the cover previews. A set's record holds a record for each of
+its tracks. A `Snapshot` copies a record under the lock, so the dicts made from it can be built
+outside the lock, by job_views.py.
 """
 
-import logging
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
@@ -13,35 +13,21 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
+from scmp3.app import job_views
 from scmp3.app.job_covers import NO_COVER, CoverView
+from scmp3.app.set_events import SentTracks
+from scmp3.app.set_tracks import TrackPlace
 from scmp3.app.workers import Cancellable
-from scmp3.core import pipeline
-from scmp3.core.conversion_choice import choose_conversion
-from scmp3.core.convert import AudioInfo
 from scmp3.core.errors import ErrorPlace, ErrorReason, ScmpError
 from scmp3.core.inputs import ParsedInput
 from scmp3.core.library import CollisionChoice
-from scmp3.core.models import (
-    FormatChoice,
-    FormatOption,
-    Job,
-    Settings,
-    SourceInfo,
-    Tags,
-    TagSuggestion,
-)
-from scmp3.core.pipeline import Prepared, Staged
-from scmp3.core.suggest import InvalidOverride, apply_changes
-from scmp3.core.tagger import FileFormat
+from scmp3.core.models import ArtworkChoice, Job, Settings, SourceInfo, TagSuggestion
+from scmp3.core.pipeline import LoadedCover, Prepared, PreparedSet, Staged
+from scmp3.core.suggest import apply_changes
 
-# The work a job can have in flight, each run by a task on a worker.
+# The work a job can have in flight, each run by a task on a worker. A set's listing is its
+# "resolve" step.
 Step = Literal["resolve", "download", "save", "source_cover", "cover"]
-
-# What a stand-in for the staged file holds before the download, apart from its format.
-NO_AUDIO = AudioInfo(duration=0.0, bitrate=None, codec=None, sample_rate=None)
-UNKNOWN_DOWNLOAD = FormatOption(format_id="", ext="")
-
-log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, eq=False)
@@ -83,12 +69,23 @@ class JobRecord:
     collision: Path | None = None  # the existing file the user is asked about
     # The user's answer, with the file it was about, so it never applies to another file.
     collision_answer: tuple[Path, CollisionChoice] | None = None
+    # A set's answer for every taken name among its tracks, once the person chose one for all.
+    collision_choice: CollisionChoice | None = None
     retry_timer: Cancellable | None = None
     retry_at: datetime | None = None  # when the automatic retry runs, which the error view says
     auto_retries: int = 0  # automatic retries since a step last went through, which space out
     closed: bool = False  # skipped or removed, so nothing in flight may change it
     removed: bool = False
     discarded: bool = False  # its staging folder is deleted, or about to be
+    # A set's tracks, in set order, and the set a track belongs to. The tuple is replaced, never
+    # changed in place, and the set's own `job.children` stays empty: snapshots copy the tracks.
+    children: tuple["JobRecord", ...] = field(default=(), repr=False)
+    parent: "JobRecord | None" = field(default=None, repr=False)
+    prepared_set: PreparedSet | None = None  # a set's listing, once it's in
+    # The album's cover, loaded by the first track saved with it, for the choice it was loaded for.
+    album_cover: tuple[ArtworkChoice, LoadedCover] | None = field(default=None, repr=False)
+    # A set's tracks as the UI last got them, which only the event bus's thread uses.
+    sent_tracks: SentTracks = field(default_factory=SentTracks, repr=False)
     # The copy taken since the last change, which the UI's dict and queue.json are built from.
     last_snapshot: "Snapshot | None" = field(default=None, repr=False)
 
@@ -99,12 +96,26 @@ class JobRecord:
     def snapshot(self) -> "Snapshot":
         """The record as it is now, copied once per change. Call it under the lock."""
         if self.last_snapshot is None:
-            self.last_snapshot = Snapshot(_copied(self))
+            children = tuple(child.snapshot() for child in self.children)
+            self.last_snapshot = Snapshot(_copied(self), children)
         return self.last_snapshot
 
     def changed(self) -> None:
-        """Note that something the UI or queue.json shows has changed, so the copy is stale."""
+        """Note that something the UI or queue.json shows has changed, so the copy is stale.
+
+        A track's set shows the track, so the set's copy is stale too.
+        """
         self.last_snapshot = None
+        if self.parent is not None:
+            self.parent.changed()
+
+    def forget_name_question(self) -> None:
+        """Drop a question about a taken name, since the name it was about may have changed."""
+        if self.collision is None and self.collision_answer is None:
+            return
+        self.collision = None
+        self.collision_answer = None
+        self.changed()
 
     @property
     def cover(self) -> CoverView:
@@ -125,8 +136,10 @@ def _copied(record: JobRecord) -> JobRecord:
     copied = _shallow_copy(record)
     copied.job = _shallow_copy(record.job)
     copied.toggles = dict(record.toggles)
-    # The tasks in flight belong to the live record only.
+    # The tasks in flight belong to the live record only, and a set's tracks are in the snapshot.
     copied.tickets = {}
+    copied.children = ()
+    copied.parent = None
     copied.last_snapshot = None
     return copied
 
@@ -142,26 +155,32 @@ def _shallow_copy[T](value: T) -> T:
 class Snapshot:
     """A record as it was at one change. Each dict made from it is built once, outside the lock.
 
+    A set's snapshot holds its tracks' snapshots, so a track that didn't change keeps its dict.
     Two threads building the same dict at once is harmless, since both build the same thing.
     """
 
     record: JobRecord
-    _view: tuple[Settings, dict[str, Any]] | None = None
+    children: tuple["Snapshot", ...] = ()
+    _view: tuple[Settings, TrackPlace | None, dict[str, Any]] | None = None
     _kept: tuple[str | None] | None = None
 
-    def view(self, settings: Settings) -> dict[str, Any]:
-        """The job as the UI gets it with these settings. Callers mustn't change the dict."""
+    def view(self, settings: Settings, place: TrackPlace | None = None) -> dict[str, Any]:
+        """The job as the UI gets it with these settings, a set's track at its `place` in the
+        album. Callers mustn't change the dict."""
         cached = self._view
-        if cached is not None and cached[0] is settings:
-            return cached[1]
-        view = job_view(self.record, settings)
-        self._view = (settings, view)
+        if cached is not None and cached[0] is settings and cached[1] == place:
+            return cached[2]
+        if self.record.job.kind == "set":
+            view = job_views.set_view(self, settings)
+        else:
+            view = job_views.job_view(self.record, settings, place)
+        self._view = (settings, place, view)
         return view
 
-    def kept(self, build: Callable[[JobRecord], str | None]) -> str | None:
-        """What queue.json keeps of the job, as `build` makes it from the record, built once."""
+    def kept(self, build: Callable[["Snapshot"], str | None]) -> str | None:
+        """What queue.json keeps of the job, as `build` makes it from the snapshot, built once."""
         if self._kept is None:
-            self._kept = (build(self.record),)
+            self._kept = (build(self),)
         return self._kept[0]
 
 
@@ -175,102 +194,3 @@ def rebuilt_suggestion(
         if change.id in toggles
     ]
     return apply_changes(replace(suggestion, changes=by_hand), source, settings)
-
-
-def rendered_tags(record: JobRecord, settings: Settings) -> Tags | None:
-    """The tags the job would be saved with now, or None before it's resolved."""
-    job = record.job
-    if job.source is None or job.suggestion is None:
-        return None
-    try:
-        return pipeline.render_tags(
-            job.source, job.suggestion, settings, style=job.style, overrides=job.overrides
-        )
-    except InvalidOverride as error:
-        # update_fields checks every value first, so this is a bug.
-        log.warning("A job's hand edits can't be rendered: %s", error)
-        return None
-
-
-def planned_format(record: JobRecord, settings: Settings) -> FileFormat:
-    """The saved file's format: the staged file's, or the one the download will convert to."""
-    if record.staged is not None:
-        return record.staged.fmt
-    choice = format_choice(record, settings)
-    codec = choice.format.codec if choice else None
-    return choose_conversion(settings.audio_format, codec).fmt
-
-
-def format_choice(record: JobRecord, settings: Settings) -> FormatChoice | None:
-    """What the download takes from the source, or None when it can't be told.
-
-    Before the download, YouTube's choice follows the audio format setting as it is now. After
-    it, the choice is what was downloaded.
-    """
-    prepared = record.prepared
-    if prepared is None:
-        return None
-    if record.staged is not None:
-        return FormatChoice(record.staged.downloaded)
-    try:
-        return pipeline.choose_format(prepared.source, settings, signed_in=bool(prepared.token))
-    except ScmpError as error:
-        log.info("No format to show for a job: %s", error)
-        return None
-
-
-def planned_path(record: JobRecord, tags: Tags, settings: Settings) -> Path | None:
-    """Where the job would be saved now, before checking whether the name is taken."""
-    job = record.job
-    if job.source is None or job.suggestion is None:
-        return None
-    staged = record.staged or _before_download(record, settings)
-    try:
-        return pipeline.destination(
-            job.source,
-            job.suggestion,
-            staged,
-            tags,
-            settings,
-            style=job.style,
-            overrides=job.overrides,
-        )
-    except ScmpError as error:
-        log.info("No file name to show for a job: %s", error)
-        return None
-
-
-def _before_download(record: JobRecord, settings: Settings) -> Staged:
-    """A stand-in for the staged file, since destination() only reads the format from it."""
-    return Staged(Path(), planned_format(record, settings), NO_AUDIO, UNKNOWN_DOWNLOAD)
-
-
-def job_view(record: JobRecord, settings: Settings) -> dict[str, Any]:
-    """The job as the UI gets it: the model's fields plus what TECH_SPEC §15 adds for the UI."""
-    view = record.job.to_dict()
-    tags = rendered_tags(record, settings)
-    path = planned_path(record, tags, settings) if tags else None
-    choice = format_choice(record, settings)
-    cover = record.cover
-    view["tags"] = tags.to_dict() if tags else None
-    view["filename"] = _relative_name(path, settings.library_dir)
-    view["format"] = choice.to_dict() if choice else None
-    view["cover_url"] = cover.url
-    view["cover_size"] = cover.size()
-    view["default_crop"] = cover.default_crop.to_dict() if cover.default_crop else None
-    view["collision"] = {"path": str(record.collision)} if record.collision else None
-    view["cover_missing"] = record.cover_error is not None
-    view["cover_problem"] = record.cover_problem
-    if view["error"] is not None:
-        # The UI offers "Choose another folder" only for the library (TECH_SPEC §9).
-        view["error"]["where"] = record.error_where
-        view["error"]["reason"] = record.error_reason
-        view["error"]["retry_at"] = record.retry_at.isoformat() if record.retry_at else None
-    return view
-
-
-def _relative_name(path: Path | None, library_dir: Path) -> str | None:
-    """The file's name, with its album folder when it has one."""
-    if path is None:
-        return None
-    return path.relative_to(library_dir).as_posix()

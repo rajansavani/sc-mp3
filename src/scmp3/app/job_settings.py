@@ -5,7 +5,9 @@ import logging
 
 from scmp3.app.job_editing import EDITABLE_STATES
 from scmp3.app.job_flow import JobFlow
-from scmp3.app.job_record import JobRecord, planned_path, rebuilt_suggestion, rendered_tags
+from scmp3.app.job_record import JobRecord, rebuilt_suggestion
+from scmp3.app.job_views import planned_path, rendered_tags
+from scmp3.app.set_tracks import TrackPlace, track_places
 from scmp3.core.models import JobState, Settings
 
 log = logging.getLogger(__name__)
@@ -46,7 +48,7 @@ class SettingsFollowing:
                 return
             waiting = [
                 (record, record.job.suggestion, record.job.source, dict(record.toggles))
-                for record in flow.records.values()
+                for record in flow.tracks()
                 if record.job.state in EDITABLE_STATES
                 and record.job.suggestion
                 and record.job.source
@@ -62,25 +64,43 @@ class SettingsFollowing:
                 # A toggle made meanwhile already rebuilt it with these settings.
                 if record.job.suggestion is before:
                     record.job.suggestion = after
+                    # A set's track reaches the UI with its set, which reuses an unchanged copy.
+                    record.changed()
             for record in flow.records.values():
-                _drop_stale_question(record, settings)
+                _drop_stale_questions(record, settings)
                 flow.publish(record)
 
     def _download_jobs_in_review(self) -> None:
         """Start the downloads that the download-while-reviewing setting would have started."""
-        for record in self._flow.records.values():
+        for record in self._flow.tracks():
             if record.job.state != JobState.needs_review or record.prepared is None:
+                continue
+            if not record.job.included:
                 continue
             # A download the person stopped stays stopped until they save.
             if not record.download_cancelled:
                 self._flow.start_download(record)
 
 
-def _drop_stale_question(record: JobRecord, settings: Settings) -> None:
+def _drop_stale_questions(record: JobRecord, settings: Settings) -> None:
+    """Drop the questions about taken names that no longer apply, for a job or a set's tracks.
+
+    A set's places are worked out once, and only when a track has a question.
+    """
+    if record.job.kind != "set":
+        _drop_stale_question(record, settings, None)
+        return
+    if all(track.collision is None for track in record.children):
+        return
+    places = track_places(record.job, record.children)
+    for track, place in zip(record.children, places, strict=True):
+        _drop_stale_question(track, settings, place)
+
+
+def _drop_stale_question(record: JobRecord, settings: Settings, place: TrackPlace | None) -> None:
     """Drop the question about a taken name once the job would be saved under another name."""
     if record.collision is None:
         return
-    tags = rendered_tags(record, settings)
-    if tags is None or planned_path(record, tags, settings) != record.collision:
-        record.collision = None
-        record.collision_answer = None
+    tags = rendered_tags(record, settings, place)
+    if tags is None or planned_path(record, tags, settings, place) != record.collision:
+        record.forget_name_question()

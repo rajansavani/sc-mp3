@@ -1,10 +1,14 @@
-// How a job reads in the queue and the editor: its title, its status line and its error.
-// Jobs carry the keys TECH_SPEC §15 lists for the UI: tags, filename, format, cover_url and
-// cover_size.
+// How a job reads in the queue and the editor: its title, its status line and its error, and a
+// set's progress over its tracks. Jobs carry the keys TECH_SPEC §15 lists for the UI: tags,
+// filename, format, cover_url and cover_size, and a set carries its tracks' jobs in `children`.
 import { strings } from "../strings/index.js";
 import { baseName, folderLabel } from "./paths.js";
 
 const text = strings.main;
+const setText = strings.sets;
+
+// Errors no retry can fix. A set's track that stops with one is left out of its album.
+const FINAL_ERRORS = new Set(["drm", "preview_only", "unavailable", "geo_blocked"]);
 
 // Each error kind's tone, icon and buttons, in the order the error view shows them. The first
 // action is the main one when `primary` is set, and Remove from the queue always comes last.
@@ -126,8 +130,58 @@ export function jobArtist(job) {
 // The second line of a queue item: who it's by and where it's from.
 export function jobLine(job) {
   if (job.kind === "retag") return text.retagLine;
-  if (job.kind === "set") return text.setLine(jobArtist(job), job.children.length);
+  if (job.kind === "set") return text.setLine(jobArtist(job), setText.tracks(job.children.length));
   return text.itemLine(jobArtist(job), sourceName(job));
+}
+
+// Whether a job stopped in a way no retry can fix, such as copy protection.
+export function canNeverSave(job) {
+  return job.state === "error" && FINAL_ERRORS.has(job.error?.kind);
+}
+
+// Where a set's included tracks are, leaving out those that can never be saved.
+export function setCounts(job) {
+  const tracks = job.children.filter((child) => child.included && !canNeverSave(child));
+  const count = (test) => tracks.filter(test).length;
+  return {
+    total: tracks.length,
+    fetching: count((child) => child.state === "queued" || child.state === "resolving"),
+    saving: count((child) => child.state === "saving" || child.saves_once_in),
+    saved: count((child) => child.state === "saved"),
+    failed: count((child) => child.state === "error"),
+    tracks,
+  };
+}
+
+// A set's progress bar, as a whole percentage, or null when there's nothing to show: the share
+// saved while it saves, the share with its info while that comes in, or the downloads' average.
+export function setProgress(job) {
+  if (job.kind !== "set" || !job.source) return null;
+  const counts = setCounts(job);
+  if (counts.total === 0) return null;
+  if (job.state === "saving") return Math.round((100 * counts.saved) / (counts.saved + counts.saving));
+  if (job.state !== "needs_review") return null;
+  if (counts.fetching > 0) return Math.round((100 * (counts.total - counts.fetching)) / counts.total);
+  if (!counts.tracks.some((child) => downloadPct(child) != null)) return null;
+  const done = counts.tracks.map((child) => (child.staged_audio ? 100 : (downloadPct(child) ?? 0)));
+  return Math.round(done.reduce((sum, pct) => sum + pct, 0) / done.length);
+}
+
+// A set's status line once its tracks are listed, over the tracks it saves.
+function setStatus(job) {
+  const counts = setCounts(job);
+  if (job.state === "saving") {
+    return { text: setText.status.saving(counts.saved, counts.saved + counts.saving), tone: "muted" };
+  }
+  if (job.state === "saved") return { text: setText.status.saved(counts.saved), tone: "ok" };
+  if (counts.fetching > 0) {
+    const done = counts.total - counts.fetching;
+    return { text: setText.status.fetching(done, counts.total), tone: "muted" };
+  }
+  if (counts.failed > 0) return { text: setText.status.someFailed(counts.failed), tone: "warn" };
+  const pct = setProgress(job);
+  const words = pct == null ? text.status.needsReview : setText.status.downloading(pct);
+  return { text: words, tone: "warn" };
 }
 
 // The download's progress as a whole percentage, or null when nothing is downloading.
@@ -231,7 +285,9 @@ function savedStatus(job) {
 // The status line for each state, and the tone it's shown in.
 const STATUS = {
   queued: () => ({ text: text.status.queued, tone: "muted" }),
-  resolving: () => ({ text: text.status.resolving, tone: "muted" }),
+  resolving: (job) => {
+    return { text: job.kind === "set" ? setText.status.listing : text.status.resolving, tone: "muted" };
+  },
   needs_review: (job) => ({ text: reviewStatus(job), tone: "warn" }),
   saving: (job) => ({ text: savingStatus(job), tone: "muted" }),
   saved: (job) => ({ text: savedStatus(job), tone: "ok" }),
@@ -243,6 +299,8 @@ const STATUS = {
 };
 
 export function jobStatus(job) {
+  // A set that's listed reads its status from its tracks, unless it was skipped.
+  if (job.kind === "set" && job.source && job.state !== "skipped") return setStatus(job);
   return (STATUS[job.state] ?? STATUS.queued)(job);
 }
 

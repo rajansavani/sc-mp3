@@ -2,6 +2,14 @@
 // the cover with its size. This follows core/suggest closely enough for the sample data.
 import { coverSize, coverUrl } from "./covers.js";
 import { artistFolder } from "./names.js";
+import {
+  albumSettled,
+  albumTags,
+  defaultMode,
+  placedTrack,
+  setState,
+  trackPlaces,
+} from "./sets.js";
 import { snapshotPart as settingsPart } from "./settings.js";
 
 // Characters that can't go in a file name on Windows.
@@ -140,20 +148,43 @@ function chosenFormat(source) {
   return streams.sort((a, b) => (b.bitrate ?? 0) - (a.bitrate ?? 0))[0] ?? null;
 }
 
-// A job as the bridge sends it: its own fields, plus what the UI can't work out by itself.
-export function forTheUi(job) {
+// A set as the bridge sends it: its tracks at their places in the album, and the album's fields.
+function setForTheUi(job) {
+  const places = trackPlaces(job);
+  const children = job.children.map((child, index) => forTheUi(child, places[index]));
+  return {
+    ...job,
+    state: setState(job),
+    children,
+    default_mode: defaultMode(job),
+    tags: job.source ? albumTags(job) : null,
+    filename: null,
+    format: null,
+    album_settled: albumSettled(job),
+    cover_url: coverUrl(job),
+    cover_size: coverSize(job),
+    default_crop: null,
+  };
+}
+
+// A job as the bridge sends it: its own fields, plus what the UI can't work out by itself. A
+// set's track is tagged at its `place` in the album.
+export function forTheUi(job, place = null) {
+  if (job.kind === "set") return setForTheUi(job);
   const { settings } = settingsPart();
-  const tags = job.source && job.suggestion ? renderTags(job, settings) : null;
+  const placed = placedTrack(job, place);
+  const tags = job.source && job.suggestion ? renderTags(placed, settings) : null;
   const format = job.source && job.kind !== "retag" ? chosenFormat(job.source) : null;
   return {
     ...job,
     tags,
     filename: tags ? fileName(tags, job, settings) : null,
+    saves_once_in: Boolean(job.saves_once_in),
     format: format ? { format, needs_bitrate_check: false, fallback: null } : null,
     cover_url: coverUrl(job),
     cover_size: coverSize(job),
     // Python cuts a letterboxed thumbnail from its picture, which sample jobs say themselves.
     default_crop: job.default_crop ?? null,
-    children: job.children.map(forTheUi),
+    children: [],
   };
 }

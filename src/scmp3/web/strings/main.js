@@ -7,11 +7,10 @@ const number = (count) => count.toLocaleString("en-US");
 export default {
   appName: "sc-mp3",
   queueLabel: "Queue",
-  setTracks: (count) => `${count} tracks`,
 
   // The top bar and the clipboard offer under it.
   pasteLabel: "Add links",
-  pastePlaceholder: "Paste SoundCloud track or YouTube links",
+  pastePlaceholder: "Paste SoundCloud or YouTube links",
   add: "Add",
   signIn: "Sign in to SoundCloud",
   settings: "Settings",
@@ -26,11 +25,11 @@ export default {
   alreadyQueuedMany: (count) => `${number(count)} of these are already in the queue.`,
 
   // Why an added item was rejected, by the reason code add_inputs returns. The codes are the
-  // constant names in core/urls.py and core/inputs.py. Worded for SoundCloud tracks and YouTube
-  // videos; T-051 and T-062 widen them to sets and files.
+  // constant names in core/urls.py and core/inputs.py. Worded for SoundCloud tracks and sets and
+  // YouTube videos; T-062 widens them to files.
   rejectReasons: {
-    NOT_SUPPORTED: "Not a link sc-mp3 can save. Paste a SoundCloud track or YouTube video link.",
-    SOUNDCLOUD_NOT_TRACK: "This SoundCloud link isn't a track. Open the track and copy its link.",
+    NOT_SUPPORTED: "Not a link sc-mp3 can save. Paste a SoundCloud track or set, or a YouTube video link.",
+    SOUNDCLOUD_NOT_TRACK: "This SoundCloud link isn't a track or a set. Open the track or set and copy its link.",
     SHORT_LINK_DEAD_END:
       "This SoundCloud short link doesn't lead to a track. Open it in a browser and copy the track's link.",
     YOUTUBE_PLAYLIST: "YouTube playlists can't be saved yet. Paste the link of one video instead.",
@@ -41,7 +40,8 @@ export default {
     PASTE_TOO_LONG:
       "Only the first 2,000 links, up to 1,000,000 characters, were read. Add the rest in another paste.",
     ALREADY_IN_QUEUE: "Already in the queue.",
-    SETS_NOT_SUPPORTED: "SoundCloud sets and albums can't be saved yet. Paste each track's own link instead.",
+    // Only a short link reaches the UI with this code, since the queue takes set links.
+    SETS_NOT_SUPPORTED: "This short link leads to a SoundCloud set. Open it in a browser and paste the set's own link instead.",
     FILES_NOT_SUPPORTED:
       "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead.",
     // From the drop handler: two dropped files with the same name could get each other's paths.
@@ -62,7 +62,7 @@ export default {
   saveAllConfirm: (count) => `Save ${number(count)} tracks`,
   sources: { soundcloud: "SoundCloud", youtube: "YouTube", file: "File" },
   itemLine: (artist, source) => (artist ? `${artist} · ${source}` : source),
-  setLine: (owner, count) => `${owner} · SoundCloud set · ${count} tracks`,
+  setLine: (owner, tracks) => (owner ? `${owner} · SoundCloud set · ${tracks}` : "SoundCloud set"),
   retagLine: "Re-tag existing file",
   status: {
     queued: "Waiting",
@@ -85,8 +85,9 @@ export default {
   },
 
   // The editor with nothing selected.
-  emptyTitle: "Paste a SoundCloud track or YouTube link to start",
+  emptyTitle: "Paste a SoundCloud or YouTube link to start",
   emptyBody: "You check the title, artist and cover, then it saves as an MP3 ready for Spotify.",
+  setsToo: "Sets and albums work too",
   pasteKeys: { mac: "⌘V", other: "Ctrl+V" },
   pasteHint: "anywhere adds the links on your clipboard",
   spotifyHelp: "Spotify help",
@@ -184,6 +185,7 @@ export default {
   collisionReplace: "Replace",
   collisionKeepBoth: "Keep both",
   collisionSkip: "Skip this track",
+  collisionRestOfSet: "Use this answer for the rest of the set",
 
   // The duplicate warning, from the history of saved files.
   duplicateTitle: (date) => `Already in your library, saved ${date}`,

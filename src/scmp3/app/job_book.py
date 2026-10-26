@@ -6,19 +6,22 @@ still the step's. Skipping, removing, cancelling or retrying replaces or drops t
 result that came too late is dropped instead of undoing what the user did.
 
 Every change ends with `publish`, which tells the UI and queue.json. Their dicts are built later
-from a snapshot, outside the lock, so a queue of thousands never holds it for long.
+from a snapshot, outside the lock, so a queue of thousands never holds it for long. A set's tracks
+are records of their own, outside the queue's order, and each change to one publishes its set.
 """
 
 import logging
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Iterator
 from datetime import UTC, datetime
 
 from scmp3.app.events import Deferred, EventBus
 from scmp3.app.job_record import JobRecord, Step, Ticket
 from scmp3.app.job_steps import Steps
+from scmp3.app.set_tracks import set_state
 from scmp3.app.workers import Pool, Timers
+from scmp3.core import download
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.models import JobError, JobState, Settings
 
@@ -105,6 +108,8 @@ class JobBook:
         # Reentrant, since the helpers that change a job call each other.
         self.lock = threading.RLock()
         self.records: dict[str, JobRecord] = {}
+        # Every set's tracks by id, so the calls that name one find it.
+        self.set_tracks: dict[str, JobRecord] = {}
         self.links = LinkIndex()
         # Called after every change, so queue.json is written soon. The job manager sets it.
         self.on_change: Callable[[], None] = _nothing
@@ -118,25 +123,66 @@ class JobBook:
         return self.links.find(url)
 
     def add_record(self, record: JobRecord) -> None:
-        """Put a job at the end of the queue."""
+        """Put a job at the end of the queue, with its tracks if it's a set."""
         self.records[record.id] = record
         self.links.add(record.parsed.url, record)
         if record.job.source is not None:
             self.links.add(record.job.source.url, record)
+        self.add_tracks(record.children)
+
+    def add_tracks(self, tracks: Iterable[JobRecord]) -> None:
+        for track in tracks:
+            self.set_tracks[track.id] = track
+
+    def find(self, job_id: str) -> JobRecord | None:
+        """A queued job, or a track of a queued set, by its id."""
+        return self.records.get(job_id) or self.set_tracks.get(job_id)
+
+    def tracks(self) -> Iterator[JobRecord]:
+        """Every track: the queued ones that aren't sets, and each set's own."""
+        for record in list(self.records.values()):
+            if record.job.kind == "set":
+                yield from record.children
+            else:
+                yield record
+
+    def every_record(self) -> list[JobRecord]:
+        """The queued jobs and every set's tracks."""
+        return [*self.records.values(), *self.set_tracks.values()]
 
     # Telling the UI
 
     def publish(self, record: JobRecord) -> None:
-        """Send the job to the UI as it is now, and have queue.json written soon."""
+        """Send the job to the UI as it is now, and have queue.json written soon.
+
+        A set's track goes out as part of its set, and a listed set's state follows its tracks.
+        """
         if record.removed:
             return
         record.changed()
+        if record.parent is not None:
+            self.publish(record.parent)
+            return
+        if record.prepared_set is not None and not record.closed:
+            record.job.state = set_state(record.children)
         snapshot = record.snapshot()
         settings = self.settings
-        # Built on the event bus's thread, and only if no newer change replaced it by then.
-        self._events.emit(
-            Deferred("job", record.id, lambda: {"type": "job", "job": snapshot.view(settings)})
-        )
+        # Built on the event bus's thread, and only if no newer change replaced it by then. A set's
+        # event carries only the tracks that changed since the last one.
+        if record.job.kind == "set":
+            sent = record.sent_tracks
+            self._events.emit(
+                Deferred(
+                    "job",
+                    record.id,
+                    lambda: sent.event(snapshot.view(settings)),
+                    on_lost=sent.forget,
+                )
+            )
+        else:
+            self._events.emit(
+                Deferred("job", record.id, lambda: {"type": "job", "job": snapshot.view(settings)})
+            )
         self.on_change()
 
     # Failing
@@ -178,7 +224,12 @@ class JobBook:
     # Skipping and removing
 
     def close(self, record: JobRecord) -> None:
-        """Stop everything in flight for a job that's skipped or removed, and delete its audio."""
+        """Stop everything in flight for a job that's skipped or removed, and delete its audio.
+
+        A set's tracks are closed with it.
+        """
+        for track in record.children:
+            self.close(track)
         for ticket in record.tickets.values():
             ticket.cancel.set()
         record.tickets.clear()
@@ -189,6 +240,8 @@ class JobBook:
         record.staged = None
         record.job.staged_audio = None
         record.job.progress = None
+        # A set's track reaches the UI with its set, which reuses an unchanged copy.
+        record.changed()
         if record.busy == 0:
             self._discard_later(record)
 
@@ -197,6 +250,9 @@ class JobBook:
         self.links.drop(record)
         record.removed = True
         del self.records[record.id]
+        for track in record.children:
+            track.removed = True
+            self.set_tracks.pop(track.id, None)
         self._events.emit({"type": "job_removed", "job_id": record.id})
         self.on_change()
 
@@ -233,7 +289,12 @@ class JobBook:
     def _discard_later(self, record: JobRecord) -> None:
         """Delete the job's staging folder on a worker, once nothing for it is running."""
         prepared = record.prepared
-        if prepared is None or record.discarded:
+        if record.discarded:
             return
-        record.discarded = True
-        self.misc_pool.submit(lambda: self._steps.discard(prepared))
+        if prepared is not None:
+            record.discarded = True
+            self.misc_pool.submit(lambda: self._steps.discard(prepared))
+        elif record.job.kind == "set":
+            # A set's own folder holds only the album's cover.
+            record.discarded = True
+            self.misc_pool.submit(lambda: download.cleanup(record.id))

@@ -10,6 +10,7 @@ import json
 import logging
 import threading
 import time
+from collections import deque
 from collections.abc import Callable, Hashable, Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -41,12 +42,14 @@ class Deferred:
     """An event built when it's sent, so a burst of changes to one job builds its dict once.
 
     `build` runs on the bus's thread, outside the caller's locks, so it may only read what was
-    copied for it. `key` is what MERGE_RULES would read from the built event.
+    copied for it. `key` is what MERGE_RULES would read from the built event. `on_lost` runs on
+    that thread too, when the event was built but can't reach the window.
     """
 
     type: str
     key: str
     build: Callable[[], Event]
+    on_lost: Callable[[], None] | None = None
 
 
 # A waiting event: JSON already, or one still to build.
@@ -138,15 +141,33 @@ def batch_script(events: list[str]) -> str:
 
 def as_json(pending: Iterable[Pending]) -> Iterator[str]:
     """The waiting events as JSON, each deferred one built as it comes. A failed one is left out."""
+    for text, _ in built(pending):
+        yield text
+
+
+def built(pending: Iterable[Pending]) -> Iterator[tuple[str, Callable[[], None] | None]]:
+    """The waiting events as JSON, each with what to call if it's lost on the way. A deferred one
+    that fails to build is left out, and counts as lost."""
     for item in pending:
         if isinstance(item, str):
-            yield item
+            yield item, None
             continue
         try:
-            yield json.dumps(item.build())
+            yield json.dumps(item.build()), item.on_lost
         except Exception:
             # The next change to the same job sends it again.
             log.exception("A %s event couldn't be built, so it wasn't sent", item.type)
+            lost(item.on_lost)
+
+
+def lost(on_lost: Callable[[], None] | None) -> None:
+    """Say an event was lost. A failure here is logged, since the bus's thread must go on."""
+    if on_lost is None:
+        return
+    try:
+        on_lost()
+    except Exception:
+        log.exception("Noting a lost event failed")
 
 
 def in_chunks(events: Iterable[str], limit: int = MAX_SCRIPT_CHARACTERS) -> Iterator[list[str]]:
@@ -248,10 +269,22 @@ class EventBus:
         return self._last_send + self._interval - self._clock()
 
     def _send(self, window: Window, pending: list[Pending]) -> None:
+        # What to call for each built event if it's lost, in the order in_chunks takes them.
+        lost_calls: deque[Callable[[], None] | None] = deque()
+
+        def texts() -> Iterator[str]:
+            for text, on_lost in built(pending):
+                lost_calls.append(on_lost)
+                yield text
+
         # Each part goes as soon as it's built, so the first events don't wait for the last.
-        for events in in_chunks(as_json(pending), self._script_limit):
+        for events in in_chunks(texts(), self._script_limit):
+            on_lost = [lost_calls.popleft() for _ in events]
             try:
                 window.evaluate_js(batch_script(events))
             except Exception:
-                # Those events are lost, but the next batch carries newer job snapshots.
+                # Those events are lost. The next batch carries newer job snapshots, and a set
+                # that lost one sends all its tracks next time.
                 log.warning("Sending %d events to the window failed", len(events), exc_info=True)
+                for callback in on_lost:
+                    lost(callback)

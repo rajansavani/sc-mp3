@@ -1,22 +1,23 @@
 """How each job moves through the pipeline: resolving, saving, failing and retrying.
 
 Every method here expects the caller to hold `lock`, except the tasks, which take it themselves,
-as job_book.py describes. The download tasks are in job_downloads.py, and the cover tasks in
-job_cover_tasks.py.
+as job_book.py describes. The download tasks are in job_downloads.py, the cover tasks in
+job_cover_tasks.py, and listing a set in job_set_tasks.py.
 """
 
 import logging
 import uuid
-from collections.abc import Collection
+from collections.abc import Callable, Collection
 from typing import Protocol
 
 from scmp3.app.events import EventBus
 from scmp3.app.input_reasons import reason_code
 from scmp3.app.job_book import unexpected_error
 from scmp3.app.job_covers import CoverReader, CoverView
-from scmp3.app.job_downloads import DOWNLOAD_SPACING, DownloadTasks
+from scmp3.app.job_downloads import DOWNLOAD_SPACING
 from scmp3.app.job_record import JobRecord, Ticket, rebuilt_suggestion
 from scmp3.app.job_saving import CollisionQuestion, save, save_order
+from scmp3.app.job_set_tasks import SetTasks
 from scmp3.app.job_steps import Steps
 from scmp3.app.workers import Pool, Spacing, Timers
 from scmp3.core import pipeline
@@ -52,7 +53,7 @@ class PoolMaker(Protocol):
     ) -> Pool: ...
 
 
-class JobFlow(DownloadTasks):
+class JobFlow(SetTasks):
     """The jobs and the pools that run their steps."""
 
     def __init__(
@@ -85,8 +86,9 @@ class JobFlow(DownloadTasks):
     # Adding and resolving
 
     def queue(self, parsed: ParsedInput) -> JobRecord:
-        """Add a job for a supported input and start resolving it."""
-        job = Job(id=uuid.uuid4().hex, kind="track", input=parsed.url or parsed.raw)
+        """Add a job for a supported input and start resolving it, or listing it if it's a set."""
+        kind = "set" if parsed.kind == "soundcloud_set" else "track"
+        job = Job(id=uuid.uuid4().hex, kind=kind, input=parsed.url or parsed.raw)
         record = JobRecord(job=job, parsed=parsed)
         self.add_record(record)
         self.publish(record)
@@ -94,6 +96,9 @@ class JobFlow(DownloadTasks):
         return record
 
     def _start_resolving(self, record: JobRecord) -> None:
+        if record.job.kind == "set":
+            self._start_listing(record)
+            return
         record.job.state = JobState.queued
         ticket = self._new_ticket(record, "resolve")
         self._resolve_pool.submit(
@@ -126,13 +131,15 @@ class JobFlow(DownloadTasks):
                 self.publish(record)
             else:
                 self._resolved(record, outcome)
+            if record.parent is not None:
+                # The album's numbers are known once every track's info is in.
+                self.save_if_ready(record.parent)
 
     def _resolved(self, record: JobRecord, prepared: pipeline.Prepared) -> None:
         self._step_worked(record)
         job = record.job
         record.prepared = prepared
         job.source = prepared.source
-        self.links.add(prepared.source.url, record)
         job.suggestion = prepared.suggestion
         if prepared.settings is not self.settings:
             # The settings changed while it resolved, so its cleanups follow the new ones.
@@ -141,15 +148,28 @@ class JobFlow(DownloadTasks):
         job.state = JobState.needs_review
         # The page shows the link at once, and the size follows once the image is read.
         record.source_cover = CoverView(url=prepared.source.artwork_url)
-        self.start_source_cover(record)
-        if self.settings.download_while_reviewing:
+        if record.parent is None:
+            self.links.add(prepared.source.url, record)
+            # A set's track saves with its album's cover, or else loads its own when it saves.
+            self.start_source_cover(record)
+        if self.settings.download_while_reviewing and job.included:
             self.start_download(record)
-        if not self.settings.review_before_saving:
+        if job.included and record.wants_save:
+            # Save was pressed on its set while its info was still coming.
+            self.start_saving(record)
+        elif job.included and not self.settings.review_before_saving:
             self._save_without_review(record)
         self.publish(record)
 
     def _reject_after_resolving(self, record: JobRecord, error: UnsupportedInput) -> None:
-        """A short link that led to something sc-mp3 can't save leaves the queue, with its code."""
+        """A short link that led to something sc-mp3 can't save leaves the queue, with its code.
+
+        A set's track can't leave its set, so it fails instead.
+        """
+        if record.parent is not None:
+            self._fail(record, "resolve", ScmpError(ErrorKind.unavailable, str(error)))
+            self.publish(record)
+            return
         rejected = {"input": record.parsed.raw, "reason": reason_code(str(error))}
         self.remove(record)
         self._events.emit({"type": "rejected", "rejected": [rejected]})
@@ -186,14 +206,22 @@ class JobFlow(DownloadTasks):
         return True
 
     def save_if_ready(self, record: JobRecord) -> None:
-        """Send the job to the save worker once its audio and its cover are ready.
+        """Send the job to the save worker once its audio and its cover are ready, or for a set,
+        each of its tracks that's ready.
 
         A cover still being read or checked is waited for, so the save uses it rather than
-        downloading it again, and nothing writes into staging once finalize has deleted it.
+        downloading it again, and nothing writes into staging once finalize has deleted it. A
+        track of an album also waits for what the album waits for.
         """
+        if record.job.kind == "set":
+            for track in record.children:
+                self.save_if_ready(track)
+            return
         if record.job.state != JobState.saving or record.staged is None:
             return
         if any(step in record.tickets for step in ("cover", "source_cover", "save")):
+            return
+        if record.parent is not None and self.album_waits(record.parent):
             return
         ticket = self._new_ticket(record, "save")
         self.save_pool.submit(lambda: self._save(record, ticket))
@@ -205,11 +233,16 @@ class JobFlow(DownloadTasks):
         with self.lock:
             if not self._claim(record, "save", ticket):
                 return
+            if record.parent is not None and self.album_waits(record.parent):
+                # A track put back in since this save was queued may change the numbers, so the
+                # save waits again, and goes once the album stops waiting.
+                self._release(record, "save", ticket)
+                return
             record.saving_now = True
-            order = save_order(record, self.settings)
+            run = self._save_run(record)
         outcome: SaveOutcome | CollisionQuestion
         try:
-            outcome = save(order, self._steps)
+            outcome = run()
         except ScmpError as error:
             outcome = error
         except InvalidOverride as error:
@@ -221,8 +254,20 @@ class JobFlow(DownloadTasks):
             if not self._release(record, "save", ticket):
                 return
             self._saved(record, outcome)
-            if record.remove_when_saved:
-                self.remove(record)
+            self._remove_once_saved(record.parent or record)
+
+    def _save_run(self, record: JobRecord) -> Callable[[], SaveOutcome | CollisionQuestion]:
+        """The save, taken now and run on the save worker. A set's track saves with its set."""
+        if record.parent is not None:
+            return self._set_track_save(record)
+        order = save_order(record, self.settings)
+        return lambda: save(order, self._steps)
+
+    def _remove_once_saved(self, record: JobRecord) -> None:
+        """Remove a job that was removed while it placed a file, once no file is being placed."""
+        placing = record.saving_now or any(track.saving_now for track in record.children)
+        if record.remove_when_saved and not placing:
+            self.remove(record)
 
     def _saved(self, record: JobRecord, outcome: SaveOutcome | CollisionQuestion) -> None:
         job = record.job
@@ -247,14 +292,20 @@ class JobFlow(DownloadTasks):
     # Bringing jobs back after a restart
 
     def restore(self, record: JobRecord) -> None:
-        """Put a job from queue.json at the end of the queue, and start the work it waits for."""
+        """Put a job from queue.json at the end of the queue, and start the work it waits for,
+        and its tracks' if it's a set."""
         self.add_record(record)
+        for job_record in (record, *record.children):
+            self._resume(job_record)
+
+    def _resume(self, record: JobRecord) -> None:
         job = record.job
         if job.state == JobState.queued:
             self._start_resolving(record)
-        elif job.state == JobState.needs_review and self.settings.download_while_reviewing:
+        elif job.state == JobState.needs_review and record.prepared is not None:
             # A download the person stopped stays stopped, as it was before the restart.
-            if not record.download_cancelled:
+            wanted = self.settings.download_while_reviewing and job.included
+            if wanted and not record.download_cancelled:
                 self.start_download(record)
         elif job.error is not None:
             self._schedule_auto_retry(record, job.error)

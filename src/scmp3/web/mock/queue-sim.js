@@ -151,6 +151,11 @@ function resolve(job) {
   job.state = "needs_review";
   job.suggestion = makeSuggestion({ base_title: title, main_artists: [uploader], album: title });
   if (job.source.kind !== "file") startDownload(job);
+  // Save was pressed on its set while its info was still coming.
+  if (job.saves_once_in) {
+    job.saves_once_in = false;
+    startSaving(job);
+  }
 }
 
 export function fetchInfoLater(job) {
@@ -175,10 +180,14 @@ function finishSaving(job) {
   job.progress = null;
   job.error = null;
   const folder = settingsPart().settings.library_dir;
-  job.output_path = job.kind === "retag" ? job.input : `${folder}/${forTheUi(job).filename}`;
-  for (const child of job.children) {
-    if (child.included) child.state = "saved";
-  }
+  job.output_path = job.kind === "retag" ? job.input : `${folder}/${viewOf(job).filename}`;
+}
+
+// The job as the UI gets it: a set's track as part of its set, at its place in the album.
+function viewOf(job) {
+  const owner = ownerOf(job);
+  if (!owner || owner === job) return forTheUi(job);
+  return forTheUi(owner).children.find((child) => child.id === job.id);
 }
 
 function saveLater(job) {

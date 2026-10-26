@@ -3,7 +3,8 @@ downloaded. YouTube's choice follows the audio format setting."""
 
 from pathlib import Path
 
-from scmp3.app.job_record import JobRecord, format_choice, job_view
+from scmp3.app.job_record import JobRecord
+from scmp3.app.job_views import format_choice, job_view
 from scmp3.core.convert import AudioInfo
 from scmp3.core.history import History
 from scmp3.core.inputs import classify

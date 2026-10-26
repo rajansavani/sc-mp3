@@ -7,10 +7,10 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
 ## Before you start
 
 - **A clean profile.** Use a Windows user account where sc-mp3 has never run, or delete its folder, `%LOCALAPPDATA%\sc-mp3`. On macOS, delete `~/Library/Application Support/sc-mp3`, `~/Library/Caches/sc-mp3` and `~/Library/Logs/sc-mp3`.
-- **Spotify.** Have the Spotify desktop app installed and signed in. For section 13, have an iPhone and an Android phone with Spotify, signed in to the same account.
+- **Spotify.** Have the Spotify desktop app installed and signed in. For section 14, have an iPhone and an Android phone with Spotify, signed in to the same account.
 - **An image file**, JPEG or PNG, at least 600 × 600, to use as a cover.
 - **A spare folder** for the disk test in section 7, such as `C:\sc-mp3-qa\locked`.
-- **A tag viewer** for section 6, such as Mp3tag, or a file's Properties › Details in Explorer.
+- **A tag viewer** for sections 6 and 12, such as Mp3tag, or a file's Properties › Details in Explorer.
 - **These public tracks.** They've worked before. If one has gone, pick another track that fits the same description.
 
 | Name | Link | Why |
@@ -22,6 +22,8 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
 | Traffic | https://soundcloud.com/ashburyheightsofficial/traffic-tcp-demo-2008-1 | Copy-protected by its label |
 | Look What You Made Me Do | https://soundcloud.com/taylorswiftofficial/look-what-you-made-me-do | Go+ only, so only a 30-second preview without Go+ |
 | A missing track | https://soundcloud.com/the80m/this-track-does-not-exist | A link that leads nowhere |
+| out of spite | https://soundcloud.com/leviryan/sets/out-of-spite | An album of 8 tracks |
+| A playlist | https://soundcloud.com/non-site_records/sets/tilt-brass-bowery-aug03_ns-src02 | A set that isn't an album |
 
 ## 1. Install and first start
 
@@ -40,7 +42,7 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
 7. Select Open Spotify.
    - You should see: the Spotify app opens or comes to the front.
 8. Select Finish.
-   - You should see: the main window, with "Paste a SoundCloud track link to start" and an empty queue that says "Nothing queued yet. Links you add show up here, and unsaved ones stay after you quit."
+   - You should see: the main window, with "Paste a SoundCloud or YouTube link to start" and "Sets and albums work too", and an empty queue that says "Nothing queued yet. Links you add show up here, and unsaved ones stay after you quit."
 9. Select Spotify help, in the middle of the empty window, then press Esc.
    - You should see: the Spotify help panel opens on the right, on "On your computer", and Esc closes it.
 
@@ -87,7 +89,7 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
 6. Select Replace, then Use the original cover.
    - You should see: the profile picture again, with its note.
 7. Put your own image back, crop it, and save.
-   - You should see: it saves. Check the cover in section 12.
+   - You should see: it saves. Check the cover in section 13.
 
 ## 5. Skip, cancel and retry
 
@@ -186,7 +188,28 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
 5. Open the log folder, `%LOCALAPPDATA%\sc-mp3\Logs`, and search `sc-mp3.log` for "Traceback" and for your user name.
    - You should see: neither. Your home folder appears as `~`.
 
-## 12. Spotify on the desktop
+## 12. Sets and albums
+
+1. Paste the out of spite link.
+   - You should see: one queue item, "out of spite", "Levi Ryan · SoundCloud set · 8 tracks", that counts "Fetching track info · 3 of 8" and so on. The editor shows "Save as" with Album picked, "SoundCloud marks this set as an album.", the album's cover and fields, and a row for each track, numbered 1 to 8.
+2. Untick track 2.
+   - You should see: its row says "Left out" and loses its number. The tracks after it move up one, and the button says "Save 7 selected". Tick it again.
+3. Change track 1's title in the table, then open track 1's Cleanups.
+   - You should see: the cleanups and the original title in a small panel beside the row. Turn one cleanup off, if it has any, and press Esc.
+4. Select another item in the queue, then select out of spite again.
+   - You should see: track 1 keeps the title you typed and the cleanup you turned off.
+5. Change Album to "out of spite (QA)", then select Save all 8 tracks.
+   - You should see: "Saving 1 of 8 tracks…" counting up, with Cancel, then a green "Saved 8 tracks to Music › sc-mp3 › Levi Ryan" banner. The album's fields and the Album and Singles switch can't change any more.
+6. Open the files in the tag viewer.
+   - You should see: each has the album "out of spite (QA)", the album artist "Levi Ryan", the track numbers 1/8 to 8/8, and the same cover.
+7. Paste the playlist link and wait for its tracks.
+   - You should see: "Save as" with Singles picked, "SoundCloud lists this set as a playlist.", no album fields, and no track numbers. Select Album, and the numbers and album fields appear. Select Singles again.
+8. Select Save all, then close the window while it saves, and open sc-mp3 again.
+   - You should see: the playlist comes back with its tracks. The saved ones say "Saved", and the rest wait in review with their audio. Save them.
+9. Select Clear finished.
+   - You should see: both sets leave the queue.
+
+## 13. Spotify on the desktop
 
 1. In Spotify, open Settings, turn on Show Local Files, choose Add a source and pick the library folder.
    - You should see: the saved tracks under Local Files in Your Library.
@@ -195,7 +218,7 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
 3. Play each track for a few seconds.
    - You should see: it plays, and its length matches SoundCloud's.
 
-## 13. Spotify on phones
+## 14. Spotify on phones
 
 These need a person with the phones.
 
@@ -206,6 +229,6 @@ These need a person with the phones.
 3. **Changes.** Edit one track's title in sc-mp3 and save it again with Replace. If Spotify on the desktop still shows the old title, try the three steps in Spotify help, "Songs not showing up".
    - You should see: the new title after one of the three steps.
 
-## 14. Record the run
+## 15. Record the run
 
 Write down the version, the date, the computer and OS, the Spotify versions, and each step that failed with what you saw instead. Attach the diagnostics from section 10 to each bug you report.

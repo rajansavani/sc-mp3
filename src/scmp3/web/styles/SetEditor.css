@@ -1,1 +1,254 @@
-/* The set editor. A placeholder for now, styled by .placeholder in app.css. */
+/* The set editor: the header and mode switch, the album's cover and fields, and the track table.
+   It sits in .track-editor, so the sections are spaced as the track editor's are. */
+
+.set-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+
+.set-mode {
+  margin: 0;
+}
+
+.set-mode:disabled .segment {
+  cursor: default;
+}
+
+.set-mode-note {
+  margin-top: -10px;
+  color: var(--text-2);
+  font-size: var(--text-small);
+}
+
+/* The album's cover and fields, locked together once a track saves. */
+.set-album {
+  --cover-size: 180px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-sections);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.set-album:disabled .text-field {
+  color: var(--text-2);
+}
+
+.set-album:disabled button {
+  cursor: default;
+}
+
+.set-album-fields {
+  display: grid;
+  flex: 1 1 420px;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  align-content: start;
+  gap: var(--gap-field-grid) var(--gap-fields);
+  min-width: 0;
+}
+
+.set-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.set-tracks-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+}
+
+.set-tracks-title {
+  font-size: var(--text-section-title);
+  font-weight: 600;
+}
+
+.set-tracks-hint {
+  color: var(--text-3);
+  font-size: var(--text-caption);
+}
+
+/* The table scrolls sideways in a narrow window rather than squeezing its fields. */
+.set-table-frame {
+  overflow-x: auto;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-card);
+}
+
+.set-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.set-head {
+  padding: 10px 14px;
+  background: var(--dialog-bg);
+  color: var(--text-2);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  text-align: left;
+}
+
+.set-head.is-save {
+  width: 52px;
+}
+
+.set-head.is-number {
+  width: 44px;
+  padding-inline: 8px;
+}
+
+.set-head.is-cleanups {
+  width: 112px;
+}
+
+.set-head.is-status {
+  width: 190px;
+}
+
+.set-row {
+  border-top: 1px solid var(--line-1);
+}
+
+.set-row[data-included="false"] {
+  background: var(--surface-1);
+}
+
+.set-cell {
+  padding: 8px 14px;
+  vertical-align: middle;
+}
+
+.set-number {
+  padding-inline: 8px;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+}
+
+.set-check {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.set-check:disabled {
+  cursor: default;
+}
+
+/* The fields sit flat in the row until they're pointed at or focused. */
+.text-field.set-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border-color: transparent;
+  background: transparent;
+  font-size: 14px;
+}
+
+.set-row:hover .set-input:not(:disabled),
+.text-field.set-input:focus {
+  border-color: var(--line-4);
+  background: var(--surface-2);
+}
+
+.set-cell:nth-child(3) .set-input {
+  font-weight: 600;
+}
+
+.set-row[data-included="false"] .set-input,
+.set-input:disabled,
+.set-pending {
+  color: var(--text-3);
+}
+
+.set-pending {
+  padding: 0 10px;
+}
+
+.set-status {
+  font-size: var(--text-small);
+}
+
+.set-status-text {
+  display: block;
+  color: var(--text-2);
+}
+
+.set-status-text[data-tone="ok"] {
+  color: var(--ok);
+}
+
+.set-status-text[data-tone="warn"] {
+  color: var(--warn);
+}
+
+.set-status-text[data-tone="danger"] {
+  color: var(--danger);
+}
+
+.set-progress {
+  width: 120px;
+  margin-top: 4px;
+}
+
+.set-cleanups {
+  font-size: var(--text-small);
+}
+
+.set-cleanups .text-button.is-quiet {
+  color: var(--text-3);
+}
+
+/* The popover is fixed to the window, beside its button, so the table's frame doesn't cut it off. */
+.set-popover {
+  position: fixed;
+  z-index: 10;
+  width: min(440px, calc(100vw - 32px));
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-dialog);
+}
+
+.set-popover .cleanups {
+  border-color: var(--line-3);
+  background: var(--dialog-bg);
+}
+
+.set-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* The name question's box that makes one answer go for the rest of the set. */
+.dialog-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-small);
+  cursor: pointer;
+}
+
+.dialog-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.set-saves-to {
+  color: var(--text-2);
+  font-size: var(--text-small);
+}

@@ -38,7 +38,7 @@ GIVE_UP_AFTER = 300.0
 
 
 class SetBehindShortLink:
-    """Pipeline steps where every link resolves to a set, which can't be saved yet."""
+    """Pipeline steps where every link is a short link to a set, which the queue can't take."""
 
     def prepare(self, parsed: Any, *, settings: Any, job_id: str) -> Any:
         raise UnsupportedInput(pipeline.SETS_NOT_SUPPORTED)

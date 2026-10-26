@@ -158,10 +158,30 @@ function lanternTrack(title, index) {
   });
 }
 
+// The design's set: one track downloads, one is a Go+ preview that can't be saved, and one has a
+// promo tag cleaned up.
+function lanternTracks() {
+  const titles = ["Lantern", "Paper Boats (feat. Ilo)", "Undertow", "Glass Hours", "Low Tide (VIP Mix)"];
+  const children = titles.map(lanternTrack);
+  const [, boats, undertow, glass] = children;
+  boats.suggestion = makeSuggestion({
+    ...boats.suggestion,
+    base_title: "Paper Boats",
+    featured: ["Ilo"],
+    changes: [makeChange("feat", "extract_feature", "(feat. Ilo)", "Ilo credited as featured artist")],
+  });
+  undertow.progress = { pct: 40, speed: 1450000, eta: 12, downloaded: null, total: null };
+  Object.assign(glass, {
+    state: "error",
+    error: { kind: "preview_only", detail: null, retry_at: null },
+    suggestion: null,
+  });
+  return children;
+}
+
 function lantern() {
   const url = "https://soundcloud.com/mara-lune/sets/lantern";
-  const titles = ["Lantern", "Paper Boats", "Low Tide", "Ember", "First Light"];
-  const children = titles.map(lanternTrack);
+  const children = lanternTracks();
   const entries = children.map((child) => ({
     url: child.source.url,
     id: child.source.id,

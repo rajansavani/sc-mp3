@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 
-from scmp3.app import job_record
+from scmp3.app import job_views
 from scmp3.app.events import EventBus
 from scmp3.app.job_downloads import DOWNLOAD_SPACING
 from scmp3.app.job_flow import RESOLVE_SPACING
@@ -198,13 +198,13 @@ def test_the_ui_dicts_are_built_outside_the_lock(
     manager, pools, _ = manager_on_a_real_bus(tmp_path / "library")
     manager.add_inputs("\n".join(links(20)))
     pools.run("resolve")
-    real_view = job_record.job_view
+    real_view = job_views.job_view
 
-    def slow_view(record: Any, settings: Any) -> dict[str, Any]:
+    def slow_view(record: Any, settings: Any, place: Any = None) -> dict[str, Any]:
         time.sleep(0.01)
-        return real_view(record, settings)
+        return real_view(record, settings, place)
 
-    monkeypatch.setattr(job_record, "job_view", slow_view)
+    monkeypatch.setattr(job_views, "job_view", slow_view)
     waits: list[float] = []
 
     def call_meanwhile() -> None:
@@ -227,13 +227,13 @@ def test_a_job_dict_is_built_once_per_change(
 ) -> None:
     job_id = jobs.add_and_resolve()
     builds: list[str] = []
-    real_view = job_record.job_view
+    real_view = job_views.job_view
 
-    def counted(record: Any, settings: Any) -> dict[str, Any]:
+    def counted(record: Any, settings: Any, place: Any = None) -> dict[str, Any]:
         builds.append(record.id)
-        return real_view(record, settings)
+        return real_view(record, settings, place)
 
-    monkeypatch.setattr(job_record, "job_view", counted)
+    monkeypatch.setattr(job_views, "job_view", counted)
     jobs.manager.update_fields(job_id, {"title": "New"})
     for _ in range(3):
         jobs.manager.views()

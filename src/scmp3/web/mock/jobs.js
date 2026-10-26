@@ -15,6 +15,7 @@ import {
 import { forTheUi } from "./review.js";
 import { horizon, PALETTES } from "./sample-art.js";
 import { makeJob, SAMPLE_HISTORY } from "./sample-queue.js";
+import { albumMode, albumSettled, canNeverSave } from "./sets.js";
 
 const LINK = /^https?:\/\/(?:[\w-]+\.)*(?:soundcloud\.com|youtube\.com|youtu\.be)\//i;
 const SET_LINK = /soundcloud\.com\/[^/]+\/sets\//i;
@@ -146,13 +147,22 @@ export function set_artwork(job_id, artwork, crop = null) {
 }
 
 function canSave(job) {
+  if (!job.included) return false;
   return job.state === "needs_review" || (job.state === "error" && job.error?.kind === "duplicate");
 }
 
+// A set saves its included tracks. Those still fetching their info save once it's in.
+function tracksOf(job) {
+  return job.kind === "set" ? job.children : [job];
+}
+
 export function save(job_ids) {
-  for (const jobId of job_ids) {
-    const job = findJob(jobId);
-    if (!job || !canSave(job)) continue;
+  for (const job of job_ids.flatMap((jobId) => tracksOf(findJob(jobId) ?? { children: [] }))) {
+    if (job.included && (job.state === "queued" || job.state === "resolving")) {
+      job.saves_once_in = true;
+      publish(job);
+    }
+    if (!canSave(job)) continue;
     // The name is still taken, so the bridge would ask again.
     if (job.collision) {
       publish(job);
@@ -166,22 +176,34 @@ export function save(job_ids) {
 
 export function skip(job_id) {
   return editJob(job_id, (job) => {
-    stopDownload(job);
-    job.state = "skipped";
-    job.staged_audio = null;
+    for (const track of [job, ...job.children]) {
+      if (track.state === "saved") continue;
+      stopDownload(track);
+      track.state = "skipped";
+      track.staged_audio = null;
+    }
   });
 }
 
 export function retry(job_id) {
   return editJob(job_id, (job) => {
-    if (job.state === "error") retryJob(job);
+    for (const track of job.source?.playlist ? job.children : [job]) {
+      if (track.state === "error" && !canNeverSave(track)) retryJob(track);
+    }
   });
 }
 
 // A save waiting for its audio goes back to review, and the download carries on. Otherwise the
-// download stops.
+// download stops. A set puts each of its waiting saves back in review.
 export function cancel(job_id) {
   return editJob(job_id, (job) => {
+    if (job.kind === "set") {
+      for (const track of job.children) {
+        if (track.state === "saving") track.state = "needs_review";
+        track.saves_once_in = false;
+      }
+      return;
+    }
     if (job.state === "saving") job.state = "needs_review";
     else stopDownload(job);
   });
@@ -202,20 +224,33 @@ export function remove_jobs(job_ids) {
   return {};
 }
 
-// Only ?mock&states has a job whose file name is taken. Skip leaves it unsaved, and the other
-// answers save it.
-export function answer_collision(job_id, choice) {
-  return editJob(job_id, (job) => {
-    if (!job.collision) return;
-    job.collision = null;
-    if (choice === "skip") job.state = "skipped";
-    else startSaving(job);
-  });
+// Skip leaves the job unsaved, and the other answers save it. With `rest_of_set`, the answer
+// goes for every track of the same set that's asked.
+export function answer_collision(job_id, choice, rest_of_set = false) {
+  const job = findJob(job_id);
+  if (!job) return { error: "unknown_job" };
+  const owner = jobs.find((top) => top.children.includes(job));
+  const asked = rest_of_set && owner ? owner.children.filter((track) => track.collision) : [job];
+  for (const track of asked) {
+    track.collision = null;
+    if (choice === "skip") track.state = "skipped";
+    else startSaving(track);
+  }
+  publish(job);
+  return {};
+}
+
+// A set's album is fixed once a track saves, and its mode can't change while one saves.
+function albumLocked(job) {
+  return albumSettled(job) || job.children.some((track) => track.state === "saving");
 }
 
 export function set_album_mode(job_id, mode) {
-  return editJob(job_id, (job) => {
-    job.album_mode = mode;
+  const job = findJob(job_id);
+  if (job?.kind !== "set") return { error: "unknown_job" };
+  if (albumLocked(job)) return { error: "not_editable" };
+  return editJob(job_id, (set) => {
+    set.album_mode = mode;
   });
 }
 
@@ -223,7 +258,10 @@ export function set_included(job_id, child_id, included) {
   const job = findJob(job_id);
   const child = job?.children.find((candidate) => candidate.id === child_id);
   if (!child) return { error: "unknown_job" };
+  const fixed = albumSettled(job) && albumMode(job) === "album";
+  if (fixed || ["saving", "saved"].includes(child.state)) return { error: "not_editable" };
   child.included = included;
+  if (!included) child.saves_once_in = false;
   publish(job);
   return {};
 }

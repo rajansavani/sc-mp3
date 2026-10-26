@@ -123,6 +123,7 @@ BAD_CALLS: list[tuple[str, tuple[Any, ...]]] = [
     ("remove_jobs", ("job",)),
     ("remove_jobs", ([3],)),
     ("answer_collision", ("job", "rename")),
+    ("answer_collision", ("job", "replace", "yes")),
     ("history", (3,)),
     ("history", ("", 0)),
     ("history", ("", 501)),
@@ -262,9 +263,22 @@ def test_history_lists_the_latest_saves_or_the_ones_that_match(api: Api) -> None
     assert [entry["title"] for entry in api.history("midnight", 5)["entries"]] == ["Midnight Drive"]
 
 
-def test_the_sets_calls_are_still_to_come(api: Api) -> None:
-    assert api.set_album_mode("job", "album") == {"error": "not_implemented"}
-    assert api.set_included("job", "child", True) == {"error": "not_implemented"}
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda api: api.set_album_mode("job", "both"),
+        lambda api: api.set_album_mode(None, "album"),
+        lambda api: api.set_included("job", "track", "yes"),
+        lambda api: api.set_included("job", "x" * 65, True),
+    ],
+)
+def test_the_sets_calls_refuse_arguments_the_ui_never_sends(api: Api, call: Any) -> None:
+    assert call(api) == {"error": "internal"}
+
+
+def test_the_sets_calls_answer_for_a_job_that_isnt_queued(api: Api) -> None:
+    assert api.set_album_mode("job", "album") == {"error": "unknown_job"}
+    assert api.set_included("job", "track", False) == {"error": "unknown_job"}
 
 
 # The clipboard offer
@@ -383,6 +397,8 @@ def test_every_call_returns_at_once_while_the_pipeline_is_slow(tmp_path: Path) -
         time.sleep(0.01)
     measure("skip", lambda: api.skip(first))
     measure("retry", lambda: api.retry(first))
+    measure("set_album_mode", lambda: api.set_album_mode(first, "album"))
+    measure("set_included", lambda: api.set_included(first, second, False))
     measure("answer_collision", lambda: api.answer_collision(first, "replace"))
     measure("remove", lambda: api.remove(second))
     measure("remove_jobs", lambda: api.remove_jobs([second, "gone"]))
@@ -392,7 +408,7 @@ def test_every_call_returns_at_once_while_the_pipeline_is_slow(tmp_path: Path) -
         name: round(seconds, 3) for name, seconds in durations.items() if seconds >= CALL_BUDGET
     }
     assert slow == {}
-    job_calls = set(bridge_jobs.JobsApi.__dict__) - {"set_album_mode", "set_included"}
+    job_calls = set(bridge_jobs.JobsApi.__dict__)
     assert set(durations) == {name for name in job_calls if not name.startswith("_")} | {"snapshot"}
 
 

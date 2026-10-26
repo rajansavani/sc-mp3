@@ -2,7 +2,8 @@
 
 Saved and skipped jobs aren't kept. Work in flight starts over: a job fetching its info fetches it
 again, and a job that was saving goes back to review, so nothing saves after a restart unseen.
-Staged audio comes back while its file is still in the job's staging folder.
+Staged audio comes back while its file is still in the job's staging folder. A set keeps each of
+its tracks in its own entry, the saved ones too, so the album keeps its numbers.
 """
 
 import json
@@ -13,8 +14,9 @@ from pathlib import Path
 from typing import Any, get_args
 
 from scmp3.app.job_covers import CoverView
-from scmp3.app.job_record import JobRecord, Step
+from scmp3.app.job_record import JobRecord, Snapshot, Step
 from scmp3.app.job_steps import Steps
+from scmp3.app.set_tracks import set_state
 from scmp3.core import paths
 from scmp3.core.convert import AudioInfo
 from scmp3.core.download import JOB_ID_PATTERN
@@ -31,6 +33,12 @@ RESTORED_STATES: dict[JobState, JobState] = {
     JobState.saving: JobState.needs_review,
     JobState.error: JobState.error,
 }
+# A set's tracks come back saved or skipped too, so the album knows which are done.
+TRACK_STATES: dict[JobState, JobState] = {
+    **RESTORED_STATES,
+    JobState.saved: JobState.saved,
+    JobState.skipped: JobState.skipped,
+}
 STEPS: tuple[str, ...] = get_args(Step)
 FILE_FORMATS: tuple[str, ...] = get_args(FileFormat)
 
@@ -40,17 +48,25 @@ UNUSABLE_ENTRY = (KeyError, TypeError, ValueError, AttributeError)
 log = logging.getLogger(__name__)
 
 
-def kept_entry(record: JobRecord) -> str | None:
+def kept_entry(snapshot: Snapshot) -> str | None:
     """The job's entry in queue.json, as JSON, or None for a job that isn't kept."""
-    job = record.job
-    if record.closed or job.state not in RESTORED_STATES:
+    record = snapshot.record
+    if record.closed or record.job.state not in RESTORED_STATES:
         return None
+    entry = _entry(record, RESTORED_STATES)
+    if record.job.kind == "set":
+        entry["children"] = [_entry(child.record, TRACK_STATES) for child in snapshot.children]
+    return json.dumps(entry, ensure_ascii=False)
+
+
+def _entry(record: JobRecord, states: Mapping[JobState, JobState]) -> dict[str, Any]:
+    """What queue.json keeps of one job or track, in the state it comes back in."""
     # Kept as it comes back, so a change only to the progress or to a state that comes back the
     # same, such as queued to resolving, leaves the entry as it was and writes nothing.
-    job_dict = job.to_dict()
-    job_dict["state"] = RESTORED_STATES[job.state].value
+    job_dict = record.job.to_dict()
+    job_dict["state"] = states[record.job.state].value
     job_dict["progress"] = None
-    entry = {
+    return {
         "job": job_dict,
         "parsed": _parsed_dict(record.parsed),
         "staged": _staged_dict(record.staged),
@@ -65,18 +81,25 @@ def kept_entry(record: JobRecord) -> str | None:
         "cover_problem": record.cover_problem,
         "stale_audio": _path_text(record.stale_audio),
     }
-    return json.dumps(entry, ensure_ascii=False)
 
 
-def restored_record(entry: Mapping[str, Any], steps: Steps, settings: Settings) -> JobRecord:
-    """The job a queue.json entry kept, ready to go back in the queue.
+def restored_record(
+    entry: Mapping[str, Any],
+    steps: Steps,
+    settings: Settings,
+    *,
+    parent: JobRecord | None = None,
+) -> JobRecord:
+    """The job a queue.json entry kept, ready to go back in the queue, or a track of `parent`.
 
     Raises one of UNUSABLE_ENTRY for an entry that can't be used.
     """
     job = Job.from_dict(entry["job"])
     if not JOB_ID_PATTERN.fullmatch(job.id):
         raise ValueError("the job id can't be a staging folder's name")
-    record = JobRecord(job=job, parsed=_parsed(entry["parsed"]))
+    if job.kind == "set" and parent is not None:
+        raise ValueError("a set's track can't be a set")
+    record = JobRecord(job=job, parsed=_parsed(entry["parsed"]), parent=parent)
     record.toggles = {str(key): value is True for key, value in entry.get("toggles", {}).items()}
     record.error_where = entry.get("error_where")
     record.error_reason = entry.get("error_reason")
@@ -88,16 +111,48 @@ def restored_record(entry: Mapping[str, Any], steps: Steps, settings: Settings) 
     record.stale_audio = _kept_file(entry.get("stale_audio"), job.id)
     failed_step = entry.get("failed_step")
     record.failed_step = failed_step if failed_step in STEPS else None
-    _restore_state(record, entry, steps, settings)
+    if job.kind == "set":
+        _restore_set(record, entry, steps, settings)
+    else:
+        states = RESTORED_STATES if parent is None else TRACK_STATES
+        _restore_state(record, entry, steps, settings, states)
     return record
 
 
-def _restore_state(
+def _restore_set(
     record: JobRecord, entry: Mapping[str, Any], steps: Steps, settings: Settings
+) -> None:
+    """Put a set back with its tracks, or to be listed again if it wasn't listed yet."""
+    job = record.job
+    job.state = RESTORED_STATES[job.state]
+    job.progress = None
+    job.children = []
+    playlist = job.source.playlist if job.source else None
+    if playlist is None or job.state == JobState.queued:
+        job.state = JobState.error if job.error is not None else JobState.queued
+        record.failed_step = "resolve"
+        return
+    assert job.source is not None
+    record.prepared_set = steps.restore_set(job.source.url, playlist, settings=settings)
+    children = entry["children"]
+    if len(children) != len(playlist.entries):
+        raise ValueError("a set came back with more or fewer tracks than its listing")
+    record.children = tuple(
+        restored_record(child, steps, settings, parent=record) for child in children
+    )
+    job.state = set_state(record.children)
+
+
+def _restore_state(
+    record: JobRecord,
+    entry: Mapping[str, Any],
+    steps: Steps,
+    settings: Settings,
+    states: Mapping[JobState, JobState],
 ) -> None:
     """Put the job in the state it comes back in, with what the pipeline had for it."""
     job = record.job
-    job.state = RESTORED_STATES[job.state]
+    job.state = states[job.state]
     job.progress = None
     if job.state == JobState.error and job.error is None:
         # Nothing says what went wrong, so the job starts over.

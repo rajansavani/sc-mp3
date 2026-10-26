@@ -35,6 +35,8 @@ Copy a SoundCloud, YouTube or YouTube Music link, then press Ctrl+V in the sc-mp
 
 You can paste several links at once, then select Save all. Your first YouTube link asks to add YouTube support, about 40 MB, downloaded once. Select Download it.
 
+A SoundCloud album or playlist link becomes one item in the queue, with a row for each track. A set that SoundCloud marks as an album, EP or single saves as an album, with one cover, the album name and track numbers. Other sets, such as playlists, save as separate songs. You can switch between the two, leave tracks out, and fix titles and artists in the table before you save.
+
 ## Songs on your phone
 
 Spotify on a phone plays MP3 files stored on the phone itself. You don't need Premium.

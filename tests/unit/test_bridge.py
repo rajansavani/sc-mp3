@@ -72,7 +72,7 @@ BUILT = {
     *CALLS[ComponentsApi],
     "update_settings",
     "preview_render",
-    *CALLS[JobsApi] - {"set_album_mode", "set_included"},
+    *CALLS[JobsApi],
     *CALLS[FilesApi],
 }
 STUBS = [name for name in ALL_CALLS if name not in BUILT]

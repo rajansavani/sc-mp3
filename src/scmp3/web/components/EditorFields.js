@@ -31,7 +31,7 @@ export function fieldId(field) {
   return `field-${field}`;
 }
 
-function Field({ name, drafts, size = "normal" }) {
+export function Field({ name, drafts, size = "normal" }) {
   const label = text.fields[name];
   const id = fieldId(name);
   const reason = drafts.reason(name);

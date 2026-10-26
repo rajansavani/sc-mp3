@@ -55,7 +55,8 @@ class QueueKeeper:
         self._writer.changed()
         # The UI's dicts are built now, so the window's first snapshot doesn't wait for them.
         flow.misc_pool.submit(lambda: [snapshot.view(settings) for snapshot in snapshots])
-        flow.misc_pool.submit(lambda: self._recheck_duplicates(restored))
+        tracks = [track for record in restored for track in (record, *record.children)]
+        flow.misc_pool.submit(lambda: self._recheck_duplicates(tracks))
 
     def _recheck_duplicates(self, records: list[JobRecord]) -> None:
         """Look each restored job up in the history again.

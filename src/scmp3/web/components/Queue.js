@@ -1,4 +1,5 @@
 // The queue: every item with its cover, its title and artist as they'll be saved, and its status.
+// A set is one item, with its tracks' progress.
 import { Component } from "preact";
 import { html } from "htm/preact";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -11,6 +12,7 @@ import { Icon } from "./icons.js";
 import { dialogIsOpen, isEditable, useInputDrop } from "./inputs.js";
 import { focusEditor, focusSelectedItem } from "./job-actions.js";
 import {
+  canNeverSave,
   coverCrop,
   cropStyle,
   downloadPct,
@@ -18,18 +20,19 @@ import {
   jobLine,
   jobStatus,
   jobTitle,
+  setProgress,
   waitsForDownload,
 } from "./job-view.js";
 import { useAnnouncements } from "./queue-announcer.js";
+import { savesWithSet } from "./set-tracks.js";
 
 const text = strings.main;
 
 const FINISHED = new Set(["saved", "skipped"]);
-// Errors no retry can fix, which Clear finished takes away too.
-const FINAL_ERRORS = new Set(["drm", "preview_only", "unavailable", "geo_blocked"]);
 
+// Errors no retry can fix are finished too, so Clear finished takes them away.
 function isFinished(job) {
-  return FINISHED.has(job.state) || (job.state === "error" && FINAL_ERRORS.has(job.error?.kind));
+  return FINISHED.has(job.state) || canNeverSave(job);
 }
 
 // Where the queue lands when nothing valid is selected: the first item that needs review.
@@ -38,9 +41,17 @@ function defaultSelection(jobs) {
 }
 
 // A download shows a bar while the item waits for review, or while its save waits for the audio.
-function showsProgress(job) {
-  if (waitsForDownload(job)) return true;
-  return job.state === "needs_review" && !job.staged_audio && downloadPct(job) != null;
+// A set shows its tracks' progress.
+function itemProgress(job) {
+  if (job.kind === "set") return setProgress(job);
+  if (waitsForDownload(job)) return downloadPct(job) ?? 0;
+  const downloading = job.state === "needs_review" && !job.staged_audio;
+  return downloading ? downloadPct(job) : null;
+}
+
+// How many tracks Save all saves for an item: for a set, the tracks its own Save would save.
+function tracksToSave(job) {
+  return job.kind === "set" ? job.children.filter(savesWithSet).length : 1;
 }
 
 function Thumbnail({ job }) {
@@ -80,7 +91,7 @@ function onItemKeyDown(event, job) {
 
 function QueueItem({ job, selected }) {
   const status = jobStatus(job);
-  const pct = downloadPct(job) ?? 0;
+  const pct = itemProgress(job);
   return html`
     <li>
       <button
@@ -96,7 +107,7 @@ function QueueItem({ job, selected }) {
           <span class="queue-item-title">${jobTitle(job)}</span>
           <span class="queue-item-line">${jobLine(job)}</span>
           <span class="queue-item-status" data-tone=${status.tone}>${status.text}</span>
-          ${showsProgress(job) &&
+          ${pct != null &&
           html`
             <span class="progress-track queue-item-progress" aria-hidden="true">
               <span class="progress-fill" style=${{ "--progress": `${pct}%` }}></span>
@@ -156,9 +167,8 @@ async function clearFinished(jobs) {
 }
 
 // The question before Save all. It names the items waiting when it opened, and saves only those.
-function SaveAllDialog({ jobIds, onClose }) {
+function SaveAllDialog({ jobIds, count, onClose }) {
   const modal = useModal(onClose);
-  const count = jobIds.length;
   const saveThem = async () => {
     onClose();
     if (reportError(await api.save(jobIds))) return;
@@ -197,15 +207,17 @@ function SaveAllDialog({ jobIds, onClose }) {
 // Save all shows once two or more items wait for review, and asks before it saves them.
 function SaveAll({ jobs }) {
   const [asking, setAsking] = useState(null);
-  const waiting = jobs.filter((job) => job.state === "needs_review").map((job) => job.id);
+  const waiting = jobs.filter((job) => job.state === "needs_review" && tracksToSave(job) > 0);
+  const ask = () => {
+    const count = waiting.reduce((sum, job) => sum + tracksToSave(job), 0);
+    setAsking({ jobIds: waiting.map((job) => job.id), count });
+  };
   return html`
     ${waiting.length > 1 &&
     html`
-      <button type="button" class="queue-action is-save-all" onClick=${() => setAsking(waiting)}>
-        ${text.saveAll}
-      </button>
+      <button type="button" class="queue-action is-save-all" onClick=${ask}>${text.saveAll}</button>
     `}
-    ${asking && html`<${SaveAllDialog} jobIds=${asking} onClose=${() => setAsking(null)} />`}
+    ${asking && html`<${SaveAllDialog} ...${asking} onClose=${() => setAsking(null)} />`}
   `;
 }
 
