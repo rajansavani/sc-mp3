@@ -2,7 +2,7 @@
 
 import pytest
 
-from scmp3.core.suggest.draft import Draft, is_emoticon
+from scmp3.core.suggest.draft import CUT, Draft, assemble, is_emoticon, spaced_dashes
 
 
 def spans(draft: Draft, groups: str) -> list[str]:
@@ -98,3 +98,23 @@ def test_is_emoticon_spots_a_bracket_after_a_colon_or_semicolon() -> None:
     assert is_emoticon("i miss u :(", 10)
     assert is_emoticon("hi ;-)", 5)
     assert not is_emoticon("Song (VIP)", 5)
+
+
+def test_spaced_dashes_skips_a_dash_inside_brackets() -> None:
+    text = "gg fuckin ez \u0d26\u0d4d\u0d26\u0d3f(\u02f5 \u2022\u0300 \u1d17 - \u02f5 ) - Kaia"
+
+    assert spaced_dashes(text) == [text.rindex(" - ") + 1]
+
+
+def test_spaced_dashes_counts_a_dash_after_an_unclosed_or_emoticon_bracket() -> None:
+    assert spaced_dashes("Kaia (VIP - Song") == [10]
+    assert spaced_dashes("Kaia :( - Song") == [8]
+
+
+def test_assemble_marks_a_closer_whose_opener_was_cut() -> None:
+    draft = Draft("Song (feat. Lou V (prod. Hazy))")
+    draft.claim("extract_feature", 5, 17)
+
+    title, _version = assemble(draft, cut=lambda claim: True)
+
+    assert title == f"Song {CUT} (prod. Hazy){CUT})"

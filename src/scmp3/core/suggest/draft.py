@@ -27,6 +27,8 @@ _BRACKETS = OPENERS + CLOSERS
 _ANY_BRACKET = re.escape(_BRACKETS)
 # A bracket right after ":" or ";" is part of an emoticon like ":(" or ";-)", not a bracket.
 NOT_EMOTICON = r"(?<![:;])(?<![:;]-)"
+# A dash with a space on each side, as in "Artist - Title".
+_SPACED_DASH = re.compile(r"(?<=\s)-(?=\s)")
 # Innermost groups only, so "(a [b])" finds "[b]".
 _GROUP = re.compile(
     "|".join(
@@ -42,6 +44,9 @@ def names_pattern(stop: str) -> str:
     return rf"(?P<names>[^\s{_ANY_BRACKET}|][^{_ANY_BRACKET}|]*?)(?={ends})"
 
 
+# Stands in for text a rule cut, so tidying closes up only the gaps cuts leave. It's whitespace to
+# str.split and to regexes, and normalizing leaves no other whitespace but the space.
+CUT = "\x1f"
 # Kind of a claim that keeps its text and moves it into the version, like "(VIP Mix)".
 VERSION: Literal["version"] = "version"
 ClaimKind = ChangeKind | Literal["version"]
@@ -207,6 +212,30 @@ def is_emoticon(text: str, index: int) -> bool:
     return text[:index].endswith((":", ";", ":-", ";-"))
 
 
+def spaced_dashes(text: str) -> list[int]:
+    """Where the spaced dashes outside brackets are. A face like "(˵ •̀ ᴗ - ˵ )" never splits."""
+    pairs = _bracket_pairs(text)
+    return [
+        match.start()
+        for match in _SPACED_DASH.finditer(text)
+        if not any(start < match.start() < end for start, end in pairs)
+    ]
+
+
+def _bracket_pairs(text: str) -> list[tuple[int, int]]:
+    """Where each matched pair of brackets opens and closes. Emoticons and strays don't count."""
+    pairs: list[tuple[int, int]] = []
+    open_at: list[int] = []
+    for index, char in enumerate(text):
+        if char not in _BRACKETS or is_emoticon(text, index):
+            continue
+        if char in OPENERS:
+            open_at.append(index)
+        elif open_at and BRACKET_PAIRS[text[open_at[-1]]] == char:
+            pairs.append((open_at.pop(), index))
+    return pairs
+
+
 def assemble(
     draft: Draft,
     cut: Callable[[Claim], bool],
@@ -219,44 +248,69 @@ def assemble(
     """
     claims = sorted(draft.claims, key=lambda claim: claim.start)
     split_at = _version_start(draft.text, claims)
+    pieces = _Pieces(draft.text, _orphaned_closers(draft.text, claims, cut), transform)
     title: list[str] = []
     version: list[str] = []
     position = 0
     for claim in claims:
-        _add_gap(draft.text[position : claim.start], position, split_at, transform, title, version)
+        _add_gap(pieces, position, claim.start, split_at, title, version)
         target = version if claim.start >= split_at else title
-        target.append(_claim_text(draft, claim, cut, transform))
+        target.append(_claim_text(pieces, claim, cut))
         position = claim.end
-    _add_gap(draft.text[position:], position, split_at, transform, title, version)
+    _add_gap(pieces, position, len(draft.text), split_at, title, version)
     return "".join(title), "".join(version)
 
 
+@dataclass(frozen=True)
+class _Pieces:
+    """The text being rebuilt, and how its kept parts are written out."""
+
+    text: str
+    orphans: set[int]  # closers whose opener was cut
+    transform: Callable[[str], str]
+
+    def as_written(self, start: int, end: int) -> str:
+        """text[start:end], with a cut marked before each orphaned closer, so tidying drops it."""
+        return "".join(
+            CUT + self.text[index] if index in self.orphans else self.text[index]
+            for index in range(start, end)
+        )
+
+    def kept(self, start: int, end: int) -> str:
+        """text[start:end] as written, transformed."""
+        return self.transform(self.as_written(start, end))
+
+
+def _orphaned_closers(text: str, claims: list[Claim], cut: Callable[[Claim], bool]) -> set[int]:
+    """Where the closers are whose opener is in a cut claim while they aren't."""
+    cut_claims = [claim for claim in claims if claim.kind != VERSION and cut(claim)]
+
+    def is_cut(index: int) -> bool:
+        return any(claim.start <= index < claim.end for claim in cut_claims)
+
+    return {end for start, end in _bracket_pairs(text) if is_cut(start) and not is_cut(end)}
+
+
 def _add_gap(
-    gap: str,
-    offset: int,
-    split_at: int,
-    transform: Callable[[str], str],
-    title: list[str],
-    version: list[str],
+    pieces: _Pieces, start: int, end: int, split_at: int, title: list[str], version: list[str]
 ) -> None:
-    """Add unclaimed text that starts at `offset`, splitting it where the version starts."""
-    middle = min(max(split_at - offset, 0), len(gap))
-    title.append(transform(gap[:middle]))
-    version.append(transform(gap[middle:]))
+    """Add the unclaimed text from `start` to `end`, splitting it where the version starts."""
+    middle = min(max(split_at, start), end)
+    title.append(pieces.kept(start, middle))
+    version.append(pieces.kept(middle, end))
 
 
-def _claim_text(
-    draft: Draft, claim: Claim, cut: Callable[[Claim], bool], transform: Callable[[str], str]
-) -> str:
-    """The text a claim contributes: its own text, or a space where it was cut."""
-    text = draft.span(claim)
+def _claim_text(pieces: _Pieces, claim: Claim, cut: Callable[[Claim], bool]) -> str:
+    """The text a claim contributes: its own text, or a gap where it was cut."""
     if claim.kind == VERSION:
-        return transform(text)
-    # A space keeps "Song(feat. X)Remix" from becoming "SongRemix"; tidying collapses it.
+        return pieces.kept(claim.start, claim.end)
+    # A gap keeps "Song(feat. X)Remix" from becoming "SongRemix"; tidying collapses it.
     if cut(claim):
-        return " "
+        return CUT
     # Text a toggle put back stays as written; text that was never cut is the title's own.
-    return text if claim.default_on else transform(text)
+    if claim.default_on:
+        return pieces.as_written(claim.start, claim.end)
+    return pieces.kept(claim.start, claim.end)
 
 
 def _version_start(text: str, claims: list[Claim]) -> int:

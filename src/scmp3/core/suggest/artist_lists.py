@@ -1,10 +1,11 @@
 """Step 9 of the suggestion engine: the final main and featured lists, from the publisher's
 artists, the artists the title credits, and the uploader."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from scmp3.core.suggest import rules
-from scmp3.core.suggest.draft import Claim, Draft
+from scmp3.core.suggest.draft import CUT, Claim, Draft
 from scmp3.core.suggest.names import (
     any_same_artist,
     comma_parts,
@@ -76,7 +77,7 @@ def _credits_with_features(draft: Draft, artist: Claim, kept: list[Claim]) -> li
     text = draft.text[artist.start : end]
     for feature in sorted(cut, key=lambda claim: claim.start, reverse=True):
         start, stop = feature.start - artist.start, feature.end - artist.start
-        text = text[:start] + " " + text[stop:]
+        text = text[:start] + CUT + text[stop:]
     restored = tuple(name for feature in kept for name in feature.names)
     names, bases = split_credit(rules.tidy(text)), split_credit(base)
     if len(names) != len(bases):
@@ -86,10 +87,68 @@ def _credits_with_features(draft: Draft, artist: Claim, kept: list[Claim]) -> li
     ]
 
 
-def choose_main(publisher: list[str], from_title: list[TitleArtist], uploader: str) -> list[str]:
+@dataclass(frozen=True)
+class PublisherArtists:
+    """The publisher's artists as main and featured names."""
+
+    main: list[str]
+    featured: list[str]
+    listed: list[str]  # every name that came from a list of several, for matching title credits
+
+
+def publisher_artists(
+    lists: list[list[str]], from_title: list[TitleArtist], uploader: Sequence[str]
+) -> PublisherArtists:
+    """Main and featured names from the publisher's artists, each given as the names it lists.
+
+    In a list of several, the names the title's artist part credits stay main when it credits
+    more than one, as in "Rival & Cadmium - Seasons". Otherwise the uploader is the main artist
+    when it's listed, or else the first name is. The others are featured. `uploader` has the
+    uploader's spellings, such as with and without emoji.
+    """
+    credited = [part for artist in from_title for part in joined_names(artist.base)]
+    main: list[str] = []
+    featured: list[str] = []
+    listed: list[str] = []
+    for names in lists:
+        if len(names) < 2:
+            main.extend(names)
+            continue
+        leads = _leads(names, credited, uploader)
+        main.extend(leads)
+        featured.extend(name for name in names if name not in leads)
+        listed.extend(names)
+    return PublisherArtists(main, featured, listed)
+
+
+def _leads(names: list[str], credited: list[str], uploader: Sequence[str]) -> list[str]:
+    """A list's main names: the ones the title credits, in its order, when it credits several.
+
+    Otherwise the user's rule applies: the uploader when it's listed, every name of it when it's
+    a duo like "Rival & Cadmium", or else the first name.
+    """
+    named = _named(names, credited)
+    if len(named) > 1:
+        return named
+    uploader_parts = [part for spelling in uploader for part in [spelling, *joined_names(spelling)]]
+    return _named(names, uploader_parts) or names[:1]
+
+
+def _named(names: list[str], credits: list[str]) -> list[str]:
+    """The names in `names` that `credits` name, in the order `credits` names them."""
+    return dedupe([name for credit in credits for name in names if same_artist(name, credit)])
+
+
+def choose_main(
+    publisher: list[str],
+    from_title: list[TitleArtist],
+    uploader: str,
+    listed: Sequence[str] = (),
+) -> list[str]:
     """The publisher artists, joined by new ones from the title; else the uploader.
 
-    A name that lost a letter, like "Michael Bubl?", takes the uploader's spelling of it.
+    `listed` holds the names the publisher's lists give, featured ones too. A name that lost a
+    letter, like "Michael Bubl?", takes the uploader's spelling of it.
     """
     if not publisher:
         main = dedupe_artists([artist.name for artist in from_title], fullest_spelling)
@@ -98,7 +157,7 @@ def choose_main(publisher: list[str], from_title: list[TitleArtist], uploader: s
     main = _spelled_as_uploader(list(publisher), uploader)
     spelled_by_publisher = set(main)
     for artist in from_title:
-        _add_title_artist(main, artist, spelled_by_publisher)
+        _add_title_artist(main, artist, spelled_by_publisher, listed)
     # Again at the end, since a title artist can bring a lost letter of its own.
     return _spelled_as_uploader(dedupe_artists(main, fullest_spelling), uploader)
 
@@ -112,8 +171,10 @@ def _spelled_as_uploader(names: list[str], uploader: str) -> list[str]:
     ]
 
 
-def _add_title_artist(main: list[str], artist: TitleArtist, spelled_by_publisher: set[str]) -> None:
-    """Add a title artist the publisher list doesn't name yet.
+def _add_title_artist(
+    main: list[str], artist: TitleArtist, spelled_by_publisher: set[str], listed: Sequence[str]
+) -> None:
+    """Add a title artist the publisher's artists don't name yet.
 
     `spelled_by_publisher` holds the names in `main` as the publisher spells them.
     """
@@ -122,22 +183,24 @@ def _add_title_artist(main: list[str], artist: TitleArtist, spelled_by_publisher
         _respell(main, matches[0], artist, from_publisher=main[matches[0]] in spelled_by_publisher)
         return
     parts = joined_names(artist.base)
-    # One name in common with a publisher artist is enough, so "Kaia & Lou V" joins no "Kaia".
-    if any_same_artist(parts, main):
+    # One name in common with a whole artist is enough, so "Kaia & Lou V" joins no "Kaia".
+    whole = [name for name in main if not any_same_artist([name], listed)]
+    if any_same_artist(parts, whole):
         return
-    # A feature put back must show, so only a plain credit counts as named in "Rival, Cadmium".
-    if artist.name == artist.base and _all_in_comma_lists(parts, main):
+    # A feature put back must show, so only a plain credit counts as named by a list.
+    if artist.name == artist.base and _all_in_lists(parts, main, listed):
         return
     main.append(artist.name)
 
 
-def _all_in_comma_lists(parts: list[str], main: list[str]) -> bool:
-    """Whether comma lists like "Rival, Cadmium, Harley Bird" name every one of `parts`.
+def _all_in_lists(parts: list[str], main: list[str], listed: Sequence[str]) -> bool:
+    """Whether lists like "Rival, Cadmium, Harley Bird" name every one of `parts`.
 
-    One isn't enough, since "Tyler" may be part of "Tyler, The Creator".
+    One isn't enough, since "Tyler" may be part of "Tyler, The Creator", and "Kaia & Lou V"
+    isn't named by "Kaia, Mara".
     """
-    listed = [part for name in main for part in comma_parts(name)]
-    return bool(listed) and all(any_same_artist([part], listed) for part in parts)
+    names = [*listed, *(part for name in main for part in comma_parts(name))]
+    return bool(names) and all(any_same_artist([part], names) for part in parts)
 
 
 def _respell(main: list[str], index: int, artist: TitleArtist, *, from_publisher: bool) -> None:

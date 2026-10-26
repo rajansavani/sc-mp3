@@ -5,6 +5,7 @@ from scmp3.core.suggest.artist_lists import (
     choose_main,
     credited_spelling,
     merge_featured,
+    publisher_artists,
     settle,
 )
 
@@ -140,3 +141,59 @@ def test_settle_drops_a_featured_name_that_a_comma_joined_main_artist_already_na
         ["Okoye"],
         ["Tyler, The Creator"],
     )
+
+
+def test_publisher_artists_make_the_listed_uploader_main_and_the_others_featured() -> None:
+    publisher = publisher_artists([["gunk", "zayok", "edyn"]], [], ["gunk"])
+
+    assert (publisher.main, publisher.featured) == (["gunk"], ["zayok", "edyn"])
+    assert publisher.listed == ["gunk", "zayok", "edyn"]
+
+
+def test_publisher_artists_make_the_first_name_main_when_the_uploader_isnt_listed() -> None:
+    publisher = publisher_artists([["Rival", "Cadmium", "Harley Bird"]], [], ["NCS"])
+
+    assert (publisher.main, publisher.featured) == (["Rival"], ["Cadmium", "Harley Bird"])
+
+
+def test_publisher_artists_find_the_uploader_by_any_of_its_spellings() -> None:
+    publisher = publisher_artists([["zayok", "GUNK \U0001f525"]], [], ["gunk", "GUNK \U0001f525"])
+
+    assert (publisher.main, publisher.featured) == (["GUNK \U0001f525"], ["zayok"])
+
+
+def test_publisher_artists_keep_names_given_one_by_one_all_main() -> None:
+    publisher = publisher_artists([["Kaia"], ["Lou V"]], [], ["Lou V"])
+
+    assert (publisher.main, publisher.featured, publisher.listed) == (["Kaia", "Lou V"], [], [])
+
+
+def test_choose_main_adds_a_title_duo_only_when_a_list_doesnt_name_both() -> None:
+    listed = ["Kaia", "Mara"]
+
+    assert choose_main(["Kaia"], plain("Kaia & Mara"), "x", listed) == ["Kaia"]
+    assert choose_main(["Kaia"], plain("Kaia & Lou V"), "x", listed) == ["Kaia", "Kaia & Lou V"]
+
+
+def test_publisher_artists_keep_every_listed_name_a_title_duo_credits_main() -> None:
+    names = [["Rival", "Cadmium", "Harley Bird"]]
+
+    publisher = publisher_artists(names, plain("cadmium & Rival"), ["NCS"])
+
+    assert (publisher.main, publisher.featured) == (["Cadmium", "Rival"], ["Harley Bird"])
+
+
+def test_publisher_artists_use_the_uploader_rule_when_the_title_credits_one_listed_name() -> None:
+    names = [["gunk", "zayok", "edyn"]]
+
+    publisher = publisher_artists(names, plain("zayok & Lou V"), ["gunk"])
+
+    assert (publisher.main, publisher.featured) == (["gunk"], ["zayok", "edyn"])
+
+
+def test_publisher_artists_make_every_listed_name_of_a_duo_uploader_main() -> None:
+    names = [["Harley Bird", "Rival", "Cadmium"]]
+
+    publisher = publisher_artists(names, [], ["Rival & Cadmium"])
+
+    assert (publisher.main, publisher.featured) == (["Rival", "Cadmium"], ["Harley Bird"])

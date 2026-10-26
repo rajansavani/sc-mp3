@@ -1350,49 +1350,58 @@ feat_in_title = ["Midnight Drive (Free Remix)", "Kaia"]
 all_in_title = ["Midnight Drive (Kaia) (Free Remix)", "Kaia"]
 
 [[case]]
-checks = "each run of emoji is its own change"
+checks = "each run of emoji is its own change, offered switched off"
 title = "🔥 Midnight Drive 🔥"
 uploader = "Kaia"
-base_title = "Midnight Drive"
+base_title = "🔥 Midnight Drive 🔥"
 main = ["Kaia"]
 featured = []
 version = ""
+on = []
+off = ["remove_emoji:🔥", "remove_emoji:🔥#2"]
+artist_field = ["🔥 Midnight Drive 🔥", "Kaia"]
+feat_in_title = ["🔥 Midnight Drive 🔥", "Kaia"]
+all_in_title = ["🔥 Midnight Drive 🔥 (Kaia)", "Kaia"]
+
+[[case.toggle]]
+on = ["remove_emoji:🔥#2"]
+artist_field = ["🔥 Midnight Drive", "Kaia"]
+feat_in_title = ["🔥 Midnight Drive", "Kaia"]
+all_in_title = ["🔥 Midnight Drive (Kaia)", "Kaia"]
+
+[[case.toggle]]
 on = ["remove_emoji:🔥", "remove_emoji:🔥#2"]
 artist_field = ["Midnight Drive", "Kaia"]
 feat_in_title = ["Midnight Drive", "Kaia"]
 all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
 
-[[case.toggle]]
-off = ["remove_emoji:🔥#2"]
-artist_field = ["Midnight Drive 🔥", "Kaia"]
-feat_in_title = ["Midnight Drive 🔥", "Kaia"]
-all_in_title = ["Midnight Drive 🔥 (Kaia)", "Kaia"]
-
 [[case]]
-checks = "emoji next to a feature"
+checks = "an emoji next to a feature stays, with its removal offered"
 title = "Midnight Drive ✨ (feat. Lou V)"
 uploader = "Kaia"
-base_title = "Midnight Drive"
+base_title = "Midnight Drive ✨"
 main = ["Kaia"]
 featured = ["Lou V"]
 version = ""
-on = ["remove_emoji:✨", "extract_feature:(feat. Lou V)"]
-artist_field = ["Midnight Drive", "Kaia, Lou V"]
-feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
-all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+on = ["extract_feature:(feat. Lou V)"]
+off = ["remove_emoji:✨"]
+artist_field = ["Midnight Drive ✨", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive ✨ (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive ✨ (Kaia, Lou V)", "Kaia"]
 
 [[case]]
-checks = "emoji before an artist prefix don't hide the uploader match"
+checks = "an emoji before an artist prefix doesn't hide the uploader match, and stays with the title"
 title = "🌙 Kaia - Midnight Drive"
 uploader = "Kaia"
-base_title = "Midnight Drive"
+base_title = "🌙 Midnight Drive"
 main = ["Kaia"]
 featured = []
 version = ""
-on = ["remove_emoji:🌙", "strip_redundant_artist:Kaia"]
-artist_field = ["Midnight Drive", "Kaia"]
-feat_in_title = ["Midnight Drive", "Kaia"]
-all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+on = ["strip_redundant_artist:Kaia"]
+off = ["remove_emoji:🌙"]
+artist_field = ["🌙 Midnight Drive", "Kaia"]
+feat_in_title = ["🌙 Midnight Drive", "Kaia"]
+all_in_title = ["🌙 Midnight Drive (Kaia)", "Kaia"]
 
 [[case]]
 checks = "an all-caps title is offered title case, off by default"
@@ -2247,7 +2256,7 @@ feat_in_title = ["Sonata in C♯ Minor", "Some Artist"]
 all_in_title = ["Sonata in C♯ Minor (Some Artist)", "Some Artist"]
 
 [[case]]
-checks = "a star between two words stays in the title, with its removal offered"
+checks = "a star is a symbol, not an emoji, so it stays and no removal is offered"
 title = "Midnight Drive ★ Kaia Remix"
 uploader = "Some Artist"
 base_title = "Midnight Drive ★ Kaia Remix"
@@ -2255,16 +2264,9 @@ main = ["Some Artist"]
 featured = []
 version = ""
 on = []
-off = ["remove_emoji:★"]
 artist_field = ["Midnight Drive ★ Kaia Remix", "Some Artist"]
 feat_in_title = ["Midnight Drive ★ Kaia Remix", "Some Artist"]
 all_in_title = ["Midnight Drive ★ Kaia Remix (Some Artist)", "Some Artist"]
-
-[[case.toggle]]
-on = ["remove_emoji:★"]
-artist_field = ["Midnight Drive Kaia Remix", "Some Artist"]
-feat_in_title = ["Midnight Drive Kaia Remix", "Some Artist"]
-all_in_title = ["Midnight Drive Kaia Remix (Some Artist)", "Some Artist"]
 
 [[case]]
 checks = "a symbol between two artists doesn't block the artist split"
@@ -2281,13 +2283,20 @@ feat_in_title = ["Kaia ✖ Lou V - Midnight Drive", "Some Channel"]
 all_in_title = ["Kaia ✖ Lou V - Midnight Drive (Some Channel)", "Some Channel"]
 
 [[case]]
-checks = "a keycap emoji is removed"
+checks = "a keycap emoji stays, with its removal offered"
 title = "Midnight Drive 1️⃣"
 uploader = "Some Artist"
-base_title = "Midnight Drive"
+base_title = "Midnight Drive 1️⃣"
 main = ["Some Artist"]
 featured = []
 version = ""
+on = []
+off = ["remove_emoji:1️⃣"]
+artist_field = ["Midnight Drive 1️⃣", "Some Artist"]
+feat_in_title = ["Midnight Drive 1️⃣", "Some Artist"]
+all_in_title = ["Midnight Drive 1️⃣ (Some Artist)", "Some Artist"]
+
+[[case.toggle]]
 on = ["remove_emoji:1️⃣"]
 artist_field = ["Midnight Drive", "Some Artist"]
 feat_in_title = ["Midnight Drive", "Some Artist"]
@@ -2381,32 +2390,33 @@ feat_in_title = ["Ember", "Camo & Krooked"]
 all_in_title = ["Ember (Camo & Krooked)", "Camo & Krooked"]
 
 [[case]]
-checks = "emoji in the uploader name come out of the artist, and can be put back"
+checks = "a heart symbol in the uploader name stays in the artist, with no removal offered"
 title = "Midnight Drive"
 uploader = "kaia ♡"
 base_title = "Midnight Drive"
-main = ["kaia"]
+main = ["kaia ♡"]
 featured = []
 version = ""
-on = ["remove_emoji:♡"]
-artist_field = ["Midnight Drive", "kaia"]
-feat_in_title = ["Midnight Drive", "kaia"]
-all_in_title = ["Midnight Drive (kaia)", "kaia"]
-
-[[case.toggle]]
-off = ["remove_emoji:♡"]
+on = []
 artist_field = ["Midnight Drive", "kaia ♡"]
 feat_in_title = ["Midnight Drive", "kaia ♡"]
 all_in_title = ["Midnight Drive (kaia ♡)", "kaia ♡"]
 
 [[case]]
-checks = "a moon emoji in the uploader name comes out of the artist"
+checks = "a moon emoji in the uploader name stays in the artist, and can be taken out"
 title = "Midnight Drive"
 uploader = "Kaia 🌙"
 base_title = "Midnight Drive"
-main = ["Kaia"]
+main = ["Kaia 🌙"]
 featured = []
 version = ""
+on = []
+off = ["remove_emoji:🌙"]
+artist_field = ["Midnight Drive", "Kaia 🌙"]
+feat_in_title = ["Midnight Drive", "Kaia 🌙"]
+all_in_title = ["Midnight Drive (Kaia 🌙)", "Kaia 🌙"]
+
+[[case.toggle]]
 on = ["remove_emoji:🌙"]
 artist_field = ["Midnight Drive", "Kaia"]
 feat_in_title = ["Midnight Drive", "Kaia"]
@@ -2551,30 +2561,32 @@ feat_in_title = ["Paper Moon", "Some Artist"]
 all_in_title = ["Paper Moon (Some Artist)", "Some Artist"]
 
 [[case]]
-checks = "an emoji before a producer credit comes out with it"
+checks = "an emoji before a producer credit stays"
 title = "Paper Moon 🔥 prod. Sable"
 uploader = "Some Artist"
-base_title = "Paper Moon"
+base_title = "Paper Moon 🔥"
 main = ["Some Artist"]
 featured = []
 version = ""
-on = ["remove_emoji:🔥", "remove_producer:prod. Sable"]
-artist_field = ["Paper Moon", "Some Artist"]
-feat_in_title = ["Paper Moon", "Some Artist"]
-all_in_title = ["Paper Moon (Some Artist)", "Some Artist"]
+on = ["remove_producer:prod. Sable"]
+off = ["remove_emoji:🔥"]
+artist_field = ["Paper Moon 🔥", "Some Artist"]
+feat_in_title = ["Paper Moon 🔥", "Some Artist"]
+all_in_title = ["Paper Moon 🔥 (Some Artist)", "Some Artist"]
 
 [[case]]
-checks = "an emoji before a feature comes out with it"
+checks = "an emoji before a feature stays"
 title = "Paper Moon 🔥 ft. Okoye"
 uploader = "Some Artist"
-base_title = "Paper Moon"
+base_title = "Paper Moon 🔥"
 main = ["Some Artist"]
 featured = ["Okoye"]
 version = ""
-on = ["remove_emoji:🔥", "extract_feature:ft. Okoye"]
-artist_field = ["Paper Moon", "Some Artist, Okoye"]
-feat_in_title = ["Paper Moon (feat. Okoye)", "Some Artist"]
-all_in_title = ["Paper Moon (Some Artist, Okoye)", "Some Artist"]
+on = ["extract_feature:ft. Okoye"]
+off = ["remove_emoji:🔥"]
+artist_field = ["Paper Moon 🔥", "Some Artist, Okoye"]
+feat_in_title = ["Paper Moon 🔥 (feat. Okoye)", "Some Artist"]
+all_in_title = ["Paper Moon 🔥 (Some Artist, Okoye)", "Some Artist"]
 
 [[case]]
 checks = "sparkles around FREE DOWNLOAD come out with it"
@@ -2610,18 +2622,18 @@ feat_in_title = ["Paper Moon", "Some Artist"]
 all_in_title = ["Paper Moon (Some Artist)", "Some Artist"]
 
 [[case]]
-checks = "an emoji between words is offered and one at the end comes out"
+checks = "emoji between words and at the end both stay, with their removal offered"
 title = "Okoye ✨ Paper Moon ✨"
 uploader = "Okoye"
-base_title = "Okoye ✨ Paper Moon"
+base_title = "Okoye ✨ Paper Moon ✨"
 main = ["Okoye"]
 featured = []
 version = ""
-on = ["remove_emoji:✨#2"]
-off = ["remove_emoji:✨"]
-artist_field = ["Okoye ✨ Paper Moon", "Okoye"]
-feat_in_title = ["Okoye ✨ Paper Moon", "Okoye"]
-all_in_title = ["Okoye ✨ Paper Moon (Okoye)", "Okoye"]
+on = []
+off = ["remove_emoji:✨", "remove_emoji:✨#2"]
+artist_field = ["Okoye ✨ Paper Moon ✨", "Okoye"]
+feat_in_title = ["Okoye ✨ Paper Moon ✨", "Okoye"]
+all_in_title = ["Okoye ✨ Paper Moon ✨ (Okoye)", "Okoye"]
 
 [[case]]
 checks = "a feature put back into the artist part replaces both publisher artists it names"
@@ -2881,44 +2893,44 @@ feat_in_title = ["6 ft Under", "Some Artist"]
 all_in_title = ["6 ft Under (Some Artist)", "Some Artist"]
 
 [[case]]
-checks = "a title duo named in a comma-joined publisher artist isn't added again"
+checks = "a title duo keeps the names it credits from a publisher list main, and the others are featured"
 title = "Rival & Cadmium - Seasons (feat. Harley Bird) [Futuristik & whogaux Remix]"
 uploader = "NCS"
 artists = ["Rival, Cadmium, Harley Bird"]
 base_title = "Seasons"
-main = ["Rival, Cadmium, Harley Bird"]
-featured = []
+main = ["Rival", "Cadmium"]
+featured = ["Harley Bird"]
 version = " [Futuristik & whogaux Remix]"
 on = ["artist_from_title:Rival & Cadmium", "extract_feature:(feat. Harley Bird)"]
 artist_field = ["Seasons [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
-feat_in_title = ["Seasons [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
-all_in_title = ["Seasons (Rival, Cadmium, Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
+feat_in_title = ["Seasons (feat. Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium"]
+all_in_title = ["Seasons (Rival, Cadmium, Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium"]
 
 [[case.toggle]]
 off = ["extract_feature:(feat. Harley Bird)"]
-artist_field = ["Seasons (feat. Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
-feat_in_title = ["Seasons (feat. Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
-all_in_title = ["Seasons (feat. Harley Bird) (Rival, Cadmium, Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
+artist_field = ["Seasons (feat. Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium"]
+feat_in_title = ["Seasons (feat. Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium"]
+all_in_title = ["Seasons (feat. Harley Bird) (Rival, Cadmium) [Futuristik & whogaux Remix]", "Rival, Cadmium"]
 
 [[case.toggle]]
 off = ["artist_from_title:Rival & Cadmium"]
 artist_field = ["Rival & Cadmium - Seasons [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
-feat_in_title = ["Rival & Cadmium - Seasons [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
-all_in_title = ["Rival & Cadmium - Seasons (Rival, Cadmium, Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
+feat_in_title = ["Rival & Cadmium - Seasons (feat. Harley Bird) [Futuristik & whogaux Remix]", "Rival"]
+all_in_title = ["Rival & Cadmium - Seasons (Rival, Cadmium, Harley Bird) [Futuristik & whogaux Remix]", "Rival"]
 
 [[case]]
-checks = "title artists split on x and named in a comma-joined publisher artist aren't added again"
+checks = "title artists split on x and named in a publisher list stay main and aren't added again"
 title = "Rival x Cadmium - Seasons (feat. Harley Bird) [Futuristik & whogaux Remix]"
 uploader = "NCS"
 artists = ["Rival, Cadmium, Harley Bird"]
 base_title = "Seasons"
-main = ["Rival, Cadmium, Harley Bird"]
-featured = []
+main = ["Rival", "Cadmium"]
+featured = ["Harley Bird"]
 version = " [Futuristik & whogaux Remix]"
 on = ["artist_from_title:Rival x Cadmium", "extract_feature:(feat. Harley Bird)"]
 artist_field = ["Seasons [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
-feat_in_title = ["Seasons [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
-all_in_title = ["Seasons (Rival, Cadmium, Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium, Harley Bird"]
+feat_in_title = ["Seasons (feat. Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium"]
+all_in_title = ["Seasons (Rival, Cadmium, Harley Bird) [Futuristik & whogaux Remix]", "Rival, Cadmium"]
 
 [[case]]
 checks = "a comma-joined publisher artist is never split, and a feature it doesn't name is still credited"
@@ -2935,12 +2947,12 @@ feat_in_title = ["Paper Moon (feat. Okoye)", "Tyler, The Creator"]
 all_in_title = ["Paper Moon (Tyler, The Creator, Okoye)", "Tyler, The Creator"]
 
 [[case]]
-checks = "a title artist matches a comma part of the publisher artist ignoring case and accents"
+checks = "a title duo matches the names in a publisher list ignoring case and accents"
 title = "kaia & Zoe - Midnight Drive"
 uploader = "Some Label Records"
 artists = ["Kaia, Zoë"]
 base_title = "Midnight Drive"
-main = ["Kaia, Zoë"]
+main = ["Kaia", "Zoë"]
 featured = []
 version = ""
 on = ["artist_from_title:kaia & Zoe"]
@@ -2949,24 +2961,24 @@ feat_in_title = ["Midnight Drive", "Kaia, Zoë"]
 all_in_title = ["Midnight Drive (Kaia, Zoë)", "Kaia, Zoë"]
 
 [[case]]
-checks = "a feature put back into a title artist shows even when a comma-joined publisher artist names it"
+checks = "a feature put back into a title artist shows, and isn't featured again from the publisher list"
 title = "Rival ft. Harley Bird - Seasons"
 uploader = "NCS"
 artists = ["Rival, Cadmium, Harley Bird"]
 base_title = "Seasons"
-main = ["Rival, Cadmium, Harley Bird"]
-featured = []
+main = ["Rival"]
+featured = ["Cadmium", "Harley Bird"]
 version = ""
 on = ["artist_from_title:Rival", "extract_feature:ft. Harley Bird"]
 artist_field = ["Seasons", "Rival, Cadmium, Harley Bird"]
-feat_in_title = ["Seasons", "Rival, Cadmium, Harley Bird"]
-all_in_title = ["Seasons (Rival, Cadmium, Harley Bird)", "Rival, Cadmium, Harley Bird"]
+feat_in_title = ["Seasons (feat. Cadmium, Harley Bird)", "Rival"]
+all_in_title = ["Seasons (Rival, Cadmium, Harley Bird)", "Rival"]
 
 [[case.toggle]]
 off = ["extract_feature:ft. Harley Bird"]
-artist_field = ["Seasons", "Rival, Cadmium, Harley Bird, Rival ft. Harley Bird"]
-feat_in_title = ["Seasons", "Rival, Cadmium, Harley Bird, Rival ft. Harley Bird"]
-all_in_title = ["Seasons (Rival, Cadmium, Harley Bird, Rival ft. Harley Bird)", "Rival, Cadmium, Harley Bird, Rival ft. Harley Bird"]
+artist_field = ["Seasons", "Rival ft. Harley Bird, Cadmium"]
+feat_in_title = ["Seasons (feat. Cadmium)", "Rival ft. Harley Bird"]
+all_in_title = ["Seasons (Rival ft. Harley Bird, Cadmium)", "Rival ft. Harley Bird"]
 
 [[case]]
 checks = "an uploader named like a website is a channel, so the artist split starts on"
@@ -3106,18 +3118,18 @@ feat_in_title = ["Song", "Tyler, The Creator, Tyler, The Creator & Kaia"]
 all_in_title = ["Song (Tyler, The Creator, Tyler, The Creator & Kaia)", "Tyler, The Creator, Tyler, The Creator & Kaia"]
 
 [[case]]
-checks = "a title duo with one name in a comma-joined publisher artist is still added"
+checks = "a title duo with one name in a publisher list is still added"
 title = "Kaia & Lou V - Song"
 uploader = "Some Label Records"
 artists = ["Kaia, Mara"]
 base_title = "Song"
-main = ["Kaia, Mara", "Kaia & Lou V"]
-featured = []
+main = ["Kaia", "Kaia & Lou V"]
+featured = ["Mara"]
 version = ""
 on = ["artist_from_title:Kaia & Lou V"]
-artist_field = ["Song", "Kaia, Mara, Kaia & Lou V"]
-feat_in_title = ["Song", "Kaia, Mara, Kaia & Lou V"]
-all_in_title = ["Song (Kaia, Mara, Kaia & Lou V)", "Kaia, Mara, Kaia & Lou V"]
+artist_field = ["Song", "Kaia, Kaia & Lou V, Mara"]
+feat_in_title = ["Song (feat. Mara)", "Kaia, Kaia & Lou V"]
+all_in_title = ["Song (Kaia, Kaia & Lou V, Mara)", "Kaia, Kaia & Lou V"]
 
 [[case]]
 checks = "a featured name with the letter a publisher artist lost replaces that main artist"
@@ -3886,3 +3898,636 @@ on = ["strip_redundant_artist:Shakira"]
 artist_field = ["Waka Waka (This Time for Africa)", "Shakira"]
 feat_in_title = ["Waka Waka (This Time for Africa)", "Shakira"]
 all_in_title = ["Waka Waka (This Time for Africa) (Shakira)", "Shakira"]
+
+# Real SoundCloud titles from underground uploads, gathered as a guest on 2026-10-25: artist lists
+# in the publisher field, faces, symbols and emoji.
+
+[[case]]
+checks = "the reported title keeps its face whole and credits the uploader, with the others in the list featured"
+title = "gg fuckin ez  ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧"
+uploader = "gunk"
+artists = ["gunk, zayok, edyn "]
+base_title = "gg fuckin ez ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧"
+main = ["gunk"]
+featured = ["zayok", "edyn"]
+version = ""
+on = []
+artist_field = ["gg fuckin ez ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧", "gunk, zayok, edyn"]
+feat_in_title = ["gg fuckin ez ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧ (feat. zayok, edyn)", "gunk"]
+all_in_title = ["gg fuckin ez ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧ (gunk, zayok, edyn)", "gunk"]
+
+[[case]]
+checks = "a list in the title and in the publisher text, from another uploader, keeps every name main"
+title = "zayok, gunk - racks in the trunk (Demo)"
+uploader = "sean"
+artists = ["zayok, gunk"]
+base_title = "racks in the trunk"
+main = ["zayok", "gunk"]
+featured = []
+version = " (Demo)"
+on = ["artist_from_title:zayok, gunk"]
+artist_field = ["racks in the trunk (Demo)", "zayok, gunk"]
+feat_in_title = ["racks in the trunk (Demo)", "zayok, gunk"]
+all_in_title = ["racks in the trunk (zayok, gunk) (Demo)", "zayok, gunk"]
+
+[[case]]
+checks = "the uploader leads a publisher list that spells it with a capital"
+title = "Modafinil"
+uploader = "glaive"
+artists = ["Glaive, Kurtains, Kai Angel"]
+base_title = "Modafinil"
+main = ["Glaive"]
+featured = ["Kurtains", "Kai Angel"]
+version = ""
+on = []
+artist_field = ["Modafinil", "Glaive, Kurtains, Kai Angel"]
+feat_in_title = ["Modafinil (feat. Kurtains, Kai Angel)", "Glaive"]
+all_in_title = ["Modafinil (Glaive, Kurtains, Kai Angel)", "Glaive"]
+
+[[case]]
+checks = "the uploader leads a publisher list that names it last"
+title = "baby my type [digicore]"
+uploader = "ns1dee"
+artists = ["taketake, ns1dee"]
+base_title = "baby my type [digicore]"
+main = ["ns1dee"]
+featured = ["taketake"]
+version = ""
+on = []
+artist_field = ["baby my type [digicore]", "ns1dee, taketake"]
+feat_in_title = ["baby my type [digicore] (feat. taketake)", "ns1dee"]
+all_in_title = ["baby my type [digicore] (ns1dee, taketake)", "ns1dee"]
+
+[[case]]
+checks = "a feature the publisher list also names is credited once"
+title = "DEVO4KA (feat. glaive)"
+uploader = "Kai Angel & 9mice"
+artists = ["9mice, glaive"]
+base_title = "DEVO4KA"
+main = ["9mice"]
+featured = ["glaive"]
+version = ""
+on = ["extract_feature:(feat. glaive)"]
+off = ["fix_caps:DEVO4KA"]
+artist_field = ["DEVO4KA", "9mice, glaive"]
+feat_in_title = ["DEVO4KA (feat. glaive)", "9mice"]
+all_in_title = ["DEVO4KA (9mice, glaive)", "9mice"]
+
+[[case]]
+checks = "hashtags go, a three-name publisher list is split, and names the title shows aren't added to its feat. part"
+title = "Sweeeep w/ sydneyrunner @zjay #PARTY"
+uploader = "edyn"
+artists = ["edyn, sydney runner, zjay"]
+base_title = "Sweeeep w/ sydneyrunner @zjay"
+main = ["edyn"]
+featured = ["sydney runner", "zjay"]
+version = ""
+on = ["remove_promo:#PARTY"]
+artist_field = ["Sweeeep w/ sydneyrunner @zjay", "edyn, sydney runner, zjay"]
+feat_in_title = ["Sweeeep w/ sydneyrunner @zjay", "edyn"]
+all_in_title = ["Sweeeep w/ sydneyrunner @zjay (edyn, sydney runner, zjay)", "edyn"]
+
+[[case]]
+checks = "a half face with a lone closing bracket stays as typed"
+title = "arab money ദ്ദി ˉ͈̀꒳ˉ͈́ )✧ w/ w666s + morgue"
+uploader = "cens"
+artists = ["cens, backw666s, morgue"]
+base_title = "arab money ദ്ദി ˉ͈̀꒳ˉ͈́ )✧ w/ w666s + morgue"
+main = ["cens"]
+featured = ["backw666s", "morgue"]
+version = ""
+on = []
+artist_field = ["arab money ദ്ദി ˉ͈̀꒳ˉ͈́ )✧ w/ w666s + morgue", "cens, backw666s, morgue"]
+feat_in_title = ["arab money ദ്ദി ˉ͈̀꒳ˉ͈́ )✧ w/ w666s + morgue (feat. backw666s)", "cens"]
+all_in_title = ["arab money ദ്ദി ˉ͈̀꒳ˉ͈́ )✧ w/ w666s + morgue (cens, backw666s, morgue)", "cens"]
+
+[[case]]
+checks = "a face right after a word stays whole, and the uploader leads a list that names it second"
+title = "KISS IT BETTERദ്ദി(˵ •̀ ᴗ - ˵ ) ✧"
+uploader = "PITCHKA"
+artists = ["RIHANNA, PITCHKA"]
+base_title = "KISS IT BETTERദ്ദി(˵ •̀ ᴗ - ˵ ) ✧"
+main = ["PITCHKA"]
+featured = ["RIHANNA"]
+version = ""
+on = []
+artist_field = ["KISS IT BETTERദ്ദി(˵ •̀ ᴗ - ˵ ) ✧", "PITCHKA, RIHANNA"]
+feat_in_title = ["KISS IT BETTERദ്ദി(˵ •̀ ᴗ - ˵ ) ✧ (feat. RIHANNA)", "PITCHKA"]
+all_in_title = ["KISS IT BETTERദ്ദി(˵ •̀ ᴗ - ˵ ) ✧ (PITCHKA, RIHANNA)", "PITCHKA"]
+
+[[case]]
+checks = "decorations around a title stay, and only the real emoji in them are offered for removal"
+title = "‧₊˚ ☁️⋅♡ in my dreams (ft. mymy) ⋅☾⋅☁️ ˚₊‧"
+uploader = "wenszy"
+base_title = "‧₊˚ ☁️⋅♡ in my dreams ⋅☾⋅☁️ ˚₊‧"
+main = ["wenszy"]
+featured = ["mymy"]
+version = ""
+on = ["extract_feature:(ft. mymy)"]
+off = ["remove_emoji:☁️", "remove_emoji:☁️#2"]
+artist_field = ["‧₊˚ ☁️⋅♡ in my dreams ⋅☾⋅☁️ ˚₊‧", "wenszy, mymy"]
+feat_in_title = ["‧₊˚ ☁️⋅♡ in my dreams ⋅☾⋅☁️ ˚₊‧ (feat. mymy)", "wenszy"]
+all_in_title = ["‧₊˚ ☁️⋅♡ in my dreams ⋅☾⋅☁️ ˚₊‧ (wenszy, mymy)", "wenszy"]
+
+[[case.toggle]]
+on = ["remove_emoji:☁️", "remove_emoji:☁️#2"]
+artist_field = ["‧₊˚ ⋅♡ in my dreams ⋅☾⋅ ˚₊‧", "wenszy, mymy"]
+feat_in_title = ["‧₊˚ ⋅♡ in my dreams ⋅☾⋅ ˚₊‧ (feat. mymy)", "wenszy"]
+all_in_title = ["‧₊˚ ⋅♡ in my dreams ⋅☾⋅ ˚₊‧ (wenszy, mymy)", "wenszy"]
+
+[[case]]
+checks = "emoji stuck to an all-caps title stay, and title case is offered with them"
+title = "BREAKBEAT GALAU JAKSEL💔💔"
+uploader = "LeMazz"
+artists = ["Lerbe, Mazza"]
+base_title = "BREAKBEAT GALAU JAKSEL💔💔"
+main = ["Lerbe"]
+featured = ["Mazza"]
+version = ""
+on = []
+off = ["remove_emoji:💔💔", "fix_caps:BREAKBEAT GALAU JAKSEL💔💔"]
+artist_field = ["BREAKBEAT GALAU JAKSEL💔💔", "Lerbe, Mazza"]
+feat_in_title = ["BREAKBEAT GALAU JAKSEL💔💔 (feat. Mazza)", "Lerbe"]
+all_in_title = ["BREAKBEAT GALAU JAKSEL💔💔 (Lerbe, Mazza)", "Lerbe"]
+
+[[case]]
+checks = "a face's lone closer stays while a full-width producer bracket goes"
+title = "♡As you wish！ദ്ദി^._.^) feat.NOVA2（prod.Roko tensei）"
+uploader = "OTOMEROAD"
+base_title = "♡As you wish！ദ്ദി^._.^)"
+main = ["OTOMEROAD"]
+featured = ["NOVA2"]
+version = ""
+on = ["extract_feature:feat.NOVA2", "remove_producer:（prod.Roko tensei）"]
+artist_field = ["♡As you wish！ദ്ദി^._.^)", "OTOMEROAD, NOVA2"]
+feat_in_title = ["♡As you wish！ദ്ദി^._.^) (feat. NOVA2)", "OTOMEROAD"]
+all_in_title = ["♡As you wish！ദ്ദി^._.^) (OTOMEROAD, NOVA2)", "OTOMEROAD"]
+
+[[case]]
+checks = "spaces typed inside a face's brackets stay"
+title = "mashcore wip ( ദ്ദി ˙ᗜ˙ )"
+uploader = "Kiuuukawitic"
+artists = ["Kiuuukawitic"]
+base_title = "mashcore wip ( ദ്ദി ˙ᗜ˙ )"
+main = ["Kiuuukawitic"]
+featured = []
+version = ""
+on = []
+artist_field = ["mashcore wip ( ദ്ദി ˙ᗜ˙ )", "Kiuuukawitic"]
+feat_in_title = ["mashcore wip ( ദ്ദി ˙ᗜ˙ )", "Kiuuukawitic"]
+all_in_title = ["mashcore wip ( ദ്ദി ˙ᗜ˙ ) (Kiuuukawitic)", "Kiuuukawitic"]
+
+[[case]]
+checks = "an uploader named with a symbol alone stays the artist"
+title = "Best Believe - Juice WRLD"
+uploader = "✧"
+base_title = "Best Believe - Juice WRLD"
+main = ["✧"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Best Believe"]
+artist_field = ["Best Believe - Juice WRLD", "✧"]
+feat_in_title = ["Best Believe - Juice WRLD", "✧"]
+all_in_title = ["Best Believe - Juice WRLD (✧)", "✧"]
+
+[[case]]
+checks = "a dash inside brackets doesn't split the title, even from an uploader with a symbol in its name"
+title = "\"Normality Is What Weak People Call Living\" (Greg Plitt & David Goggins x Clams Casino - I'm God)"
+uploader = "Axurya ✧"
+artists = ["Axurya ✧"]
+base_title = "\"Normality Is What Weak People Call Living\" (Greg Plitt & David Goggins x Clams Casino - I'm God)"
+main = ["Axurya ✧"]
+featured = []
+version = ""
+on = []
+artist_field = ["\"Normality Is What Weak People Call Living\" (Greg Plitt & David Goggins x Clams Casino - I'm God)", "Axurya ✧"]
+feat_in_title = ["\"Normality Is What Weak People Call Living\" (Greg Plitt & David Goggins x Clams Casino - I'm God)", "Axurya ✧"]
+all_in_title = ["\"Normality Is What Weak People Call Living\" (Greg Plitt & David Goggins x Clams Casino - I'm God) (Axurya ✧)", "Axurya ✧"]
+
+[[case]]
+checks = "emoji after a feature stay, and emoji in the uploader name are only offered"
+title = "ICEBODY ON SIGILKORE ft.SCENE LUV ⚰️🔪 🩸🎃🇧🇷"
+uploader = "💢corote666💢"
+base_title = "ICEBODY ON SIGILKORE ⚰️🔪 🩸🎃🇧🇷"
+main = ["💢corote666💢"]
+featured = ["SCENE LUV"]
+version = ""
+on = ["extract_feature:ft.SCENE LUV"]
+off = ["remove_emoji:⚰️🔪 🩸🎃🇧🇷", "remove_emoji:💢", "remove_emoji:💢#2", "fix_caps:ICEBODY ON SIGILKORE ⚰️🔪 🩸🎃🇧🇷"]
+artist_field = ["ICEBODY ON SIGILKORE ⚰️🔪 🩸🎃🇧🇷", "💢corote666💢, SCENE LUV"]
+feat_in_title = ["ICEBODY ON SIGILKORE ⚰️🔪 🩸🎃🇧🇷 (feat. SCENE LUV)", "💢corote666💢"]
+all_in_title = ["ICEBODY ON SIGILKORE ⚰️🔪 🩸🎃🇧🇷 (💢corote666💢, SCENE LUV)", "💢corote666💢"]
+
+[[case.toggle]]
+off = ["extract_feature:ft.SCENE LUV"]
+artist_field = ["ICEBODY ON SIGILKORE ft.SCENE LUV ⚰️🔪 🩸🎃🇧🇷", "💢corote666💢"]
+feat_in_title = ["ICEBODY ON SIGILKORE ft.SCENE LUV ⚰️🔪 🩸🎃🇧🇷", "💢corote666💢"]
+all_in_title = ["ICEBODY ON SIGILKORE ft.SCENE LUV ⚰️🔪 🩸🎃🇧🇷 (💢corote666💢)", "💢corote666💢"]
+
+[[case]]
+checks = "spaces typed inside full-width brackets stay, a pipe segment goes, and a name the title only mentions stays in its feat. part"
+title = "SoFaygo【 Rage + Plugg 】Mix #2 w/ Transitions | DJ COKADO"
+uploader = "cokado"
+artists = ["cokado, SoFaygo"]
+base_title = "SoFaygo【 Rage + Plugg 】Mix #2 w/ Transitions"
+main = ["cokado"]
+featured = ["SoFaygo"]
+version = ""
+on = ["remove_promo:| DJ COKADO"]
+artist_field = ["SoFaygo【 Rage + Plugg 】Mix #2 w/ Transitions", "cokado, SoFaygo"]
+feat_in_title = ["SoFaygo【 Rage + Plugg 】Mix #2 w/ Transitions (feat. SoFaygo)", "cokado"]
+all_in_title = ["SoFaygo【 Rage + Plugg 】Mix #2 w/ Transitions (cokado, SoFaygo)", "cokado"]
+
+[[case]]
+checks = "a known duo at the end of a publisher list stays one name"
+title = "Paper Moon"
+uploader = "Okoye"
+artists = ["Okoye, Chase & Status"]
+base_title = "Paper Moon"
+main = ["Okoye"]
+featured = ["Chase & Status"]
+version = ""
+on = []
+artist_field = ["Paper Moon", "Okoye, Chase & Status"]
+feat_in_title = ["Paper Moon (feat. Chase & Status)", "Okoye"]
+all_in_title = ["Paper Moon (Okoye, Chase & Status)", "Okoye"]
+
+[[case]]
+checks = "a publisher list ending in and splits before its last name"
+title = "Paper Moon"
+uploader = "Some Channel"
+artists = ["Kaia, Lou V, and Mara"]
+base_title = "Paper Moon"
+main = ["Kaia"]
+featured = ["Lou V", "Mara"]
+version = ""
+on = []
+artist_field = ["Paper Moon", "Kaia, Lou V, Mara"]
+feat_in_title = ["Paper Moon (feat. Lou V, Mara)", "Kaia"]
+all_in_title = ["Paper Moon (Kaia, Lou V, Mara)", "Kaia"]
+
+[[case]]
+checks = "symbols around a title's artist part stay with the title when the split is turned on"
+title = "♡ Roy Bee - Kiss Me Again ♡"
+uploader = "Ari Des"
+base_title = "♡ Roy Bee - Kiss Me Again ♡"
+main = ["Ari Des"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:Roy Bee"]
+artist_field = ["♡ Roy Bee - Kiss Me Again ♡", "Ari Des"]
+feat_in_title = ["♡ Roy Bee - Kiss Me Again ♡", "Ari Des"]
+all_in_title = ["♡ Roy Bee - Kiss Me Again ♡ (Ari Des)", "Ari Des"]
+
+[[case.toggle]]
+on = ["artist_from_title:Roy Bee"]
+artist_field = ["♡ Kiss Me Again ♡", "Roy Bee"]
+feat_in_title = ["♡ Kiss Me Again ♡", "Roy Bee"]
+all_in_title = ["♡ Kiss Me Again ♡ (Roy Bee)", "Roy Bee"]
+
+[[case]]
+checks = "a symbol before a title's artist part stays with the title, not the artist"
+title = "✧ BANG BANG BANG - Chainsaw Man Song (ft. @starxrayne  & @JamsDX )"
+uploader = "⋆ Dave"
+artists = ["bbpanzu"]
+base_title = "✧ Chainsaw Man Song"
+main = ["bbpanzu", "BANG BANG BANG"]
+featured = ["@starxrayne", "@JamsDX"]
+version = ""
+on = ["artist_from_title:BANG BANG BANG", "extract_feature:(ft. @starxrayne & @JamsDX )"]
+artist_field = ["✧ Chainsaw Man Song", "bbpanzu, BANG BANG BANG, @starxrayne, @JamsDX"]
+feat_in_title = ["✧ Chainsaw Man Song (feat. @starxrayne, @JamsDX)", "bbpanzu, BANG BANG BANG"]
+all_in_title = ["✧ Chainsaw Man Song (bbpanzu, BANG BANG BANG, @starxrayne, @JamsDX)", "bbpanzu, BANG BANG BANG"]
+
+[[case]]
+checks = "a symbol after a title's artist part stays with the title"
+title = "Roy Bee ♡ - Kiss Me Again"
+uploader = "Some Records"
+base_title = "♡ Kiss Me Again"
+main = ["Roy Bee"]
+featured = []
+version = ""
+on = ["artist_from_title:Roy Bee"]
+artist_field = ["♡ Kiss Me Again", "Roy Bee"]
+feat_in_title = ["♡ Kiss Me Again", "Roy Bee"]
+all_in_title = ["♡ Kiss Me Again (Roy Bee)", "Roy Bee"]
+
+[[case]]
+checks = "ASCII symbols in a title's artist part are part of the name"
+title = "$uicideboy$ - Paris"
+uploader = "G59 Records"
+base_title = "Paris"
+main = ["$uicideboy$"]
+featured = []
+version = ""
+on = ["artist_from_title:$uicideboy$"]
+artist_field = ["Paris", "$uicideboy$"]
+feat_in_title = ["Paris", "$uicideboy$"]
+all_in_title = ["Paris ($uicideboy$)", "$uicideboy$"]
+
+[[case]]
+checks = "an uploader whose name ends in a symbol is dropped from the title whole, symbol included"
+title = "Axurya ✧ - Song"
+uploader = "Axurya ✧"
+artists = ["Axurya ✧"]
+base_title = "Song"
+main = ["Axurya ✧"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Axurya ✧"]
+artist_field = ["Song", "Axurya ✧"]
+feat_in_title = ["Song", "Axurya ✧"]
+all_in_title = ["Song (Axurya ✧)", "Axurya ✧"]
+
+[[case]]
+checks = "an uploader named with symbols on both sides is dropped from the title whole"
+title = "✧ jxstzen ✧ - CHƠI"
+uploader = "✧ jxstzen ✧"
+base_title = "CHƠI"
+main = ["✧ jxstzen ✧"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:✧ jxstzen ✧"]
+off = ["fix_caps:CHƠI"]
+artist_field = ["CHƠI", "✧ jxstzen ✧"]
+feat_in_title = ["CHƠI", "✧ jxstzen ✧"]
+all_in_title = ["CHƠI (✧ jxstzen ✧)", "✧ jxstzen ✧"]
+
+[[case]]
+checks = "a symbol in a publisher name stays in the artist and the name is credited once"
+title = "Kaia™ - Song"
+uploader = "Some Label Records"
+artists = ["Kaia™"]
+base_title = "Song"
+main = ["Kaia™"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia™"]
+artist_field = ["Song", "Kaia™"]
+feat_in_title = ["Song", "Kaia™"]
+all_in_title = ["Song (Kaia™)", "Kaia™"]
+
+[[case]]
+checks = "an uploader in a publisher list matches it without the symbols around its name"
+title = "☆qqdiē☆ - Song"
+uploader = "☆qqdiē☆"
+artists = ["qqdiē, nosebleed44"]
+base_title = "Song"
+main = ["qqdiē"]
+featured = ["nosebleed44"]
+version = ""
+on = ["strip_redundant_artist:☆qqdiē☆"]
+artist_field = ["Song", "qqdiē, nosebleed44"]
+feat_in_title = ["Song (feat. nosebleed44)", "qqdiē"]
+all_in_title = ["Song (qqdiē, nosebleed44)", "qqdiē"]
+
+[[case]]
+checks = "symbols on both sides of a title's artist part stay with the artist"
+title = "★ Kaia ★ - Song"
+uploader = "Some Label Records"
+base_title = "Song"
+main = ["★ Kaia ★"]
+featured = []
+version = ""
+on = ["artist_from_title:★ Kaia ★"]
+artist_field = ["Song", "★ Kaia ★"]
+feat_in_title = ["Song", "★ Kaia ★"]
+all_in_title = ["Song (★ Kaia ★)", "★ Kaia ★"]
+
+[[case]]
+checks = "a mark on a symbol stays with the symbol in the title"
+title = "♡̃ Kaia - Song"
+uploader = "Some Label Records"
+base_title = "♡̃ Song"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia"]
+artist_field = ["♡̃ Song", "Kaia"]
+feat_in_title = ["♡̃ Song", "Kaia"]
+all_in_title = ["♡̃ Song (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a duo uploader's redundant artist part makes both listed names main"
+title = "Rival & Cadmium - Seasons"
+uploader = "Rival & Cadmium"
+artists = ["Harley Bird, Rival, Cadmium"]
+base_title = "Seasons"
+main = ["Rival", "Cadmium"]
+featured = ["Harley Bird"]
+version = ""
+on = ["strip_redundant_artist:Rival & Cadmium"]
+artist_field = ["Seasons", "Rival, Cadmium, Harley Bird"]
+feat_in_title = ["Seasons (feat. Harley Bird)", "Rival, Cadmium"]
+all_in_title = ["Seasons (Rival, Cadmium, Harley Bird)", "Rival, Cadmium"]
+
+[[case]]
+checks = "a duo uploader in a publisher list makes both its names main"
+title = "Seasons"
+uploader = "Rival & Cadmium"
+artists = ["Harley Bird, Rival, Cadmium"]
+base_title = "Seasons"
+main = ["Rival", "Cadmium"]
+featured = ["Harley Bird"]
+version = ""
+on = []
+artist_field = ["Seasons", "Rival, Cadmium, Harley Bird"]
+feat_in_title = ["Seasons (feat. Harley Bird)", "Rival, Cadmium"]
+all_in_title = ["Seasons (Rival, Cadmium, Harley Bird)", "Rival, Cadmium"]
+
+[[case]]
+checks = "invisible characters at the edges of the uploader and publisher names are dropped"
+title = "Trap nát xác"
+uploader = "\u200e"
+artists = ["\u200eBetekar, HoneyWorks"]
+base_title = "Trap nát xác"
+main = ["Betekar"]
+featured = ["HoneyWorks"]
+version = ""
+on = []
+artist_field = ["Trap nát xác", "Betekar, HoneyWorks"]
+feat_in_title = ["Trap nát xác (feat. HoneyWorks)", "Betekar"]
+all_in_title = ["Trap nát xác (Betekar, HoneyWorks)", "Betekar"]
+
+[[case]]
+checks = "an emoji wrapped around removed promo goes, while one by a producer credit stays"
+title = "offer me 🦋 (prod. yurt) 🔥 FREE DL 🔥"
+uploader = "Some Artist"
+base_title = "offer me 🦋"
+main = ["Some Artist"]
+featured = []
+version = ""
+on = ["remove_producer:(prod. yurt)", "remove_emoji:🔥", "remove_promo:FREE DL", "remove_emoji:🔥#2"]
+off = ["remove_emoji:🦋"]
+artist_field = ["offer me 🦋", "Some Artist"]
+feat_in_title = ["offer me 🦋", "Some Artist"]
+all_in_title = ["offer me 🦋 (Some Artist)", "Some Artist"]
+
+[[case]]
+checks = "emoji on both sides of a title's artist part go with the name"
+title = "⚡ Kaia ⚡ - Song"
+uploader = "Label Records"
+base_title = "Song"
+main = ["⚡ Kaia ⚡"]
+featured = []
+version = ""
+on = ["artist_from_title:⚡ Kaia ⚡"]
+artist_field = ["Song", "⚡ Kaia ⚡"]
+feat_in_title = ["Song", "⚡ Kaia ⚡"]
+all_in_title = ["Song (⚡ Kaia ⚡)", "⚡ Kaia ⚡"]
+
+[[case.toggle]]
+off = ["artist_from_title:⚡ Kaia ⚡"]
+artist_field = ["⚡ Kaia ⚡ - Song", "Label Records"]
+feat_in_title = ["⚡ Kaia ⚡ - Song", "Label Records"]
+all_in_title = ["⚡ Kaia ⚡ - Song (Label Records)", "Label Records"]
+
+[[case]]
+checks = "emoji on both sides of a redundant artist part go with it"
+title = "🔥 Kaia 🔥 - Song"
+uploader = "Kaia"
+artists = ["Kaia"]
+base_title = "Song"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:🔥 Kaia 🔥"]
+artist_field = ["Song", "Kaia"]
+feat_in_title = ["Song", "Kaia"]
+all_in_title = ["Song (Kaia)", "Kaia"]
+
+[[case]]
+checks = "the symbol on the last name of a title's artist list stays with that name"
+title = "Lou V & Kaia ✧ - Song"
+uploader = "Label Records"
+artists = ["Lou V, Kaia ✧"]
+base_title = "Song"
+main = ["Lou V", "Kaia ✧"]
+featured = []
+version = ""
+on = ["artist_from_title:Lou V & Kaia ✧"]
+artist_field = ["Song", "Lou V, Kaia ✧"]
+feat_in_title = ["Song", "Lou V, Kaia ✧"]
+all_in_title = ["Song (Lou V, Kaia ✧)", "Lou V, Kaia ✧"]
+
+[[case]]
+checks = "the symbol on the first name of a title's artist list stays with that name"
+title = "✧ Kaia & Lou V - Song"
+uploader = "Label Records"
+artists = ["✧ Kaia, Lou V"]
+base_title = "Song"
+main = ["✧ Kaia", "Lou V"]
+featured = []
+version = ""
+on = ["artist_from_title:✧ Kaia & Lou V"]
+artist_field = ["Song", "✧ Kaia, Lou V"]
+feat_in_title = ["Song", "✧ Kaia, Lou V"]
+all_in_title = ["Song (✧ Kaia, Lou V)", "✧ Kaia, Lou V"]
+
+[[case]]
+checks = "a symbol and its variation selector match the uploader's symbol without one"
+title = "Kaia ♡\ufe0e - Song"
+uploader = "Kaia ♡"
+base_title = "Song"
+main = ["Kaia ♡"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia ♡\ufe0e"]
+artist_field = ["Song", "Kaia ♡"]
+feat_in_title = ["Song", "Kaia ♡"]
+all_in_title = ["Song (Kaia ♡)", "Kaia ♡"]
+
+[[case]]
+checks = "an emoji the uploader's name ends in goes with the redundant artist part"
+title = "Kaia ❤️ - Song"
+uploader = "Kaia ❤"
+base_title = "Song"
+main = ["Kaia ❤"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia ❤️"]
+artist_field = ["Song", "Kaia ❤"]
+feat_in_title = ["Song", "Kaia ❤"]
+all_in_title = ["Song (Kaia ❤)", "Kaia ❤"]
+
+[[case]]
+checks = "invisible characters at the edges of a name split from a publisher list are dropped"
+title = "Song"
+uploader = "Kaia"
+artists = ["Lou V, \u200bKaia"]
+base_title = "Song"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = []
+artist_field = ["Song", "Kaia, Lou V"]
+feat_in_title = ["Song (feat. Lou V)", "Kaia"]
+all_in_title = ["Song (Kaia, Lou V)", "Kaia"]
+
+[[case]]
+checks = "invisible characters at the edges of a title credit are dropped"
+title = "Kaia & Lou V\u200e - Song"
+uploader = "Label Records"
+artists = ["Kaia, Lou V"]
+base_title = "Song"
+main = ["Kaia", "Lou V"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia & Lou V\u200e"]
+artist_field = ["Song", "Kaia, Lou V"]
+feat_in_title = ["Song", "Kaia, Lou V"]
+all_in_title = ["Song (Kaia, Lou V)", "Kaia, Lou V"]
+
+[[case]]
+checks = "invisible characters at the edges of featured names are dropped"
+title = "Song (feat. \u200eLou V\u200e)"
+uploader = "Kaia"
+base_title = "Song"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["extract_feature:(feat. \u200eLou V\u200e)"]
+artist_field = ["Song", "Kaia, Lou V"]
+feat_in_title = ["Song (feat. Lou V)", "Kaia"]
+all_in_title = ["Song (Kaia, Lou V)", "Kaia"]
+
+[[case]]
+checks = "an invisible character at the edge of the title after a split is dropped"
+title = "Kaia - \u200bSong"
+uploader = "Label Records"
+base_title = "Song"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia"]
+artist_field = ["Song", "Kaia"]
+feat_in_title = ["Song", "Kaia"]
+all_in_title = ["Song (Kaia)", "Kaia"]
+
+[[case]]
+checks = "an invisible character doesn't hide that the artist part is the uploader"
+title = "Kaia\u200b - Song"
+uploader = "Kaia"
+base_title = "Song"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia\u200b"]
+artist_field = ["Song", "Kaia"]
+feat_in_title = ["Song", "Kaia"]
+all_in_title = ["Song (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a featured name the title mentions only as a word stays in the feat. part"
+title = "Back to the Future (feat. Future)"
+uploader = "Kaia"
+base_title = "Back to the Future"
+main = ["Kaia"]
+featured = ["Future"]
+version = ""
+on = ["extract_feature:(feat. Future)"]
+artist_field = ["Back to the Future", "Kaia, Future"]
+feat_in_title = ["Back to the Future (feat. Future)", "Kaia"]
+all_in_title = ["Back to the Future (Kaia, Future)", "Kaia"]

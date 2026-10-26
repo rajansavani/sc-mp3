@@ -2,6 +2,7 @@
 
 import pytest
 
+from scmp3.core.suggest.draft import CUT
 from scmp3.core.suggest.rules import (
     balance_brackets,
     carry_open_bracket,
@@ -37,16 +38,32 @@ def test_normalize_reads_en_and_em_dashes_as_hyphens() -> None:
         ("Midnight Drive //", "Midnight Drive"),
         ("Midnight Drive :", "Midnight Drive"),
         ("Kaia -  - Midnight Drive", "Kaia - Midnight Drive"),
-        ("Midnight  Drive ( VIP )", "Midnight Drive (VIP)"),
+        (f"Midnight  Drive ({CUT} VIP {CUT})", "Midnight Drive (VIP)"),
         ("Midnight Drive (VIP", "Midnight Drive (VIP)"),
         ("Midnight Drive (", "Midnight Drive"),
-        ("Midnight Drive) (VIP)", "Midnight Drive (VIP)"),
+        (f"Midnight Drive{CUT}) (VIP)", "Midnight Drive (VIP)"),
+        (f"\u2661 {CUT} - Kiss Me Again \u2661", "\u2661 Kiss Me Again \u2661"),
+        (f"{CUT} \u2661 - Kiss Me Again", "\u2661 Kiss Me Again"),
+        ("\u2661 - Kiss Me Again", "\u2661 - Kiss Me Again"),
         ("Re-Run", "Re-Run"),
         ("PREMIERE: - Midnight Drive", "PREMIERE: Midnight Drive"),
     ],
 )
 def test_tidy_drops_empty_brackets_and_dangling_separators(messy: str, clean: str) -> None:
     assert tidy(messy) == clean
+
+
+@pytest.mark.parametrize(
+    "typed",
+    [
+        "Midnight Drive ( VIP )",
+        "gg fuckin ez \u0d26\u0d4d\u0d26\u0d3f(\u02f5 \u2022\u0300 \u1d17 - \u02f5 ) \u2727",
+        "so \u0d26\u0d4d\u0d26\u0d3f \u0f0e\u0eb6\u203f\u0f0e\u0eb6 ) mandy cover",
+        "Crazy\u0d26\u0d4d\u0d26\u0d3f \u02c9\u0348\u0300\ua4b3\u02c9\u0348\u0301 )\u2727",
+    ],
+)
+def test_tidy_keeps_faces_as_typed_with_their_spaces_and_lone_closers(typed: str) -> None:
+    assert tidy(typed) == typed
 
 
 @pytest.mark.parametrize(
@@ -179,3 +196,14 @@ def test_title_case_capitalizes_words_and_keeps_listed_ones_in_capitals(
     caps: str, titled: str
 ) -> None:
     assert title_case(caps, WORDS.caps_keep) == titled
+
+
+def test_normalize_drops_invisible_characters_at_the_edges_only() -> None:
+    assert normalize("\u200e\u200b Kaia\u2060 Lou V \ufeff") == "Kaia\u2060 Lou V"
+    assert normalize("\u200f") == ""
+
+
+def test_normalize_keeps_the_tags_that_end_a_flag() -> None:
+    england = "\U0001f3f4\U000e0067\U000e0062\U000e0065\U000e006e\U000e0067\U000e007f"
+
+    assert normalize(f"Song {england}") == f"Song {england}"

@@ -255,25 +255,29 @@ def test_a_feature_in_both_the_title_and_the_artist_field_is_one_toggle() -> Non
     )
 
 
-def test_the_uploader_emoji_change_shows_only_when_the_uploader_is_the_artist() -> None:
+def test_the_uploader_emoji_change_shows_switched_off_only_when_the_uploader_is_the_artist() -> (
+    None
+):
     moon = "Kaia \U0001f319"
     plain = replace(SAMPLE, title="Midnight Drive", uploader=moon)
     with_publisher = replace(plain, artists=["Kaia"])
 
-    assert [change.kind for change in suggest(plain, Settings()).changes] == ["remove_emoji"]
-    assert suggest(plain, Settings()).main_artists == ["Kaia"]
+    changes = suggest(plain, Settings()).changes
+    assert [(change.kind, change.enabled) for change in changes] == [("remove_emoji", False)]
+    assert suggest(plain, Settings()).main_artists == [moon]
     assert suggest(with_publisher, Settings()).changes == []
 
 
 def test_an_uploader_name_with_emoji_still_matches_an_artist_prefix() -> None:
-    source = replace(SAMPLE, title="Kaia - Midnight Drive", uploader="Kaia \U0001f319")
+    moon = "Kaia \U0001f319"
+    source = replace(SAMPLE, title="Kaia - Midnight Drive", uploader=moon)
 
     suggestion = suggest(source, Settings())
 
-    assert (suggestion.base_title, suggestion.main_artists) == ("Midnight Drive", ["Kaia"])
-    assert [change.kind for change in suggestion.changes] == [
-        "strip_redundant_artist",
-        "remove_emoji",
+    assert (suggestion.base_title, suggestion.main_artists) == ("Midnight Drive", [moon])
+    assert [(change.kind, change.enabled) for change in suggestion.changes] == [
+        ("strip_redundant_artist", True),
+        ("remove_emoji", False),
     ]
 
 
@@ -293,3 +297,13 @@ def test_a_bracketed_feature_put_back_into_a_title_artist_keeps_its_brackets() -
     assert render(rebuilt, "artist_field", {}, Settings()).artist == (
         "Kaia, Drake (feat. Rihanna), Lou V"
     )
+
+
+def test_an_album_from_the_source_loses_invisible_characters_at_its_edges() -> None:
+    source = replace(SAMPLE, album="\u200eNight Shift\ufeff")
+
+    assert suggest(source, Settings()).album == "Night Shift"
+
+
+def test_an_album_of_only_invisible_characters_counts_as_missing() -> None:
+    assert suggest(replace(SAMPLE, album="\u200e"), Settings()).album is None

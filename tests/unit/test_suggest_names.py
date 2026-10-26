@@ -4,6 +4,7 @@ import pytest
 
 from scmp3.core.suggest.names import (
     any_same_artist,
+    bare_name,
     channel_key,
     comma_parts,
     dedupe,
@@ -13,6 +14,8 @@ from scmp3.core.suggest.names import (
     joined_names,
     preferred_spelling,
     same_artist,
+    same_spelling,
+    split_artist_list,
     split_credit,
     split_names,
 )
@@ -171,3 +174,94 @@ def test_comma_parts_lists_the_names_between_commas_for_matching_only() -> None:
     assert comma_parts("Rival, Cadmium, Harley Bird") == ["Rival", "Cadmium", "Harley Bird"]
     assert comma_parts("Tyler, The Creator") == ["Tyler", "The Creator"]
     assert comma_parts("Chase & Status") == []
+
+
+@pytest.mark.parametrize(
+    ("text", "names"),
+    [
+        ("gunk, zayok, edyn ", ["gunk", "zayok", "edyn"]),
+        ("Kaia, Lou V & Mara", ["Kaia", "Lou V", "Mara"]),
+        ("Kaia, Lou V, and Mara", ["Kaia", "Lou V", "Mara"]),
+        ("Kaia x Lou V", ["Kaia", "Lou V"]),
+        ("Lil Nas X x Kaia", ["Lil Nas X", "Kaia"]),
+        ("Kaia, , kaia, Lou V", ["Kaia", "Lou V"]),
+    ],
+)
+def test_split_artist_list_splits_a_publisher_list_into_its_names(
+    text: str, names: list[str]
+) -> None:
+    assert split_artist_list(text) == names
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Chase & Status",
+        "Simon and Garfunkel",
+        "Kaia feat. Lou V",
+        # Small capitals spelled out letter by letter, with an x among them.
+        "\u1d0a x \ua731 \u1d1b \u1d22 \u1d07 \u0274",
+    ],
+)
+def test_split_artist_list_keeps_a_name_without_a_comma_or_x_whole(text: str) -> None:
+    assert split_artist_list(text) == [text]
+
+
+def test_split_artist_list_never_splits_the_names_it_is_told_to_keep_whole() -> None:
+    whole = ["tyler, the creator", "chase & status"]
+
+    assert split_artist_list("Tyler, The Creator", whole) == ["Tyler, The Creator"]
+    assert split_artist_list("Okoye, Chase & Status", whole) == ["Okoye", "Chase & Status"]
+    assert split_artist_list("Okoye, Tyler, The Creator & Kaia", whole) == [
+        "Okoye",
+        "Tyler, The Creator",
+        "Kaia",
+    ]
+
+
+def test_a_name_spelled_out_letter_by_letter_keeps_its_x() -> None:
+    assert split_credit("j x s t z e n") == ["j x s t z e n"]
+    assert split_names("j x s t z e n & Kaia") == ["j x s t z e n", "Kaia"]
+
+
+def test_same_artist_ignores_symbols_at_the_edges_so_one_person_is_never_listed_twice() -> None:
+    assert same_artist("Axurya \u2727", "Axurya")
+    assert same_artist("\u2605 Kaia \u2605", "kaia")
+    assert same_artist("Kaia\u2122", "Kaia")
+    assert not same_spelling("Kaia\u2122", "Kaia")
+    assert not same_artist("\U0001f525", "\U0001f319")
+
+
+def test_bare_name_drops_symbols_and_their_marks_at_the_edges_only() -> None:
+    assert bare_name("\u2661\u0303 Kaia \u2727") == "Kaia"
+    assert bare_name("Kaia \u2716 Lou V") == "Kaia \u2716 Lou V"
+    assert bare_name("$uicideboy$") == "$uicideboy$"
+
+
+def test_split_artist_list_keeps_whole_names_spelled_with_and_or_without_a_space() -> None:
+    whole = ["tyler, the creator", "simon & garfunkel"]
+
+    assert split_artist_list("Okoye, Simon and Garfunkel", whole) == [
+        "Okoye",
+        "Simon and Garfunkel",
+    ]
+    assert split_artist_list("Tyler,The Creator, Kaia", whole) == ["Tyler,The Creator", "Kaia"]
+
+
+def test_split_artist_list_splits_on_a_capital_x_only_between_names_in_capitals() -> None:
+    assert split_artist_list("Kaia, Brand X Music") == ["Kaia", "Brand X Music"]
+    assert split_artist_list("KAIA X LOU V") == ["KAIA", "LOU V"]
+
+
+def test_bare_name_drops_a_symbol_and_its_mark_at_the_end() -> None:
+    assert bare_name("Kaia \u2661\u0303") == "Kaia"
+
+
+def test_same_spelling_ignores_variation_selectors() -> None:
+    assert same_spelling("Kaia \u2661\ufe0e", "Kaia \u2661")
+    assert same_spelling("Kaia \u2764\ufe0f", "Kaia \u2764")
+
+
+def test_split_names_drop_invisible_characters_at_their_edges() -> None:
+    assert split_artist_list("Lou V, \u200bKaia\u200e") == ["Lou V", "Kaia"]
+    assert split_names("\u200eLou V\u200e & Mara") == ["Lou V", "Mara"]

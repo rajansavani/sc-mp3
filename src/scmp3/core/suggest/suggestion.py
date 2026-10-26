@@ -4,10 +4,10 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 
 from scmp3.core.models import Change, Settings, SourceInfo, TagSuggestion
-from scmp3.core.suggest import artist_lists, artists, rules, youtube
+from scmp3.core.suggest import artist_lists, artists, emoji, rules, youtube
 from scmp3.core.suggest.draft import VERSION, Claim, Context, Draft, assemble
 from scmp3.core.suggest.labels import change_label
-from scmp3.core.suggest.names import any_same_artist
+from scmp3.core.suggest.names import any_same_artist, split_artist_list, strip_invisible
 from scmp3.core.suggest.words import Wordlists, load_wordlists
 
 Step = Callable[[Draft, Context], None]
@@ -24,7 +24,7 @@ TITLE_STEPS: tuple[Step, ...] = (
     artists.claim_pipe_artist,
     rules.claim_pipe_segment,
     rules.claim_trailing_promo,
-    rules.claim_emoji,
+    emoji.claim_emoji,
     rules.claim_inline_producers,
     youtube.claim_artist_at_end,  # before the dash split, so "Numb - Linkin Park" isn't read as one
     artists.claim_title_artist,
@@ -32,7 +32,7 @@ TITLE_STEPS: tuple[Step, ...] = (
     rules.claim_custom_words,
     # Again, for promo that only ends the title once a feature is claimed: "Song FREE DL ft. X".
     rules.claim_trailing_promo,
-    rules.claim_remaining_emoji,  # last, once everything around each emoji is claimed
+    emoji.claim_remaining_emoji,  # last, once everything around each emoji is claimed
 )
 # The rules for a publisher artist name such as "Kaia feat. Lou V".
 ARTIST_FIELD_STEPS: tuple[Step, ...] = (
@@ -41,7 +41,7 @@ ARTIST_FIELD_STEPS: tuple[Step, ...] = (
     artists.claim_inline_features,
 )
 # The rules for the uploader's name, which becomes the artist when nothing else names one.
-UPLOADER_STEPS: tuple[Step, ...] = (rules.claim_emoji,)
+UPLOADER_STEPS: tuple[Step, ...] = (emoji.claim_emoji, emoji.settle_emoji)
 # Settings that decide whether a kind of change starts on.
 SETTING_FOR_KIND = {
     "remove_promo": "remove_promo_text",
@@ -91,7 +91,7 @@ def build(source: SourceInfo, settings: Settings, toggles: Mapping[str, bool]) -
         main_artists=main,
         featured=featured,
         version=version,
-        album=source.album or None,
+        album=strip_invisible(source.album or "") or None,
         year=when.year if when else None,
         genre=(source.genre or "").strip().lstrip("#").strip() or None,
         changes=changes,
@@ -102,6 +102,7 @@ def build(source: SourceInfo, settings: Settings, toggles: Mapping[str, bool]) -
 class _Drafts:
     """The drafts of one source's title, publisher artists and uploader name."""
 
+    context: Context
     title: Draft
     credits: list[Draft]
     uploader: Draft
@@ -116,16 +117,26 @@ def _detect(source: SourceInfo, settings: Settings, words: Wordlists) -> _Drafts
     uploader = _run(youtube.uploader_name(source), UPLOADER_STEPS, context)
     credits = [_run(name, ARTIST_FIELD_STEPS, context) for name in source.artists]
     credits = [credit for credit in credits if credit.text]
+    publisher = [_listed_names(_name(credit, cut_all=True), context) for credit in credits]
     context = replace(
         context,
-        publisher=tuple(_name(credit, cut_all=True) for credit in credits),
+        publisher=tuple(name for names in publisher for name in names),
         uploader=_name(uploader, cut_all=True),
     )
     title = _run(source.title, TITLE_STEPS, context)
     _apply_settings(title, settings)
+    # Last, so an emoji next to a credit the settings keep stays too.
+    emoji.settle_emoji(title, context)
     _keep_title_from_emptying(title)
     uploader_is_artist = not credits and not artist_lists.title_artists(title)
-    return _Drafts(title, credits, uploader, uploader_is_artist)
+    return _Drafts(context, title, credits, uploader, uploader_is_artist)
+
+
+def _listed_names(name: str, context: Context) -> list[str]:
+    """The names a publisher artist gives. SoundCloud's is free text, so a list in it is split."""
+    if context.source.kind != "soundcloud":
+        return [name] if name else []
+    return split_artist_list(name, context.words.whole_names)
 
 
 def _changes(drafts: _Drafts, toggles: Mapping[str, bool]) -> list[Change]:
@@ -141,7 +152,7 @@ def _changes(drafts: _Drafts, toggles: Mapping[str, bool]) -> list[Change]:
 
 def _credited_spelling(drafts: _Drafts) -> Callable[[str], str]:
     """How the tags spell a featured name, for its toggle label, whichever changes are on."""
-    publisher = [_name(credit, cut_all=True) for credit in drafts.credits]
+    publisher = list(drafts.context.publisher)
     publisher += [
         name
         for credit in drafts.credits
@@ -156,16 +167,25 @@ def _credited_spelling(drafts: _Drafts) -> Callable[[str], str]:
 def _artists(drafts: _Drafts) -> tuple[list[str], list[str]]:
     """Step 9: the main and featured artists, given which changes are on."""
     uploader = _name(drafts.uploader, cut_all=not drafts.uploader_is_artist)
+    names = [_name(credit, cut_all=False) for credit in drafts.credits]
+    lists = [_listed_names(name, drafts.context) for name in names]
+    from_title = artist_lists.title_artists(drafts.title)
+    uploaders = [drafts.uploader.text, uploader]
+    publisher = artist_lists.publisher_artists(lists, from_title, uploaders)
+    # A listed name whose feat. text a toggle put back in the title isn't credited twice.
+    put_back = [
+        name
+        for claim in drafts.title.claims
+        if claim.kind == "extract_feature" and not claim.enabled
+        for name in claim.names
+    ]
+    listed = [name for name in publisher.featured if not any_same_artist([name], put_back)]
     featured = artist_lists.merge_featured(
-        _names(drafts.title, "extract_feature"),
+        listed + _names(drafts.title, "extract_feature"),
         [name for credit in drafts.credits for name in _names(credit, "extract_feature")],
         uploader,
     )
-    main = artist_lists.choose_main(
-        [_name(credit, cut_all=False) for credit in drafts.credits],
-        artist_lists.title_artists(drafts.title),
-        uploader,
-    )
+    main = artist_lists.choose_main(publisher.main, from_title, uploader, publisher.listed)
     return artist_lists.settle(main, featured)
 
 

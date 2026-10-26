@@ -4,7 +4,7 @@ the channel's own name at the end of a title, and the video labels that mark ano
 import re
 
 from scmp3.core.models import SourceInfo
-from scmp3.core.suggest.draft import Context, Draft, has_words
+from scmp3.core.suggest.draft import Context, Draft, has_words, spaced_dashes
 from scmp3.core.suggest.names import same_artist
 from scmp3.core.suggest.rules import normalize
 from scmp3.core.suggest.words import pattern
@@ -14,7 +14,6 @@ _TOPIC = re.compile(r"\s+-\s+Topic$")
 # Label-run channels are "<artist>VEVO", usually with the artist's spaces taken out.
 _VEVO = re.compile(r"(?<=\S)\s*VEVO$", re.IGNORECASE)
 _TITLE_ARTIST = re.compile(r"\s-\s")
-_SPACED_DASH = re.compile(r"(?<=\s)-(?=\s)")
 # Trimmed off the part after the last dash, as dash_segments trims each part.
 _END_TRIM = " -|/:"
 
@@ -61,10 +60,10 @@ def claim_artist_at_end(draft: Draft, context: Context) -> None:
     if not is_youtube_without_music_fields(context) or not context.uploader.strip():
         return
     masked = draft.masked()
-    dashes = list(_SPACED_DASH.finditer(masked))
-    if not dashes or not has_words(masked[: dashes[-1].start()]):
+    dashes = spaced_dashes(masked)
+    if not dashes or not has_words(masked[: dashes[-1]]):
         return
-    start, end = dashes[-1].end(), len(masked)
+    start, end = dashes[-1] + 1, len(masked)
     while start < end and masked[start] in _END_TRIM:
         start += 1
     while end > start and masked[end - 1] in _END_TRIM:

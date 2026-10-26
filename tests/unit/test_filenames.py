@@ -305,3 +305,32 @@ def test_random_names_always_come_out_safe_and_stable() -> None:
 def test_random_templates_always_render_safe_names() -> None:
     for template in random_texts(5000, seed=61):
         assert_follows_the_name_rules(render_filename(template, TAGS))
+
+
+@pytest.mark.parametrize(
+    "unit",
+    [
+        "\U0001f1fa\U0001f1f8",  # a flag
+        "\U0001f469\u200d\u2764\ufe0f\u200d\U0001f468",  # a ZWJ sequence
+        "\U0001f44d\U0001f3fd",  # a skin tone
+        "1\ufe0f\u20e3",  # a keycap
+        "\u2764\ufe0f",  # a variation selector
+        "\U0001f3f4\U000e0067\U000e0062\U000e0065\U000e006e\U000e0067\U000e007f",  # tags
+        "e\u0301\u0302",  # a letter with two marks
+    ],
+)
+def test_the_cap_never_cuts_inside_a_character_as_people_see_it(unit: str) -> None:
+    limits = filenames.NAME_LIMITS.less(4)
+    for padding in range(len(unit) + 1):
+        stem = filenames.cap_length("a" * padding + unit * 200, limits)
+        rest = stem[padding:]
+        assert rest == unit * (len(rest) // len(unit)), (padding, ascii(stem[-12:]))
+
+
+def test_the_cap_never_cuts_a_conjunct_after_its_virama() -> None:
+    conjunct = "\u0915\u094d\u0937"  # Devanagari ksha: ka, virama, ssa
+    limits = filenames.NAME_LIMITS.less(4)
+    for padding in range(3):
+        stem = filenames.cap_length("a" * padding + conjunct * 200, limits)
+        rest = stem[padding:]
+        assert rest == conjunct * (len(rest) // len(conjunct)), padding

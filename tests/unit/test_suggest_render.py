@@ -11,7 +11,7 @@ from scmp3.core.models import (
     TitleStyle,
 )
 from scmp3.core.suggest import render
-from scmp3.core.suggest.render import InvalidOverride, fill
+from scmp3.core.suggest.render import InvalidOverride, credits_name, fill
 
 FULL = TagSuggestion(
     base_title="Midnight Drive",
@@ -337,3 +337,51 @@ def test_year_and_genre_come_from_the_suggestion() -> None:
     tags = render(FULL, "artist_field", {}, Settings())
 
     assert (tags.year, tags.genre, tags.track_no) == (2026, "Hip-hop", None)
+
+
+def test_feat_in_title_leaves_out_names_the_title_already_shows() -> None:
+    suggestion = TagSuggestion(
+        base_title="Sweeeep w/ sydneyrunner @zjay",
+        main_artists=["edyn"],
+        featured=["sydney runner", "zjay", "Mara"],
+    )
+
+    tags = render(suggestion, "feat_in_title", {}, Settings())
+    in_artist_field = render(suggestion, "artist_field", {}, Settings())
+
+    assert tags.title == "Sweeeep w/ sydneyrunner @zjay (feat. Mara)"
+    assert in_artist_field.artist == "edyn, sydney runner, zjay, Mara"
+
+
+@pytest.mark.parametrize(
+    ("text", "name", "credited"),
+    [
+        ("boombox [edyn]", "edyn", True),
+        ("face off w raison (edyn gabby)", "edyn", True),
+        ("hold that frown w/ EDYN (sol)", "edyn", True),
+        ("face off w raison", "raison", True),
+        ("yanu ; edyn", "edyn", True),
+        ("ex-freundin +Nosgov", "Nosgov", True),
+        ("Sweeeep w/ sydneyrunner @zjay", "zjay", True),
+        ("Sweeeep w/ sydneyrunner", "sydney runner", True),
+        ("Rival & Cadmium - Seasons", "Cadmium", True),
+        ("Back to the Future", "Future", False),
+        ("eri tash", "tash", False),
+        ("w/ edynx", "edyn", False),
+        ("Song", "", False),
+    ],
+)
+def test_credits_name_needs_a_credit_marker_or_brackets(
+    text: str, name: str, credited: bool
+) -> None:
+    assert credits_name(text, name) is credited
+
+
+def test_feat_in_title_keeps_a_name_the_title_only_mentions() -> None:
+    suggestion = TagSuggestion(
+        base_title="Back to the Future", main_artists=["Kaia"], featured=["Future"]
+    )
+
+    tags = render(suggestion, "feat_in_title", {}, Settings())
+
+    assert tags.title == "Back to the Future (feat. Future)"

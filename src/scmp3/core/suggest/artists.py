@@ -4,8 +4,17 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from scmp3.core.suggest import rules, youtube
-from scmp3.core.suggest.draft import VERSION, Context, Draft, Group, has_words, names_pattern
+from scmp3.core.suggest import decorations, rules, youtube
+from scmp3.core.suggest.draft import (
+    VERSION,
+    Claim,
+    Context,
+    Draft,
+    Group,
+    has_words,
+    names_pattern,
+    spaced_dashes,
+)
 from scmp3.core.suggest.names import (
     JOINERS,
     any_same_artist,
@@ -14,10 +23,10 @@ from scmp3.core.suggest.names import (
     same_artist,
     split_credit,
     split_names,
+    strip_invisible,
 )
 from scmp3.core.suggest.words import Wordlists, pattern, phrase_pattern
 
-_SPACED_DASH = re.compile(r"(?<=\s)-(?=\s)")
 # Separators and spaces trimmed off each part between spaced dashes.
 _SEGMENT_TRIM = " -|/:"
 # Stands in for a publisher name while feature text is split, so the name stays whole.
@@ -47,6 +56,7 @@ class ArtistPart:
     from_publisher: bool  # it's a publisher artist, or names one
     is_list: bool  # it joins several artists, or has a feature
     has_feature: bool
+    wrapped: tuple[Claim, ...] = ()  # emoji claims around it that go with it
 
 
 def claim_bracket_features(draft: Draft, context: Context) -> None:
@@ -145,7 +155,7 @@ def claim_pipe_artist(draft: Draft, context: Context) -> None:
     # A channel's "Okoye | Boiler Room London" names the artist first and the event after.
     from_channel = (
         uploader_is_label(context)
-        and not _SPACED_DASH.search(masked[: pipe.start()])
+        and not any(dash < pipe.start() for dash in spaced_dashes(masked))
         and not _names_promo_or_label(masked[pipe.end() :], context)
     )
     if part.redundant or part.from_publisher or from_channel:
@@ -180,7 +190,9 @@ def read_artist_part(
         end -= 1
         while end > start and masked[end - 1] in _SEGMENT_TRIM:
             end -= 1
-    text = masked[start:end].strip()
+    bounds = decorations.artist_bounds(draft, context, start, end, part_end)
+    start, end = bounds.start, bounds.end
+    text = strip_invisible(decorations.part_text(draft, bounds))
     if not has_words(text):
         return None
     has_feature = feature is not None or any(
@@ -196,6 +208,7 @@ def read_artist_part(
         from_publisher=_names_publisher(text, context),
         is_list=has_feature or _is_collaboration(text, context.words),
         has_feature=has_feature,
+        wrapped=bounds.wrapped,
     )
 
 
@@ -218,6 +231,8 @@ def _read_ending(parts: int, part: ArtistPart, ending: str, context: Context) ->
 
 def _claim_artist_part(draft: Draft, context: Context, part: ArtistPart, *, unclear: bool) -> None:
     """Claim the artist part: dropped when it's the uploader, else taken as the artist."""
+    # Emoji that wrap the part, as in "⚡ Kaia ⚡", go with it rather than staying behind.
+    draft.claims = [claim for claim in draft.claims if claim not in part.wrapped]
     if part.redundant:
         draft.claim("strip_redundant_artist", part.start, part.end, part_end=part.part_end)
         return
@@ -239,7 +254,7 @@ def _claim_artist_part(draft: Draft, context: Context, part: ArtistPart, *, uncl
 
 def dash_segments(masked: str) -> list[Segment]:
     """The non-empty parts of the text between spaced dashes, trimmed of separators."""
-    cuts = [match.start() for match in _SPACED_DASH.finditer(masked)]
+    cuts = spaced_dashes(masked)
     bounds = [-1, *cuts, len(masked)]
     segments: list[Segment] = []
     for index in range(len(bounds) - 1):

@@ -1,11 +1,12 @@
 """Steps 1-3 and 6-8 of the suggestion engine: normalizing, promo and noise, producer credits,
-the keep list, emoji and capitals, and the final tidy."""
+the keep list, capitals and the final tidy. Emoji are in `emoji.py`."""
 
 import re
 
 from scmp3.core.suggest.draft import (
     BRACKET_PAIRS,
     CLOSERS,
+    CUT,
     NOT_EMOTICON,
     OPENERS,
     VERSION,
@@ -15,6 +16,7 @@ from scmp3.core.suggest.draft import (
     is_emoticon,
     names_pattern,
 )
+from scmp3.core.suggest.names import strip_invisible
 from scmp3.core.suggest.words import Wordlists, pattern, phrase_pattern
 
 _DASHES = str.maketrans({"\u2013": "-", "\u2014": "-"})
@@ -25,8 +27,14 @@ PIPES = re.compile("[|\uff5c]")
 _EMPTY_GROUP = re.compile(
     "|".join(rf"{NOT_EMOTICON}{re.escape(o)}\s*{re.escape(c)}" for o, c in BRACKET_PAIRS.items())
 )
-_SPACE_AFTER_OPENER = re.compile(rf"{NOT_EMOTICON}([{re.escape(OPENERS)}])\s+")
-_SPACE_BEFORE_CLOSER = re.compile(rf"\s+([{re.escape(CLOSERS)}])")
+# Spaces inside brackets close up only where a cut left them, so "(˵ •̀ ᴗ - ˵ )" stays as typed.
+_SPACE_AFTER_OPENER = re.compile(rf"{NOT_EMOTICON}([{re.escape(OPENERS)}])\s*{CUT}\s*")
+_SPACE_BEFORE_CLOSER = re.compile(rf"\s*{CUT}\s*([{re.escape(CLOSERS)}])")
+# The separator after a cut with only symbols around it, as in "♡ <cut> - Kiss Me Again ♡" once
+# the artist is taken, goes with the cut text, and the symbols stay.
+_SEPARATOR_AFTER_CUT = re.compile(
+    rf"^(?P<lead>[^\w{CUT}]*?)\s*{CUT}(?P<tail>[^\w]*?)\s*{_SEPARATOR}+(?=\s)"
+)
 # A run of separators collapses to its first, so "PREMIERE: - Song" becomes "PREMIERE: Song".
 _REPEATED_SEPARATORS = re.compile(rf"(\s?{_SEPARATOR}+)(?:\s+{_SEPARATOR}+)+(?=\s|$)")
 # A separator that starts an emoticon, like the ":" in ":)", isn't trimmed.
@@ -35,19 +43,11 @@ _TRAILING_SEPARATORS = re.compile(rf"(?:\s*{_SEPARATOR}+)+\s*$")
 # Trailing numbers don't stop " - Part 2" or " - Remastered 2011" from reading as a version.
 _NUMBER = r"(?:\d+|i{1,3}|iv|vi{0,3}|ix|x)"
 _HASHTAG = r"#[^\W\d_]\w*"
-# Emoji blocks, leaving out the sharp, flat and natural signs (U+266D to U+266F).
-_EMOJI = "[\U0001f000-\U0001faff\u2300-\u23ff\u2600-\u266c\u2670-\u27bf\u2b00-\u2bff]"
-# Joiners, variation selectors and flag tags that glue emoji together.
-_EMOJI_GLUE = "[\u200d\ufe0e\ufe0f\U000e0020-\U000e007f]"
-# A keycap emoji is a digit, "#" or "*", an optional variation selector, then U+20E3.
-_KEYCAP = "[0-9#*]\ufe0f?\u20e3"
-_EMOJI_ATOM = f"(?:{_KEYCAP}|{_EMOJI}{_EMOJI_GLUE}*)"
-_EMOJI_RUN = re.compile(f"{_EMOJI_ATOM}(?:\\s*{_EMOJI_ATOM})*")
 
 
 def normalize(title: str) -> str:
-    """Step 1: collapse whitespace and read en and em dashes as hyphens."""
-    return " ".join(title.translate(_DASHES).split())
+    """Step 1: collapse whitespace, read en and em dashes as hyphens, and trim invisible edges."""
+    return strip_invisible(" ".join(title.translate(_DASHES).split()))
 
 
 def claim_bracket_versions(draft: Draft, context: Context) -> None:
@@ -176,33 +176,6 @@ def claim_custom_words(draft: Draft, context: Context) -> None:
             draft.claim("custom_word", *match.span())
 
 
-def claim_emoji(draft: Draft, context: Context) -> None:
-    """Step 7: each run of emoji at an edge, so emoji on both sides of a title make two changes."""
-    masked = draft.masked()
-    for match in _EMOJI_RUN.finditer(masked):
-        # A run between two words waits for `claim_remaining_emoji`, after the other rules.
-        if not _between_words(masked, *match.span()):
-            draft.claim("remove_emoji", *match.span())
-
-
-def claim_remaining_emoji(draft: Draft, context: Context) -> None:
-    """Step 7, last: the other emoji. One still between two words is only offered.
-
-    "Paper Moon (fire) prod. Sable" loses its emoji once the credit is gone, but the star in
-    "Midnight Drive (star) Kaia Remix" may be part of the title, so it starts off.
-    """
-    masked = draft.masked()
-    for match in _EMOJI_RUN.finditer(masked):
-        enabled = not _between_words(masked, *match.span())
-        draft.claim("remove_emoji", *match.span(), enabled=enabled)
-
-
-def _between_words(text: str, start: int, end: int) -> bool:
-    """Whether text[start:end] has a letter or digit on each side, spaces aside."""
-    before, after = text[:start].rstrip(), text[end:].lstrip()
-    return bool(before and after) and before[-1].isalnum() and after[0].isalnum()
-
-
 def is_all_caps(text: str) -> bool:
     """Whether the letters are capitals, at least two, and most of them have a case.
 
@@ -232,10 +205,14 @@ def _title_word(word: str, keep: frozenset[str]) -> str:
 
 def tidy(text: str) -> str:
     """Step 8 for the title: drop empty brackets, balance the rest, trim dangling separators."""
+    text = _drop_cut_closers(text)
+    text = _SEPARATOR_AFTER_CUT.sub(r"\g<lead> \g<tail> ", text, count=1)
     text = _drop_empty_groups(_squash(text))
-    text = _REPEATED_SEPARATORS.sub(r"\1", balance_brackets(text))
+    # A closer typed with no opener, as in the face "ദ്ദി ˉ͈̀꒳ˉ͈́ )✧", stays as typed.
+    text = _REPEATED_SEPARATORS.sub(r"\1", balance_brackets(text, drop_strays=False))
     text = _TRAILING_SEPARATORS.sub("", _LEADING_SEPARATORS.sub("", text))
-    return _squash(text)
+    # A cut can leave an invisible character at an edge, as in "Kaia - \u200bSong".
+    return strip_invisible(_squash(text))
 
 
 def tidy_version(text: str, *, spaced: bool = True) -> str | None:
@@ -251,10 +228,13 @@ def tidy_version(text: str, *, spaced: bool = True) -> str | None:
     return " " + text if spaced else text
 
 
-def balance_brackets(text: str) -> str:
-    """Drop unmatched closers and close open brackets, dropping any with nothing after them."""
+def balance_brackets(text: str, *, drop_strays: bool = True) -> str:
+    """Close open brackets, dropping any with nothing after them, and drop unmatched closers.
+
+    With `drop_strays` off, the unmatched closers stay.
+    """
     open_at, unmatched = _scan_brackets(text)
-    dropped = set(unmatched)
+    dropped = set(unmatched) if drop_strays else set()
     closing = ""
     for index in open_at:
         if has_words(text[index + 1 :]):
@@ -263,6 +243,19 @@ def balance_brackets(text: str) -> str:
             dropped.add(index)
     kept = "".join(char for index, char in enumerate(text) if index not in dropped)
     return kept + closing
+
+
+def _drop_cut_closers(text: str) -> str:
+    """Drop the unmatched closers a cut left, as in "(feat. Lou V (prod. Hazy))" with both cut."""
+    _open_at, unmatched = _scan_brackets(text)
+    dropped = {index for index in unmatched if _after_cut(text, index)}
+    return "".join(char for index, char in enumerate(text) if index not in dropped)
+
+
+def _after_cut(text: str, index: int) -> bool:
+    """Whether a cut is in the whitespace just before text[index]."""
+    before = text[:index]
+    return CUT in before[len(before.rstrip()) :]
 
 
 def carry_open_bracket(title: str, version: str) -> tuple[str, str]:
@@ -306,14 +299,14 @@ def _scan_brackets(text: str) -> tuple[list[int], list[int]]:
 def _drop_empty_groups(text: str) -> str:
     """Remove "()" and "[ ]", repeating so "([])" goes too."""
     while True:
-        shorter = _EMPTY_GROUP.sub(" ", text)
+        shorter = _EMPTY_GROUP.sub(CUT, text)
         if shorter == text:
             return _squash(text)
         text = shorter
 
 
 def _squash(text: str) -> str:
-    """Collapse whitespace, including just inside brackets."""
+    """Collapse whitespace, and close up the gaps cuts left just inside brackets."""
     text = _SPACE_AFTER_OPENER.sub(r"\1", text)
     text = _SPACE_BEFORE_CLOSER.sub(r"\1", text)
     return " ".join(text.split())

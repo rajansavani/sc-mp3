@@ -43,8 +43,18 @@ DASH_RUN = re.compile(r"-(?:\s*-)+")
 END_JUNK = " .-"
 # A short run of letters and digits after the last dot, such as .mp3.
 EXTENSION = re.compile(r"\.[0-9A-Za-z]{1,5}$")
-# Combining marks, which belong with the character before them.
+# Combining marks, which belong with the character before them. They include the variation
+# selectors and the keycap mark of emoji.
 MARK_CATEGORIES = frozenset({"Mn", "Mc", "Me"})
+# The joiner in emoji sequences like a family or a couple.
+ZWJ = "\u200d"
+SKIN_TONES = range(0x1F3FB, 0x1F400)
+# Tag letters, which make the flags of England, Scotland and Wales.
+TAGS = range(0xE0020, 0xE0080)
+# The canonical combining class of a virama, which joins two consonants into one conjunct.
+VIRAMA = 9
+# Regional indicators, which make a flag in pairs.
+REGIONAL_INDICATORS = range(0x1F1E6, 0x1F200)
 # Windows device names, reserved even with an extension. Python's ntpath.isreserved list, plus
 # COM0 and LPT0, which Microsoft's naming rules and OneDrive also refuse.
 RESERVED_NAMES = frozenset(
@@ -104,10 +114,31 @@ def _fitting_length(stem: str, limits: NameLimits) -> int:
         if bytes_used > limits.utf8_bytes or units_used > limits.utf16_units:
             break
         end += 1
-    # Python counts a character outside the BMP as one, so only marks can be split from a base.
-    while 0 < end < len(stem) and unicodedata.category(stem[end]) in MARK_CATEGORIES:
+    # Never part a flag, an emoji sequence or a letter from its marks.
+    while 0 < end < len(stem) and _joins_previous(stem, end):
         end -= 1
     return end
+
+
+def _joins_previous(text: str, index: int) -> bool:
+    """Whether text[index] belongs with the character before it, so a cut there would part them."""
+    char, before = text[index], text[index - 1]
+    if unicodedata.category(char) in MARK_CATEGORIES or ZWJ in (char, before):
+        return True
+    # A letter after a virama makes a conjunct with the letter before it, as in Devanagari "क्ष".
+    if unicodedata.combining(before) == VIRAMA and char.isalpha():
+        return True
+    if ord(char) in SKIN_TONES or ord(char) in TAGS:
+        return True
+    return ord(char) in REGIONAL_INDICATORS and _ends_half_a_flag(text, index)
+
+
+def _ends_half_a_flag(text: str, index: int) -> bool:
+    """Whether an odd run of regional indicators ends just before `index`."""
+    count = 0
+    while index - count - 1 >= 0 and ord(text[index - count - 1]) in REGIONAL_INDICATORS:
+        count += 1
+    return count % 2 == 1
 
 
 def _decomposed_utf16_units(char: str) -> int:

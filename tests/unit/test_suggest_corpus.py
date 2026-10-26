@@ -9,7 +9,8 @@ import pytest
 
 from scmp3.core.models import Settings, SourceInfo, TagSuggestion
 from scmp3.core.suggest import apply_changes, render, suggest
-from scmp3.core.suggest.rules import normalize, tidy
+from scmp3.core.suggest.draft import CUT
+from scmp3.core.suggest.rules import balance_brackets, normalize, tidy
 
 CORPUS = Path(__file__).parent.parent / "data" / "titles.toml"
 CASES: list[dict[str, Any]] = tomllib.loads(CORPUS.read_text(encoding="utf-8"))["case"]
@@ -71,9 +72,14 @@ def switched(suggestion: TagSuggestion, flips: dict[str, bool]) -> TagSuggestion
 
 
 def _without_one(text: str, span: str) -> set[str]:
-    """`text` with one occurrence of `span` taken out, tidied, for each occurrence."""
+    """`text` with one occurrence of `span` cut, for each occurrence, tidied and balanced."""
     starts = [index for index in range(len(text)) if text.startswith(span, index)]
-    return {tidy(text[:start] + " " + text[start + len(span) :]) for start in starts}
+    return {balanced(text[:start] + CUT + text[start + len(span) :]) for start in starts}
+
+
+def balanced(text: str) -> str:
+    """`text` tidied, without unmatched closers, since a cut span can leave its closer behind."""
+    return balance_brackets(tidy(text))
 
 
 def test_corpus_has_at_least_60_cases_including_the_required_ones() -> None:
@@ -148,7 +154,7 @@ def test_turning_each_change_off_puts_its_exact_text_back(case: dict[str, Any]) 
         tags = render(rebuilt, "artist_field", {}, settings)
         if change.span in tags.title:
             # Taking the text out again gives the default title, so it went back where it was.
-            assert default.title in _without_one(tags.title, change.span), change.id
+            assert balanced(default.title) in _without_one(tags.title, change.span), change.id
         else:
             # A feat. part or emoji of an artist name goes back into the name.
             assert change.span in tags.artist, change.id

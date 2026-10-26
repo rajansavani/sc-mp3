@@ -205,6 +205,21 @@ video_labels = [
 [artists]
 # Words that join artists into one credit. The names around them stay whole, as in "Kaia vs. Lou V".
 together = ["vs.", "vs", "b2b"]
+# Names a SoundCloud artist list never splits, though they have a comma, or an "&" or "and" that
+# could end a list, as in "Okoye, Chase & Status".
+whole_names = [
+    "tyler, the creator",
+    "earth, wind & fire",
+    "crosby, stills, nash & young",
+    "crosby, stills & nash",
+    "emerson, lake & palmer",
+    "blood, sweat & tears",
+    "peter, paul and mary",
+    "chase & status",
+    "simon & garfunkel",
+    "above & beyond",
+    "camo & krooked",
+]
 
 [caps]
 # Left in capitals when an all-caps title is changed to title case.

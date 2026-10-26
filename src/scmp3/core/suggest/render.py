@@ -5,6 +5,7 @@ import re
 from collections.abc import Mapping
 
 from scmp3.core.models import Settings, Tags, TagSuggestion, TitleStyle
+from scmp3.core.suggest.draft import CLOSERS, OPENERS
 from scmp3.core.suggest.names import comma_parts, same_artist
 from scmp3.core.suggest.rules import tidy
 
@@ -16,6 +17,13 @@ _BRACKET = re.compile(r"[()\[\]]")
 _WHOLE_NUMBER = re.compile("[0-9]+")
 # A hand-typed track number, optionally with the total: "3", "3/12" or "3 / 12".
 _TRACK = re.compile(r"([0-9]+)(?:\s*/\s*([0-9]+))?")
+# What credits the name right after it in a title: "w/", "w", "with", "feat.", "ft.", "x", "+",
+# "&", ";", "," or "@", as in "w/ edyn", "+Nosgov" or "@zjay".
+_CREDIT_MARKER = r"(?:(?<!\w)(?:w/|feat\.|ft\.)\s*|(?<!\w)(?:w|with|feat|ft|x)\s+|[+&;,]\s*|@)"
+# A bracketed group with no brackets inside, like "[edyn]" or "(edyn gabby)".
+_BRACKETED = re.compile(
+    rf"[{re.escape(OPENERS)}]([^{re.escape(OPENERS + CLOSERS)}]*)[{re.escape(CLOSERS)}]"
+)
 
 # Title and artist templates for each preset. {feat} becomes the feat. wording setting.
 PRESETS: dict[str, tuple[str, str]] = {
@@ -45,7 +53,8 @@ def render(
     values = token_values(suggestion, settings.artist_separator)
     # With no title text, the title stays empty rather than becoming just "(Kaia)".
     has_title = bool(values["title"] or values["version"])
-    title = overrides.get("title", fill(title_template, values) if has_title else "")
+    title_values = _without_names_shown(values, suggestion, settings.artist_separator)
+    title = overrides.get("title", fill(title_template, title_values) if has_title else "")
     track_no, track_total = _track(overrides, suggestion)
     return Tags(
         title=title,
@@ -77,6 +86,34 @@ def token_values(suggestion: TagSuggestion, separator: str) -> dict[str, str]:
         "featured": separator.join(featured),
         "artists": separator.join([*main, *featured]),
     }
+
+
+def _without_names_shown(
+    values: dict[str, str], suggestion: TagSuggestion, separator: str
+) -> dict[str, str]:
+    """The values for the title, whose feat. part leaves out names the title already credits.
+
+    "boombox [edyn]" stays as it is in "feat. in title", and edyn stays in the artist field. A
+    name the title only mentions stays, so "Back to the Future (feat. Future)" keeps Future.
+    """
+    shown = suggestion.base_title + (suggestion.version or "")
+    featured = [name for name in suggestion.featured if not credits_name(shown, name)]
+    return {**values, "featured": separator.join(featured)}
+
+
+def credits_name(text: str, name: str) -> bool:
+    """Whether `text` credits `name`: right after a marker like "w/" or "@", or in brackets.
+
+    Case, spaces and a leading @ don't count, so "w/ sydneyrunner" credits "sydney runner".
+    """
+    chars = [re.escape(char) for char in name.strip().lstrip("@") if not char.isspace()]
+    if not chars:
+        return False
+    name_pattern = r"\s*".join(chars) + r"(?!\w)"
+    if re.search(_CREDIT_MARKER + name_pattern, text, re.IGNORECASE):
+        return True
+    groups = _BRACKETED.findall(text)
+    return any(re.search(r"(?<!\w)@?" + name_pattern, group, re.IGNORECASE) for group in groups)
 
 
 def fill(template: str, values: Mapping[str, str]) -> str:
