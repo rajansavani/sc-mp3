@@ -10,6 +10,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from scmp3.app.job_artists import needs_main_artist
 from scmp3.app.set_tracks import (
     TrackPlace,
     album_fields,
@@ -134,6 +135,9 @@ def job_view(
     view["format"] = choice.to_dict() if choice else None
     # A set's track still fetching its info saves once it's in, after Save on its set.
     view["saves_once_in"] = saves_once_in(record)
+    # The suggestion credits the list set by hand, so this only says whether Reset applies.
+    view["artists_edited"] = record.artists is not None
+    view["needs_main_artist"] = needs_main_artist(record.artists, record.job.overrides)
     _add_cover_and_error(view, record)
     return view
 

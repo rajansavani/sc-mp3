@@ -41,6 +41,8 @@ export function makeJob(fields) {
     children: [],
     album_mode: null,
     included: true,
+    // The artist list set by hand, which the bridge keeps beside the job.
+    artists: null,
     // What T-022's bridge adds: a taken file name to ask about, a save without its cover, and
     // why the last cover picked couldn't be used.
     collision: null,

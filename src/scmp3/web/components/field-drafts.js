@@ -25,6 +25,8 @@ export function useFieldDrafts(job, renderedValue) {
   const [, setVersion] = useState(0);
   const rerender = () => setVersion((version) => version + 1);
   const drafts = useRef(new Map()).current;
+  // Other edits on their way, such as an artist list, which Save waits for too.
+  const calls = useRef(new Set()).current;
   const focused = useRef(null);
 
   function draftOf(field) {
@@ -76,6 +78,13 @@ export function useFieldDrafts(job, renderedValue) {
     if (cleared) rerender();
   });
 
+  // Keeps a call in the edits Save waits for, and hands it back.
+  function track(call) {
+    calls.add(call);
+    call.finally(() => calls.delete(call));
+    return call;
+  }
+
   const firstRefused = () => [...drafts].find(([, draft]) => draft.reason)?.[0] ?? null;
   return {
     value: (field) => draftOf(field).typed ?? renderedValue(job, field),
@@ -97,16 +106,25 @@ export function useFieldDrafts(job, renderedValue) {
       send(field);
       rerender();
     },
+    // A value sent and not yet shown on the job, as when a click blurs the field, would land
+    // after a reset sent at once, so the reset waits for it and then drops it too.
     reset(field) {
-      clearTimeout(draftOf(field).timer);
+      const draft = draftOf(field);
+      clearTimeout(draft.timer);
       drafts.set(field, newDraft());
-      if (field in job.overrides) api.reset_field(job.id, field).then(reportError);
+      if (field in job.overrides || draft.sent !== undefined) {
+        const resetting = Promise.resolve(draft.sending).then(() => {
+          return api.reset_field(job.id, field);
+        });
+        track(resetting).then(reportError);
+      }
       rerender();
     },
+    track,
     // Sends everything typed so far. Resolves to false when a field holds a refused value.
     async flush() {
       const waiting = [...drafts.keys()].map((field) => send(field));
-      await Promise.all(waiting);
+      await Promise.all([...waiting, ...calls]);
       return firstRefused() === null;
     },
   };

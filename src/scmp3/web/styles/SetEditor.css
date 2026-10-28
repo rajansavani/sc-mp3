@@ -108,6 +108,11 @@
   padding-inline: 8px;
 }
 
+/* The artist column keeps its share, so a long credit can't squeeze the titles. */
+.set-head.is-artist {
+  width: 28%;
+}
+
 .set-head.is-cleanups {
   width: 112px;
 }
@@ -216,11 +221,55 @@
   position: fixed;
   z-index: 10;
   width: min(440px, calc(100vw - 32px));
+  overflow-y: auto;
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-dialog);
 }
 
-.set-popover .cleanups {
+/* The artist editor in a popover is laid out like the cleanups card. */
+.set-popover .set-artists {
+  padding: var(--pad-card);
+  border: 1px solid var(--line-3);
+  border-radius: var(--radius-card);
+}
+
+/* A track's joined credit, which opens its artist editor. */
+.set-artist {
+  display: block;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: none;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+}
+
+/* A long credit wraps to two lines and is cut there. */
+.set-artist-text {
+  display: -webkit-box;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.set-row:hover .set-artist:not(:disabled),
+.set-artist[aria-expanded="true"] {
+  border-color: var(--line-4);
+  background: var(--surface-2);
+}
+
+.set-row[data-included="false"] .set-artist,
+.set-artist[data-empty="true"],
+.set-artist:disabled {
+  color: var(--text-3);
+}
+
+.set-popover .cleanups,
+.set-popover .set-artists {
   border-color: var(--line-3);
   background: var(--dialog-bg);
 }

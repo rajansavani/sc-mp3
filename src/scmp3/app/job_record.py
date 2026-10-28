@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from scmp3.app import job_views
+from scmp3.app.job_artists import ArtistList, with_artists
 from scmp3.app.job_covers import NO_COVER, CoverView
 from scmp3.app.set_events import SentTracks
 from scmp3.app.set_tracks import TrackPlace
@@ -62,6 +63,7 @@ class JobRecord:
     error_reason: ErrorReason | None = None  # what went wrong more exactly, as with a file in use
     cover_error: ScmpError | None = None  # why a saved file has no cover
     toggles: dict[str, bool] = field(default_factory=dict)  # cleanups switched by hand
+    artists: ArtistList | None = None  # the artist list set by hand, which the cleanups keep
     source_cover: CoverView = NO_COVER
     source_cover_file: Path | None = None  # the source's cover, kept so a save reuses it
     added_cover: CoverView = NO_COVER  # a link, file or pasted image chosen instead
@@ -185,12 +187,18 @@ class Snapshot:
 
 
 def rebuilt_suggestion(
-    suggestion: TagSuggestion, source: SourceInfo, toggles: dict[str, bool], settings: Settings
+    suggestion: TagSuggestion,
+    source: SourceInfo,
+    toggles: dict[str, bool],
+    settings: Settings,
+    artists: ArtistList | None = None,
 ) -> TagSuggestion:
-    """The suggestion rebuilt with these settings. Cleanups switched by hand stay as they were."""
+    """The suggestion rebuilt with these settings. Cleanups switched by hand stay as they were,
+    and so does an artist list set by hand."""
     by_hand = [
         replace(change, enabled=toggles[change.id])
         for change in suggestion.changes
         if change.id in toggles
     ]
-    return apply_changes(replace(suggestion, changes=by_hand), source, settings)
+    rebuilt = apply_changes(replace(suggestion, changes=by_hand), source, settings)
+    return with_artists(rebuilt, artists)

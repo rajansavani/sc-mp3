@@ -45,7 +45,7 @@ export default {
 
   // The track table.
   tracksTitle: "Tracks",
-  tracksHint: "Edit a title or artist in place. Cleanups shows what was cleaned up in each title.",
+  tracksHint: "Edit a title in place, or select an artist to change who's credited. Cleanups shows what was cleaned up in each title.",
   columns: {
     save: "Save",
     number: "#",
@@ -56,7 +56,6 @@ export default {
   },
   includeLabel: (title) => `Save ${title}`,
   titleLabel: (title) => `Title of ${title}`,
-  artistLabel: (title) => `Artist of ${title}`,
   cleanups: (count) => (count === 0 ? "No cleanups" : count === 1 ? "1 cleanup" : `${count} cleanups`),
   cleanupsLabel: (title) => `Cleanups in ${title}`,
   untitled: (number) => `Track ${number}`,
@@ -76,6 +75,7 @@ export default {
     leftOut: "Left out",
     duplicate: "Already in your library",
     nameTaken: "A file with this name is already there",
+    needsMainArtist: "Needs a main artist before it saves",
     savesWhenDone: (pct) => `Downloading · ${pct}% · saves when done`,
     waitsForAlbum: "Saves once every track's info is in",
     saving: "Saving…",

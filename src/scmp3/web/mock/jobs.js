@@ -12,6 +12,7 @@ import {
   startSaving,
   stopDownload,
 } from "./queue-sim.js";
+import { cleanedArtists, needsMainArtist, pastedNames } from "./names.js";
 import { forTheUi } from "./review.js";
 import { horizon, PALETTES } from "./sample-art.js";
 import { makeJob, SAMPLE_HISTORY } from "./sample-queue.js";
@@ -122,6 +123,26 @@ export function reset_field(job_id, field) {
   });
 }
 
+// The list wins over the cleanups until it's reset. It answers with the names as kept.
+export function set_artists(job_id, main, featured) {
+  if ([...main, ...featured].some((name) => typeof name !== "string")) return { error: "internal" };
+  const artists = cleanedArtists(main, featured);
+  const answer = editJob(job_id, (job) => {
+    job.artists = artists;
+  });
+  return answer.error ? answer : { artists };
+}
+
+export function reset_artists(job_id) {
+  return editJob(job_id, (job) => {
+    job.artists = null;
+  });
+}
+
+export function split_artist_names(text) {
+  return { names: pastedNames(text) };
+}
+
 export function toggle_change(job_id, change_id, enabled) {
   return editJob(job_id, (job) => {
     const change = job.suggestion?.changes.find((candidate) => candidate.id === change_id);
@@ -157,7 +178,12 @@ function tracksOf(job) {
 }
 
 export function save(job_ids) {
+  let held = false;
   for (const job of job_ids.flatMap((jobId) => tracksOf(findJob(jobId) ?? { children: [] }))) {
+    if (canSave(job) && needsMainArtist(job)) {
+      held = true;
+      continue;
+    }
     if (job.included && (job.state === "queued" || job.state === "resolving")) {
       job.saves_once_in = true;
       publish(job);
@@ -171,7 +197,7 @@ export function save(job_ids) {
     startSaving(job);
     publish(job);
   }
-  return {};
+  return held ? { error: "no_main_artist" } : {};
 }
 
 export function skip(job_id) {

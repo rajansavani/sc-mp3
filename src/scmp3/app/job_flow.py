@@ -12,6 +12,7 @@ from typing import Protocol
 
 from scmp3.app.events import EventBus
 from scmp3.app.input_reasons import reason_code
+from scmp3.app.job_artists import needs_main_artist
 from scmp3.app.job_book import unexpected_error
 from scmp3.app.job_covers import CoverReader, CoverView
 from scmp3.app.job_downloads import DOWNLOAD_SPACING
@@ -183,9 +184,19 @@ class JobFlow(SetTasks):
     # Saving
 
     def start_saving(self, record: JobRecord) -> None:
-        """Save the job once its audio is in, downloading it first if it isn't."""
+        """Save the job once its audio is in, downloading it first if it isn't.
+
+        A list with featured artists and no main one can't be saved, so the job goes back to
+        review, where the artist editor says why.
+        """
         job = record.job
         self._cancel_auto_retry(record)
+        if needs_main_artist(record.artists, job.overrides):
+            record.wants_save = False
+            job.state = JobState.needs_review
+            job.error = None
+            self.publish(record)
+            return
         record.wants_save = True
         record.download_cancelled = False
         record.collision = None

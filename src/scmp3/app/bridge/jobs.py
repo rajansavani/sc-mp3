@@ -15,6 +15,7 @@ from scmp3.app.clipboard import offered_link
 from scmp3.app.components_view import components_view
 from scmp3.app.context import AppContext
 from scmp3.app.diagnostics import diagnostics_text
+from scmp3.app.job_artists import ArtistList, pasted_names
 from scmp3.app.job_fields import EDITABLE_FIELDS
 from scmp3.core import paths
 from scmp3.core.errors import ErrorKind, ScmpError
@@ -29,6 +30,10 @@ INVALID_ARTWORK = "invalid_artwork"
 MAX_ID_LENGTH = 64
 MAX_INPUT_CHARACTERS = 2_000_000  # parse_inputs reads the first 1,000,000
 MAX_FIELD_CHARACTERS = 2_000
+# Far more names than any credit has. Underground tracks can have 20 features.
+MAX_ARTIST_NAMES = 200
+# A paste of that many names, each as long as a field.
+MAX_PASTE_CHARACTERS = 20_000
 MAX_LINK_CHARACTERS = 8_000
 # A 20 MB image, which the UI allows, is about 27 MB as base64.
 MAX_DATA_URL_CHARACTERS = 30_000_000
@@ -71,6 +76,20 @@ def is_patch(value: Any) -> bool:
         field in EDITABLE_FIELDS and isinstance(text, str) and len(text) <= MAX_FIELD_CHARACTERS
         for field, text in value.items()
     )
+
+
+def artist_list(main: Any, featured: Any) -> ArtistList | None:
+    """The main and featured names from the UI, or None when they can't be a credit."""
+    if not isinstance(main, list) or not isinstance(featured, list):
+        return None
+    if len(main) + len(featured) > MAX_ARTIST_NAMES:
+        return None
+    try:
+        artists = ArtistList.of(main, featured)
+    except TypeError:
+        return None
+    names = [*artists.main, *artists.featured]
+    return None if any(len(name) > MAX_FIELD_CHARACTERS for name in names) else artists
 
 
 def crop_box(value: Any) -> CropBox | None:
@@ -159,6 +178,26 @@ class JobsApi:
         if not is_id(job_id) or field not in EDITABLE_FIELDS:
             return refused("reset_field")
         return self._context.jobs.reset_field(job_id, field)
+
+    def set_artists(self, job_id: str, main: list[str], featured: list[str]) -> dict[str, Any]:
+        """Credit these main and featured artists, in order, over the suggested ones. Answers
+        {artists: {main, featured}}: the names as cleaned, which the UI shows from then on."""
+        artists = artist_list(main, featured)
+        if not is_id(job_id) or artists is None:
+            return refused("set_artists")
+        return self._context.jobs.set_artists(job_id, artists)
+
+    def reset_artists(self, job_id: str) -> dict[str, Any]:
+        """Go back to the suggested artists."""
+        if not is_id(job_id):
+            return refused("reset_artists")
+        return self._context.jobs.set_artists(job_id, None)
+
+    def split_artist_names(self, text: str) -> dict[str, Any]:
+        """The names in text pasted into an artist row, split as SoundCloud's artist field is."""
+        if not isinstance(text, str) or len(text) > MAX_PASTE_CHARACTERS:
+            return refused("split_artist_names")
+        return {"names": pasted_names(text)[:MAX_ARTIST_NAMES]}
 
     def toggle_change(self, job_id: str, change_id: str, enabled: bool) -> dict[str, Any]:
         """Turn one automatic cleanup on or off."""

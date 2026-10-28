@@ -16,6 +16,8 @@ export default {
     not_implemented: "That part of sc-mp3 isn't built yet.",
     unknown_job: "That item isn't in the queue anymore.",
     not_editable: "This item is saving or done, so it can't be changed now.",
+    no_main_artist:
+      "A track with featured artists needs a main artist, so it wasn't saved. Move a name to Main artist, then save it.",
     invalid_artwork: "That cover can't be used. Choose an image file, or a link that starts with https://.",
     file_missing: "That file isn't there anymore. It may have been moved or deleted.",
     spotify_missing: "Spotify didn't open. Check that the Spotify app is installed, then try again.",

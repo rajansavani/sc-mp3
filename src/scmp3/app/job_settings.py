@@ -47,15 +47,21 @@ class SettingsFollowing:
                 # A newer change is on its way with its own refresh.
                 return
             waiting = [
-                (record, record.job.suggestion, record.job.source, dict(record.toggles))
+                (
+                    record,
+                    record.job.suggestion,
+                    record.job.source,
+                    dict(record.toggles),
+                    record.artists,
+                )
                 for record in flow.tracks()
                 if record.job.state in EDITABLE_STATES
                 and record.job.suggestion
                 and record.job.source
             ]
         rebuilt = [
-            (record, before, rebuilt_suggestion(before, source, toggles, settings))
-            for record, before, source, toggles in waiting
+            (record, before, rebuilt_suggestion(before, source, toggles, settings, artists))
+            for record, before, source, toggles, artists in waiting
         ]
         with flow.lock:
             if flow.settings is not settings:

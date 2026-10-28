@@ -1,11 +1,12 @@
 // The set editor's track table: one row per track, with its include box, its number, its title
-// and artist editable in place, its cleanups in a popover, and its status.
+// editable in place, its artists and cleanups in popovers, and its status.
 import { html } from "htm/preact";
 import { useEffect, useRef } from "preact/hooks";
 
 import { api } from "../api.js";
 import { reportError } from "../store.js";
 import { strings } from "../strings/index.js";
+import { ArtistEditor } from "./ArtistEditor.js";
 import { renderedValue } from "./EditorFields.js";
 import { Cleanups } from "./EditorSections.js";
 import { useFieldDrafts } from "./field-drafts.js";
@@ -24,25 +25,36 @@ const text = strings.sets;
 const POPOVER_WIDTH = 440;
 const EDGE = 16;
 const GAP = 4;
+// What gets focus when a popover opens: its first control in the tab order.
+const FIRST_STOP = 'button:not([tabindex="-1"]), [tabindex="0"], input';
 
 // Where the popover goes: below its button, or above it in the lower half of the window. It's
-// fixed to the window, since the table's frame would cut it off.
+// fixed to the window, since the table's frame would cut it off, and scrolls when it's taller
+// than the room it has.
 function popoverPlace(anchor) {
   const rect = anchor.current?.getBoundingClientRect();
   if (!rect) return undefined;
   const left = Math.max(EDGE, Math.min(rect.left, window.innerWidth - POPOVER_WIDTH - EDGE));
   if (rect.top > window.innerHeight / 2) {
-    return { left: `${left}px`, bottom: `${window.innerHeight - rect.top + GAP}px` };
+    return {
+      left: `${left}px`,
+      bottom: `${window.innerHeight - rect.top + GAP}px`,
+      maxHeight: `${rect.top - GAP - EDGE}px`,
+    };
   }
-  return { left: `${left}px`, top: `${rect.bottom + GAP}px` };
+  return {
+    left: `${left}px`,
+    top: `${rect.bottom + GAP}px`,
+    maxHeight: `${window.innerHeight - rect.bottom - GAP - EDGE}px`,
+  };
 }
 
-// The cleanups of one track, beside its row. Esc, a click elsewhere or scrolling closes it. A
+// A popover beside a track's row. Esc, a click elsewhere or scrolling outside it closes it. A
 // click on the button that opened it is left to that button.
-function CleanupsPopover({ child, title, anchor, onClose }) {
+function Popover({ label, anchor, onClose, children }) {
   const ref = useRef(null);
   useEffect(() => {
-    ref.current?.querySelector("button")?.focus();
+    ref.current?.querySelector(FIRST_STOP)?.focus();
     const onPointer = (event) => {
       const inside = ref.current?.contains(event.target) || anchor.current?.contains(event.target);
       if (!inside) onClose();
@@ -57,7 +69,10 @@ function CleanupsPopover({ child, title, anchor, onClose }) {
       window.removeEventListener("scroll", onScroll, true);
     };
   }, []);
+  // Keys stay inside, so ↑ and ↓ can't switch to another queue item and close the popover.
+  // Shortcuts with Ctrl or ⌘ still reach the window.
   const onKeyDown = (event) => {
+    if (!event.ctrlKey && !event.metaKey) event.stopPropagation();
     if (event.key !== "Escape") return;
     event.preventDefault();
     onClose({ refocus: true });
@@ -68,24 +83,28 @@ function CleanupsPopover({ child, title, anchor, onClose }) {
       class="set-popover"
       style=${popoverPlace(anchor)}
       role="dialog"
-      aria-label=${text.cleanupsLabel(title)}
+      aria-label=${label}
       onKeyDown=${onKeyDown}
     >
-      <fieldset class="editor-lock" disabled=${!trackEditable(child)}>
-        <${Cleanups} job=${child} />
-      </fieldset>
+      ${children}
     </div>
   `;
 }
 
-function CleanupsCell({ child, title, open, onOpen, onClose }) {
+// A cell's button that opens a popover, and gets focus back when Esc closes it.
+function usePopoverButton(onClose) {
   const button = useRef(null);
-  const changes = child.suggestion?.changes ?? [];
-  if (!child.tags) return html`<td class="set-cell"></td>`;
   const close = (options) => {
     onClose();
     if (options?.refocus) button.current?.focus();
   };
+  return { button, close };
+}
+
+function CleanupsCell({ child, title, open, onOpen, onClose }) {
+  const { button, close } = usePopoverButton(onClose);
+  const changes = child.suggestion?.changes ?? [];
+  if (!child.tags) return html`<td class="set-cell"></td>`;
   return html`
     <td class="set-cell set-cleanups">
       <button
@@ -98,7 +117,47 @@ function CleanupsCell({ child, title, open, onOpen, onClose }) {
         ${text.cleanups(changes.length)}
       </button>
       ${open &&
-      html`<${CleanupsPopover} child=${child} title=${title} anchor=${button} onClose=${close} />`}
+      html`
+        <${Popover} label=${text.cleanupsLabel(title)} anchor=${button} onClose=${close}>
+          <fieldset class="editor-lock" disabled=${!trackEditable(child)}>
+            <${Cleanups} job=${child} />
+          </fieldset>
+        <//>
+      `}
+    </td>
+  `;
+}
+
+// The track's joined credit, which opens the same artist editor a single track has.
+function ArtistCell({ child, title, drafts, open, onOpen, onClose }) {
+  const { button, close } = usePopoverButton(onClose);
+  if (!child.tags) return html`<td class="set-cell"></td>`;
+  const label = strings.artists.artistsOf(title);
+  const credit = child.tags.artist || strings.artists.noArtistCell;
+  const locked = !trackEditable(child);
+  return html`
+    <td class="set-cell">
+      <button
+        ref=${button}
+        type="button"
+        class="set-artist"
+        title=${credit}
+        aria-label=${`${label}: ${credit}`}
+        data-empty=${child.tags.artist ? undefined : "true"}
+        aria-expanded=${String(open)}
+        disabled=${locked}
+        onClick=${() => (open ? close() : onOpen())}
+      >
+        <span class="set-artist-text">${credit}</span>
+      </button>
+      ${open &&
+      html`
+        <${Popover} label=${label} anchor=${button} onClose=${close}>
+          <fieldset class="editor-lock set-artists" disabled=${locked}>
+            <${ArtistEditor} job=${child} drafts=${drafts} idBase=${`artists-${child.id}`} />
+          </fieldset>
+        <//>
+      `}
     </td>
   `;
 }
@@ -166,16 +225,21 @@ function TrackRow({ job, child, index, open, onOpen, onClose, register }) {
             />`
           : html`<span class="set-pending">${title}</span>`}
       </td>
-      <td class="set-cell">
-        ${child.tags &&
-        html`<${TrackInput}
-          drafts=${drafts}
-          field="artist"
-          label=${text.artistLabel(title)}
-          disabled=${locked}
-        />`}
-      </td>
-      <${CleanupsCell} child=${child} title=${title} open=${open} onOpen=${onOpen} onClose=${onClose} />
+      <${ArtistCell}
+        child=${child}
+        title=${title}
+        drafts=${drafts}
+        open=${open === "artists"}
+        onOpen=${() => onOpen("artists")}
+        onClose=${onClose}
+      />
+      <${CleanupsCell}
+        child=${child}
+        title=${title}
+        open=${open === "cleanups"}
+        onOpen=${() => onOpen("cleanups")}
+        onClose=${onClose}
+      />
       <${StatusCell} job=${job} child=${child} />
     </tr>
   `;
@@ -190,8 +254,8 @@ export function SetTrackTable({ job, openId, setOpenId, register }) {
         job=${job}
         child=${child}
         index=${index}
-        open=${openId === child.id}
-        onOpen=${() => setOpenId(child.id)}
+        open=${openId?.id === child.id ? openId.part : null}
+        onOpen=${(part) => setOpenId({ id: child.id, part })}
         onClose=${() => setOpenId(null)}
         register=${register}
       />
@@ -210,7 +274,7 @@ export function SetTrackTable({ job, openId, setOpenId, register }) {
               <th scope="col" class="set-head is-save">${columns.save}</th>
               <th scope="col" class="set-head is-number">${columns.number}</th>
               <th scope="col" class="set-head">${columns.title}</th>
-              <th scope="col" class="set-head">${columns.artist}</th>
+              <th scope="col" class="set-head is-artist">${columns.artist}</th>
               <th scope="col" class="set-head is-cleanups">${columns.cleanups}</th>
               <th scope="col" class="set-head is-status">${columns.status}</th>
             </tr>

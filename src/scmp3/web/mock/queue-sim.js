@@ -4,6 +4,7 @@
 // kind, while fetching info or while saving.
 import { forTheUi } from "./review.js";
 import { horizon, PALETTES, videoFrame } from "./sample-art.js";
+import { artistSamples } from "./sample-artists.js";
 import {
   makeSource,
   makeSuggestion,
@@ -34,11 +35,14 @@ const SAVE_ERRORS = new Set(["disk", "convert_failed", "duplicate"]);
 
 const query = new URLSearchParams(window.location.search);
 const showsStates = query.has("states");
+// ?mock&artists adds tracks with long artist lists, for trying the artist editor.
+const showsArtists = query.has("artists");
 // ?mock&many=<count> adds that many tracks in review, for trying a long queue.
 const manyCount = Number.parseInt(query.get("many") ?? "0", 10) || 0;
 export const jobs = [
   ...sampleQueue(),
   ...(showsStates ? sampleStates() : []),
+  ...(showsArtists ? artistSamples() : []),
   ...manyTracks(manyCount),
 ];
 // Jobs whose download is running, so a cancel or a removal can stop it.

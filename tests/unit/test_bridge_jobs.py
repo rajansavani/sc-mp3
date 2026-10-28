@@ -109,6 +109,15 @@ BAD_CALLS: list[tuple[str, tuple[Any, ...]]] = [
     ("update_fields", ("job", {"title": "x" * 2_001})),
     ("reset_field", ("job", "comment")),
     ("reset_field", (3, "title")),
+    ("set_artists", ("job", "Kaia", [])),
+    ("set_artists", ("job", ["Kaia"], None)),
+    ("set_artists", ("job", ["Kaia", 3], [])),
+    ("split_artist_names", (None,)),
+    ("split_artist_names", ("x" * 20_001,)),
+    ("set_artists", ("job", ["x" * 2_001], [])),
+    ("set_artists", ("job", ["Kaia"], ["Lou V"] * 200)),
+    ("set_artists", (None, ["Kaia"], [])),
+    ("reset_artists", (3,)),
     ("toggle_change", ("job", "change", "yes")),
     ("toggle_change", ("job", None, True)),
     ("set_style", ("job", "loud")),
@@ -178,6 +187,25 @@ def test_a_cleanup_the_job_doesnt_have_is_refused(api: Api, harness: Any) -> Non
     job_id = resolved(api, harness)
     assert api.toggle_change(job_id, "fix_caps:" + "X" * 500, False) == {"error": "internal"}
     assert api.toggle_change(job_id, "", False) == {"error": "internal"}
+
+
+def test_an_artist_list_is_passed_on_without_the_spaces_around_names(
+    api: Api, harness: Any
+) -> None:
+    job_id = resolved(api, harness)
+    answer = api.set_artists(job_id, [" Mara ", "  "], ["Kaia", "Lou V\u200b"])
+    assert answer == {"artists": {"main": ["Mara"], "featured": ["Kaia", "Lou V"]}}
+    job = harness.job(job_id)
+    assert job["suggestion"]["main_artists"] == ["Mara"]
+    assert job["suggestion"]["featured"] == ["Kaia", "Lou V"]
+    assert api.reset_artists(job_id) == {}
+    assert harness.job(job_id)["artists_edited"] is False
+
+
+def test_pasted_names_are_split_in_python(api: Api) -> None:
+    answer = api.split_artist_names("gunk, zayok, edyn\nTyler, The Creator")
+    assert answer == {"names": ["gunk", "zayok", "edyn", "Tyler, The Creator"]}
+    assert len(api.split_artist_names(", ".join(f"Name {n}" for n in range(300)))["names"]) == 200
 
 
 def test_a_crop_is_passed_on_as_fractions(api: Api, harness: Any) -> None:
@@ -381,6 +409,9 @@ def test_every_call_returns_at_once_while_the_pipeline_is_slow(tmp_path: Path) -
     measure("update_fields", lambda: api.update_fields(first, {"title": "New"}))
     measure("reset_field", lambda: api.reset_field(first, "title"))
     measure("toggle_change", lambda: api.toggle_change(first, change, False))
+    measure("set_artists", lambda: api.set_artists(first, ["Lou V"], ["Kaia"]))
+    measure("reset_artists", lambda: api.reset_artists(first))
+    measure("split_artist_names", lambda: api.split_artist_names("gunk, zayok"))
     measure("set_style", lambda: api.set_style(first, "feat_in_title"))
     link = {"kind": "url", "value": "https://example.com/cover.jpg"}
     measure("set_artwork", lambda: api.set_artwork(first, link))
@@ -493,6 +524,9 @@ def test_every_call_stays_quick_with_a_full_queue(tmp_path: Path) -> None:
     measure("update_fields", lambda: api.update_fields(first, {"title": "New"}))
     measure("reset_field", lambda: api.reset_field(first, "title"))
     measure("toggle_change", lambda: api.toggle_change(first, change, False))
+    measure("set_artists", lambda: api.set_artists(first, ["Lou V"], ["Kaia"]))
+    measure("reset_artists", lambda: api.reset_artists(first))
+    measure("split_artist_names", lambda: api.split_artist_names("gunk, zayok"))
     measure("set_style", lambda: api.set_style(first, "feat_in_title"))
     link = {"kind": "url", "value": "https://example.com/cover.jpg"}
     measure("set_artwork", lambda: api.set_artwork(first, link))

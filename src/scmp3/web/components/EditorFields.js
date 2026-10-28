@@ -1,17 +1,15 @@
-// The editor's tag fields and the featured-artist style switch. Typing is sent as hand edits.
+// The editor's tag fields, with the artist editor under the title. Typing is sent as hand edits.
 import { html } from "htm/preact";
 import { useState } from "preact/hooks";
 
-import { api } from "../api.js";
-import { reportError } from "../store.js";
 import { strings } from "../strings/index.js";
+import { ArtistEditor } from "./ArtistEditor.js";
 
 const text = strings.main;
 
 const NUMERIC_FIELDS = new Set(["year", "track_no"]);
 const GRID_FIELDS = ["album", "year", "genre", "track_no"];
 const MORE_FIELDS = ["album_artist"];
-const PRESET_STYLES = ["artist_field", "feat_in_title", "all_in_title"];
 
 // Fields whose tag value isn't a plain string. "3/12" holds the track number and the total.
 const RENDERED = {
@@ -77,38 +75,7 @@ export function Field({ name, drafts, size = "normal" }) {
   `;
 }
 
-function StyleSwitch({ job, settings }) {
-  const setting = settings?.title_style ?? "artist_field";
-  const current = job.style ?? setting;
-  // Custom templates only show up as a choice when the setting uses them.
-  const usesCustom = setting === "custom" || current === "custom";
-  const choices = usesCustom ? [...PRESET_STYLES, "custom"] : PRESET_STYLES;
-  const pick = (style) => {
-    if (style !== current) api.set_style(job.id, style).then(reportError);
-  };
-  return html`
-    <fieldset class="style-switch">
-      <legend>${text.styleLegend}</legend>
-      <div class="segmented">
-        ${choices.map(
-          (style) => html`
-            <button
-              key=${style}
-              type="button"
-              class="segment"
-              aria-pressed=${String(style === current)}
-              onClick=${() => pick(style)}
-            >
-              ${text.styles[style]}
-            </button>
-          `,
-        )}
-      </div>
-    </fieldset>
-  `;
-}
-
-export function EditorFields({ job, settings, drafts }) {
+export function EditorFields({ job, drafts }) {
   // A job with a hand edit in one of the extra fields opens with them showing.
   const [showMore, setMore] = useState(() => {
     return MORE_FIELDS.some((field) => drafts.isOverridden(field));
@@ -116,8 +83,7 @@ export function EditorFields({ job, settings, drafts }) {
   return html`
     <div class="editor-fields">
       <${Field} name="title" drafts=${drafts} size="title" />
-      <${Field} name="artist" drafts=${drafts} size="artist" />
-      <${StyleSwitch} job=${job} settings=${settings} />
+      <${ArtistEditor} job=${job} drafts=${drafts} />
       <div class="field-grid">
         ${GRID_FIELDS.map((name) => html`<${Field} key=${name} name=${name} drafts=${drafts} />`)}
       </div>

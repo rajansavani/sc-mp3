@@ -1,4 +1,4 @@
-"""The job manager's editing calls: hand edits, cleanups, title styles and covers.
+"""The job manager's editing calls: hand edits, artist lists, cleanups, title styles and covers.
 
 Edits apply to jobs in review, and to jobs whose save failed, so they can be fixed and saved again.
 A set's tracks take the same calls by their own ids. A set's own id takes the album's fields and
@@ -9,6 +9,7 @@ import logging
 from dataclasses import replace
 from typing import Any
 
+from scmp3.app.job_artists import ArtistList
 from scmp3.app.job_covers import CoverRequest
 from scmp3.app.job_fields import field_problems, render_problem
 from scmp3.app.job_flow import JobFlow
@@ -124,10 +125,32 @@ class JobEditing:
                 return {"error": INTERNAL}
             record.toggles[change_id] = enabled
             job.suggestion = rebuilt_suggestion(
-                job.suggestion, job.source, record.toggles, self._flow.settings
+                job.suggestion, job.source, record.toggles, self._flow.settings, record.artists
             )
             self._edited(record)
         return {}
+
+    def set_artists(self, job_id: str, artists: ArtistList | None) -> Answer:
+        """Credit these main and featured artists over the suggested ones, or with None go back
+        to the suggested ones. A list set by hand stays through cleanups and settings changes.
+
+        A list answers with itself, so the UI shows the names exactly as they're kept.
+        """
+        with self._flow.lock:
+            record, refusal = self._editable(job_id)
+            if record is None:
+                return refusal
+            if artists is None and record.artists is None:
+                return {}
+            record.artists = artists
+            job = record.job
+            # Rebuilt with the settings as they are now, as a toggle is, so a settings change
+            # being worked out meanwhile can leave this job alone.
+            job.suggestion = rebuilt_suggestion(
+                job.suggestion, job.source, record.toggles, self._flow.settings, artists
+            )
+            self._edited(record)
+        return {"artists": artists.to_dict()} if artists else {}
 
     def set_style(self, job_id: str, style: TitleStyle) -> Answer:
         """Use a title style for this track other than the setting's."""

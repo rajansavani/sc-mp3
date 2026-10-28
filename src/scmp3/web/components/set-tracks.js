@@ -64,6 +64,7 @@ function savingStatus(job, child) {
 }
 
 function reviewStatus(child) {
+  if (child.needs_main_artist) return { text: text.trackStatus.needsMainArtist, tone: "warn" };
   if (child.collision) return { text: text.trackStatus.nameTaken, tone: "warn" };
   const pct = downloadPct(child);
   if (!child.staged_audio && pct != null) {

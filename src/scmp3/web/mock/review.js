@@ -1,7 +1,7 @@
 // What the bridge adds to each job it sends: the rendered tags, the file name, the format, and
 // the cover with its size. This follows core/suggest closely enough for the sample data.
 import { coverSize, coverUrl } from "./covers.js";
-import { artistFolder } from "./names.js";
+import { artistFolder, needsMainArtist } from "./names.js";
 import {
   albumSettled,
   albumTags,
@@ -18,8 +18,10 @@ const UNSAFE_IN_NAMES = /[\\/:*?"<>|]/g;
 const LEADING_KINDS = new Set(["artist_from_title", "strip_redundant_artist"]);
 const TRACK = /^(\d+)(?:\s*\/\s*(\d+))?$/;
 
-// A change that's off puts its text back, the way apply_changes does.
-function applied(suggestion, source) {
+// A change that's off puts its text back, the way apply_changes does. An artist list set by
+// hand stays as it is.
+function applied(job) {
+  const { suggestion, source, artists } = job;
   let title = suggestion.base_title;
   let main = suggestion.main_artists;
   let featured = suggestion.featured;
@@ -29,7 +31,15 @@ function applied(suggestion, source) {
     const leading = LEADING_KINDS.has(change.kind);
     title = leading ? `${change.span} - ${title}` : `${title} ${change.span}`;
   }
+  if (artists) ({ main, featured } = artists);
   return { ...suggestion, base_title: title.trim(), main_artists: main, featured };
+}
+
+// The suggestion as the bridge sends it, crediting the artists the tags are rendered with.
+function sentSuggestion(job) {
+  if (!job.source || !job.suggestion) return job.suggestion;
+  const { main_artists, featured } = applied(job);
+  return { ...job.suggestion, main_artists, featured };
 }
 
 function withVersion(title, suggestion) {
@@ -96,7 +106,7 @@ function albumArtist(overrides, track, separator) {
 }
 
 function renderTags(job, settings) {
-  const track = applied(job.suggestion, job.source);
+  const track = applied(job);
   const style = job.style ?? settings.title_style;
   const render = STYLES[style] ?? STYLES.artist_field;
   const rendered = render(track, settings.artist_separator, settings.feat_wording, settings);
@@ -177,6 +187,9 @@ export function forTheUi(job, place = null) {
   const format = job.source && job.kind !== "retag" ? chosenFormat(job.source) : null;
   return {
     ...job,
+    suggestion: sentSuggestion(job),
+    artists_edited: Boolean(job.artists),
+    needs_main_artist: needsMainArtist(job),
     tags,
     filename: tags ? fileName(tags, job, settings) : null,
     saves_once_in: Boolean(job.saves_once_in),

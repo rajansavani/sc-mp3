@@ -23,6 +23,7 @@ COMPONENTS = [
     "TopBar",
     "Queue",
     "TrackEditor",
+    "ArtistEditor",
     "CoverPanel",
     "SetEditor",
     "Settings",

@@ -13,6 +13,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, get_args
 
+from scmp3.app.job_artists import ArtistList
 from scmp3.app.job_covers import CoverView
 from scmp3.app.job_record import JobRecord, Snapshot, Step
 from scmp3.app.job_steps import Steps
@@ -71,6 +72,7 @@ def _entry(record: JobRecord, states: Mapping[JobState, JobState]) -> dict[str, 
         "parsed": _parsed_dict(record.parsed),
         "staged": _staged_dict(record.staged),
         "toggles": record.toggles,
+        "artists": record.artists.to_dict() if record.artists else None,
         "failed_step": record.failed_step,
         "error_where": record.error_where,
         "error_reason": record.error_reason,
@@ -101,6 +103,9 @@ def restored_record(
         raise ValueError("a set's track can't be a set")
     record = JobRecord(job=job, parsed=_parsed(entry["parsed"]), parent=parent)
     record.toggles = {str(key): value is True for key, value in entry.get("toggles", {}).items()}
+    # The kept suggestion already credits the list, and later rebuilds need it too.
+    artists = entry.get("artists")
+    record.artists = ArtistList.from_dict(artists) if artists is not None else None
     record.error_where = entry.get("error_where")
     record.error_reason = entry.get("error_reason")
     record.download_cancelled = entry.get("download_cancelled") is True

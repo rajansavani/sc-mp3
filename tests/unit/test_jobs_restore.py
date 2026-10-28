@@ -17,6 +17,7 @@ from typing import Any
 import pytest
 
 from scmp3.app import queue_file
+from scmp3.app.job_artists import ArtistList
 from scmp3.app.queue_file import QueueFile
 from scmp3.core import paths
 from scmp3.core.errors import ErrorKind, ScmpError
@@ -125,6 +126,42 @@ def test_edits_cleanups_style_and_cover_come_back(runs: Runs) -> None:
         item for item in again.job(job_id)["suggestion"]["changes"] if item["id"] == change["id"]
     ]
     assert toggled["enabled"] is False
+
+
+def test_an_artist_list_comes_back_and_still_wins_over_the_cleanups(runs: Runs) -> None:
+    jobs = runs.first()
+    job_id = staged_job(jobs)
+    jobs.manager.set_artists(job_id, ArtistList(("Mara", "Kaia"), ("Lou V",)))
+    before = jobs.job(job_id)
+    assert jobs.manager.keep_queue() is True
+    (entry,) = kept_jobs()
+    assert entry["artists"] == {"main": ["Mara", "Kaia"], "featured": ["Lou V"]}
+    again = runs.restart(jobs)
+    after = again.job(job_id)
+    for key in ("suggestion", "tags", "filename", "artists_edited"):
+        assert after[key] == before[key], key
+    # A settings change after the restart rebuilds the suggestion, and the list stays.
+    again.change_settings(remove_producer_credits=False)
+    again.pools.run("misc")
+    job = again.job(job_id)
+    assert job["suggestion"]["main_artists"] == ["Mara", "Kaia"]
+    assert job["tags"]["title"] == "Midnight Drive [prod. Hazy]"
+    # Reset still goes back to the suggestion.
+    again.manager.set_artists(job_id, None)
+    assert again.job(job_id)["suggestion"]["main_artists"] == ["Kaia"]
+
+
+def test_a_job_with_an_unusable_artist_list_is_left_out(runs: Runs) -> None:
+    jobs = runs.first()
+    job_id = jobs.add_and_resolve()
+    jobs.manager.shut_down()
+    path = queue_file.default_path()
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["jobs"][0]["artists"] = {"main": "Kaia", "featured": []}
+    path.write_text(json.dumps(data), encoding="utf-8")
+    again = runs.reopen(jobs)
+    assert job_id not in [job["id"] for job in again.manager.views()]
+    assert len(list(path.parent.glob("queue.bad-*.json"))) == 1
 
 
 def test_the_queue_comes_back_in_order_in_the_first_snapshot(runs: Runs) -> None:

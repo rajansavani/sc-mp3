@@ -15,6 +15,7 @@ from typing import Any
 from scmp3.app import queue_file
 from scmp3.app.events import EventBus
 from scmp3.app.input_reasons import ALREADY_IN_QUEUE, reason_code
+from scmp3.app.job_artists import NO_MAIN_ARTIST, needs_main_artist
 from scmp3.app.job_covers import CoverReader
 from scmp3.app.job_editing import NOT_EDITABLE, UNKNOWN_JOB, JobEditing
 from scmp3.app.job_flow import JobFlow, PoolMaker
@@ -143,9 +144,11 @@ class JobManager(JobEditing, SettingsFollowing, SetCalls, QueueLifecycle):
     def save(self, job_ids: Iterable[str]) -> Answer:
         """Save each job that's waiting for review, or that's a confirmed repeat of a saved one.
 
-        A set saves each of its included tracks that's waiting for review.
+        A set saves each of its included tracks that's waiting for review. A track whose
+        artist list has featured artists and no main one stays, and the answer says so.
         """
         ids = list(job_ids)
+        held = False
         # A few at a time, as when adding, since Save all can name the whole queue.
         for start in range(0, len(ids), JOBS_PER_TURN):
             with self._flow.lock:
@@ -153,13 +156,16 @@ class JobManager(JobEditing, SettingsFollowing, SetCalls, QueueLifecycle):
                     record = self._flow.find(job_id)
                     self.forget_set_answer(record)
                     for track in tracks_of(record):
-                        if self._can_save(track):
+                        if not self._can_save(track):
+                            if track.parent is not None and waits_for_info(track):
+                                # Save on a set saves its tracks still fetching once they're in.
+                                track.wants_save = True
+                                self._flow.publish(track)
+                        elif needs_main_artist(track.artists, track.job.overrides):
+                            held = True
+                        else:
                             self._flow.start_saving(track)
-                        elif track.parent is not None and waits_for_info(track):
-                            # Save on a set saves its tracks still fetching once they're in.
-                            track.wants_save = True
-                            self._flow.publish(track)
-        return {}
+        return {"error": NO_MAIN_ARTIST} if held else {}
 
     def _can_save(self, record: JobRecord) -> bool:
         job = record.job

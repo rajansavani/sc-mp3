@@ -148,7 +148,7 @@ function ReviewForm({ job, jobs, settings }) {
       <fieldset class="editor-lock" disabled=${!editable}>
         <div class="editor-columns">
           <${CoverPanel} job=${job} settings=${settings} editable=${editable} />
-          <${EditorFields} job=${job} settings=${settings} drafts=${drafts} />
+          <${EditorFields} job=${job} drafts=${drafts} />
         </div>
         <${Cleanups} job=${job} />
       </fieldset>
