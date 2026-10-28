@@ -152,12 +152,6 @@ def test_inputs_it_cant_save_are_refused_without_a_request(
     assert world.tokens == []
 
 
-def test_a_local_file_is_refused_until_retagging_exists(tiny_mp3: Path) -> None:
-    parsed = classify(str(tiny_mp3))
-    assert parsed.kind == "local_file"
-    assert pipeline.unsupported_reason(parsed) == pipeline.FILES_NOT_SUPPORTED
-
-
 @pytest.mark.parametrize(
     ("raised", "kind"),
     [(RuntimeError("a bug"), ErrorKind.internal), (PermissionError(13, "Denied"), ErrorKind.disk)],

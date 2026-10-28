@@ -45,8 +45,10 @@ function StyleSwitch({ job, settings }) {
   `;
 }
 
-// The artist folder from the planned file name, which Python works out as a save does.
+// The artist folder from the planned file name, which Python works out as a save does. A
+// re-tagged file stays in its own folder, so it has none.
 function artistFolder(job, settings) {
+  if (job.kind === "retag") return null;
   if (!settings?.artist_folders || !job.filename?.includes("/")) return null;
   return job.filename.split("/")[0];
 }

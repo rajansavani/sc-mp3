@@ -114,6 +114,18 @@ class History:
             cursor = db.execute(INSERT, values)
         return replace(entry, id=cursor.lastrowid, saved_at=saved_at)
 
+    def update_tags(self, saved_path: Path, title: str, artist: str, album: str) -> int:
+        """Give every save of the file at `saved_path` its new tags, after a re-tag.
+
+        Returns how many entries changed, which is 0 for a file sc-mp3 didn't save.
+        """
+        with self._connect() as db:
+            cursor = db.execute(
+                "UPDATE history SET title = ?, artist = ?, album = ? WHERE saved_path = ?",
+                (title, artist, album, str(saved_path)),
+            )
+        return cursor.rowcount
+
     def find_by_source_id(self, source_id: str) -> HistoryEntry | None:
         """The latest save of this source, such as soundcloud:tracks:123."""
         return self._first("source_id = ?", source_id)

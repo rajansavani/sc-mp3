@@ -191,7 +191,8 @@ export function forTheUi(job, place = null) {
     artists_edited: Boolean(job.artists),
     needs_main_artist: needsMainArtist(job),
     tags,
-    filename: tags ? fileName(tags, job, settings) : null,
+    // A re-tagged file keeps its own name, as job_views.retag_view sends it.
+    filename: job.kind === "retag" ? job.input.split(/[\\/]/).at(-1) : tags ? fileName(tags, job, settings) : null,
     saves_once_in: Boolean(job.saves_once_in),
     format: format ? { format, needs_bitrate_check: false, fallback: null } : null,
     cover_url: coverUrl(job),
@@ -199,5 +200,13 @@ export function forTheUi(job, place = null) {
     // Python cuts a letterboxed thumbnail from its picture, which sample jobs say themselves.
     default_crop: job.default_crop ?? null,
     children: [],
+    file_tags: job.kind === "retag" ? fileTags(job.source) : undefined,
   };
+}
+
+// The title, artist and album a file holds now, as job_views.retag_view sends them. The mock's
+// file sources hold the artist as their uploader, as localfile.py makes them.
+function fileTags(source) {
+  if (!source) return null;
+  return { title: source.title, artist: source.uploader, album: source.album ?? "" };
 }

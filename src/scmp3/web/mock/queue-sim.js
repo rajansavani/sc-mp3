@@ -122,7 +122,8 @@ function newSource(job) {
   const kind = sourceKind(job);
   const title = titleFromInput(job.input);
   const fields = { kind, id: `mock:${job.id}`, url: job.input, title, uploader: "Sample Artist" };
-  if (kind === "file") return makeSource({ ...fields, formats: [] });
+  // A file's album is its title, so saving it as it is asks nothing about playlists.
+  if (kind === "file") return makeSource({ ...fields, album: title, formats: [] });
   // YouTube's covers are wide video frames, which the cover crops to the middle square.
   if (kind === "youtube") {
     return makeSource({ ...fields, artwork_url: videoFrame(1280, 720), formats: [OPUS_160] });

@@ -86,12 +86,25 @@ export default {
       status: "Couldn't convert",
       headline: () => "sc-mp3 couldn't convert the audio.",
       detail: () => "The download may be damaged. Retry to download and convert it again.",
+      variants: {
+        unreadable_file: {
+          status: "Not MP3 or M4A audio",
+          headline: () => "This file isn't MP3 or M4A audio that sc-mp3 can read.",
+          detail: () => "It may be damaged, or have the wrong extension.",
+        },
+        tag_write_failed: {
+          status: "Couldn't write the tags",
+          headline: () => "sc-mp3 couldn't write the new tags into this file.",
+          detail: () => "The file is unchanged. Retry, and if it fails again, the file may be damaged.",
+        },
+      },
     },
     disk: {
       status: "Couldn't save",
       headline: ({ folder }) => `Can't save to ${folder}.`,
       detail: () => "Check that the drive is connected, or choose another folder.",
-      // By the error's reason, or "data" for sc-mp3's own folders, as errorVariant() names them.
+      // By the error's reason, or the folder it was about when that isn't the library, as
+      // errorVariant() names them.
       variants: {
         data: {
           headline: () => "sc-mp3 couldn't write to its own data folder.",
@@ -106,6 +119,26 @@ export default {
           status: "Folder path too long",
           headline: () => "The folder path is too long for this file.",
           detail: () => "Choose a folder closer to the top of the drive.",
+        },
+        // A re-tag that couldn't write into the file, and a file that's gone.
+        file: {
+          headline: () => "sc-mp3 couldn't write the new tags into the file.",
+          detail: () => "The file is unchanged. Check that its drive is connected and has free space, then retry.",
+        },
+        file_locked: {
+          status: "Couldn't read the file",
+          headline: () => "sc-mp3 couldn't read this file.",
+          detail: () => "Close any program that's using it, then try again.",
+        },
+        file_changed: {
+          status: "Changed elsewhere",
+          headline: () => "Another program changed this file since sc-mp3 read it, so it wasn't overwritten.",
+          detail: () => "Reload it to start from what's in it now.",
+        },
+        file_missing: {
+          status: "File not found",
+          headline: () => "The file isn't there anymore.",
+          detail: () => "Check that it wasn't moved or renamed, and that its drive is connected. Then retry.",
         },
       },
     },
@@ -146,6 +179,7 @@ export default {
     sign_in_go_plus: "Sign in with Go+",
     sign_in_again: "Sign in again",
     choose_folder: "Choose another folder",
+    reload_file: "Reload the file",
     show_it: "Show it",
     save_again: "Save again",
     add_youtube_support: "Add YouTube support",

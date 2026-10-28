@@ -20,6 +20,7 @@ from scmp3.core.errors import ErrorKind
 from scmp3.core.models import (
     ArtworkChoice,
     CropBox,
+    Job,
     JobState,
     TitleStyle,
 )
@@ -31,12 +32,21 @@ NOT_EDITABLE = "not_editable"
 INVALID_FIELDS = "invalid_fields"
 INTERNAL = ErrorKind.internal.value
 
-# States whose tags can still change. A failed save can be fixed and saved again.
-EDITABLE_STATES = frozenset({JobState.needs_review, JobState.error})
 
 Answer = dict[str, Any]
 
 log = logging.getLogger(__name__)
+
+
+def tags_can_change(job: Job) -> bool:
+    """Whether a job's tags can still change: in review, or after a failed save, to fix it.
+
+    A re-tag's failed save keeps the tags it was asked about, so Retry writes exactly those and
+    the question about Spotify playlists still holds.
+    """
+    if job.state == JobState.needs_review:
+        return True
+    return job.state == JobState.error and job.kind != "retag"
 
 
 def _unchanged_image(
@@ -200,7 +210,7 @@ class JobEditing:
         if job.kind == "set":
             editable = sets and set_is_editable(record)
             return (record, None) if editable else (None, {"error": NOT_EDITABLE})
-        if job.state not in EDITABLE_STATES or job.suggestion is None or record.saving_now:
+        if not tags_can_change(job) or job.suggestion is None or record.saving_now:
             return None, {"error": NOT_EDITABLE}
         return record, None
 

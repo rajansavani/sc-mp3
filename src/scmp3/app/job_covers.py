@@ -20,6 +20,7 @@ from scmp3.core.cover_choice import read_cover_file
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.log import safe_url
 from scmp3.core.models import ArtworkChoice, CropBox, SourceInfo
+from scmp3.core.sources import localfile
 
 # The longest side of the preview sent for an image added by hand, as in the UI's mock.
 PREVIEW_PX = 256
@@ -132,8 +133,10 @@ class CoverReader:
         """The source's own cover: the first size that works, tried in the order finalize uses.
 
         The image comes back too, so the save can use it without downloading it again. It's
-        None when no size worked.
+        None when no size worked. A file's own cover is the one embedded in it.
         """
+        if source.kind == "file":
+            return _embedded(source)
         urls = cover_sources.cover_candidates(source)
         if not urls:
             return NO_COVER, None
@@ -171,6 +174,15 @@ class CoverReader:
             reason = error.strerror or error
             raise ScmpError(ErrorKind.disk, f"can't keep the pasted image: {reason}") from error
         return path, _view(preview_url(data), facts)
+
+
+def _embedded(source: SourceInfo) -> tuple[CoverView, KeptImage | None]:
+    """The cover in a file being re-tagged, as a small preview. Raises ScmpError if unusable."""
+    data = localfile.embedded_cover(Path(source.id))
+    if data is None:
+        return NO_COVER, None
+    facts = inspect(data)
+    return _view(preview_url(data), facts), KeptImage(data, facts.ext)
 
 
 def _fetched(url: str, session: Any) -> CoverView:

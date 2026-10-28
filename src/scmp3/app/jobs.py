@@ -16,6 +16,7 @@ from scmp3.app import queue_file
 from scmp3.app.events import EventBus
 from scmp3.app.input_reasons import ALREADY_IN_QUEUE, reason_code
 from scmp3.app.job_artists import NO_MAIN_ARTIST, needs_main_artist
+from scmp3.app.job_book import queue_key
 from scmp3.app.job_covers import CoverReader
 from scmp3.app.job_editing import NOT_EDITABLE, UNKNOWN_JOB, JobEditing
 from scmp3.app.job_flow import JobFlow, PoolMaker
@@ -112,7 +113,8 @@ class JobManager(JobEditing, SettingsFollowing, SetCalls, QueueLifecycle):
     # Adding
 
     def add_inputs(self, text: str) -> Answer:
-        """Queue every supported link in pasted text. Rejected items come back with a code."""
+        """Queue every supported link and audio file in pasted or dropped text. Rejected items
+        come back with a code."""
         # Parsing may look at local files, so it happens before the lock is taken.
         parsed_items = parse_inputs(text)
         added: list[str] = []
@@ -134,7 +136,7 @@ class JobManager(JobEditing, SettingsFollowing, SetCalls, QueueLifecycle):
         reason = None if is_set else pipeline.unsupported_reason(parsed)
         if reason is not None:
             return {"input": parsed.raw, "reason": reason_code(reason)}
-        queued = self._flow.queued_with_link(parsed.url)
+        queued = self._flow.queued_with_link(queue_key(parsed))
         if queued is not None:
             return {"input": parsed.raw, "reason": ALREADY_IN_QUEUE, "job_id": queued.id}
         return None

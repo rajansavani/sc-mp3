@@ -145,9 +145,9 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
 1. Drag a SoundCloud link from the browser's address bar onto the top field.
    - You should see: it's added like a paste.
 2. Drag an MP3 file from Explorer onto the window.
-   - You should see: a toast with the file's full path: "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead." Re-tagging comes in a later version.
+   - You should see: a queue item named after the file, "Re-tag existing file". Section 13 checks re-tagging itself. Remove it from the queue.
 3. From an Explorer search, drag two files with the same name from different folders onto the window.
-   - You should see: one toast, without a path: "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead."
+   - You should see: one toast, without a path: "Two of the dropped files have the same name, so sc-mp3 can't tell them apart. Add them one at a time."
 4. Copy a track link in the browser, then click on the sc-mp3 window.
    - You should see: "Add the link on your clipboard?" with the link, Not now and Add it. Not now hides it for that link. Add it queues it. A link that's queued already, a profile, a set or a YouTube link isn't offered.
 5. Use ↑ and ↓ outside the text fields, then press Enter on a queue item, then Enter again.
@@ -209,7 +209,31 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
 9. Select Clear finished.
    - You should see: both sets leave the queue.
 
-## 13. Spotify on the desktop
+## 13. Re-tag files you already have
+
+Use copies of two songs you have, one MP3 and one M4A, in a folder of their own outside the library folder. Pick songs whose titles have something to clean up, such as "(Official Audio)".
+
+1. With the queue empty, select Open audio files and pick both copies.
+   - You should see: two items, each named after its file, with "Re-tag existing file". Nothing downloads.
+2. Select the MP3.
+   - You should see: "Re-tagging a file you already have", "Nothing is downloaded. Your changes are written into this file." and the file's folder. The fields show the cleaned-up title, the file's artist and album, and the file's cover with "From the file". The cleanups say "Cleaned up from the file's title". The button says "Save changes to the file".
+3. Turn the title's cleanup off, so the title is as it was, and select Save changes to the file.
+   - You should see: no question, then "Tags updated in" the file's name, with "Spotify can take a moment to notice" and a Spotify help button. The button opens Spotify help on "Songs not showing up".
+4. Select the M4A, leave the cleaned-up title, and select Save changes to the file.
+   - You should see: "Is this song in a Spotify playlist?" with Cancel, Save anyway and "Don't ask again". Cancel leaves it in review. Select Save changes to the file again, then Save anyway.
+5. Open both files in the tag viewer.
+   - You should see: the new tags, the same cover as before, and the file's link and comment unchanged. The files are where they were, with the same names.
+6. Drop the MP3 again, mark it read-only in its Properties, and save it with a new year.
+   - You should see: "The file is open in another program or is read-only." with Retry. The file is unchanged. Clear Read-only, then select Retry, and it saves.
+7. Drop the M4A again, then move it to another folder before you save it.
+   - You should see: "The file isn't there anymore." with Retry. Move it back and select Retry, and it saves.
+8. Drop a text file renamed to `notes.mp3`.
+   - You should see: "This file isn't MP3 or M4A audio that sc-mp3 can read." with Remove from the queue.
+9. Drop the M4A again. Before you save it, change its title in another tag editor, then select Save changes to the file in sc-mp3.
+   - You should see: "Another program changed this file since sc-mp3 read it, so it wasn't overwritten." The other editor's title is still in the file. Select Reload the file, and the editor shows what's in the file now.
+10. Select the MP3 while its save is failing, as in step 6.
+   - You should see: the fields, cleanups and cover can't be changed until it's saved or removed.
+## 14. Spotify on the desktop
 
 1. In Spotify, open Settings, turn on Show Local Files, choose Add a source and pick the library folder.
    - You should see: the saved tracks under Local Files in Your Library.
@@ -218,7 +242,7 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
 3. Play each track for a few seconds.
    - You should see: it plays, and its length matches SoundCloud's.
 
-## 14. Spotify on phones
+## 15. Spotify on phones
 
 These need a person with the phones.
 
@@ -229,6 +253,6 @@ These need a person with the phones.
 3. **Changes.** Edit one track's title in sc-mp3 and save it again with Replace. If Spotify on the desktop still shows the old title, try the three steps in Spotify help, "Songs not showing up".
    - You should see: the new title after one of the three steps.
 
-## 15. Record the run
+## 16. Record the run
 
 Write down the version, the date, the computer and OS, the Spotify versions, and each step that failed with what you saw instead. Attach the diagnostics from section 10 to each bug you report.

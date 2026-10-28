@@ -99,6 +99,10 @@ export default {
       label: "Offer links from the clipboard",
       hint: "Asks before adding anything.",
     },
+    retag_playlist_warning: {
+      label: "Warn before a re-tag changes a song's title, artist or album",
+      hint: "Spotify then treats it as a different song, so it drops out of playlists.",
+    },
     check_app_updates: {
       label: "Check for app updates",
       hint: "Once a day, on GitHub. sc-mp3 never installs them by itself.",

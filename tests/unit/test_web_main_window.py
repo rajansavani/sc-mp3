@@ -11,7 +11,7 @@ from typing import get_args
 import pytest
 
 from scmp3.app.main import WEB_DIR
-from scmp3.core.errors import ErrorKind, ErrorReason
+from scmp3.core.errors import ErrorKind, ErrorPlace, ErrorReason
 from scmp3.core.models import AudioFormat, ChangeKind, SourceKind, TitleStyle
 
 # The colors T-020 added for banners, notes and dialogs.
@@ -32,6 +32,8 @@ ERROR_STRINGS = WEB_DIR / "strings" / "errors.js"
 JOB_VIEW = WEB_DIR / "components" / "job-view.js"
 BANNERS = WEB_DIR / "components" / "EditorBanners.js"
 MOCK_FIELD_CHECKS = WEB_DIR / "mock" / "field-checks.js"
+# The places a disk error can be about besides the library, each with its own words.
+OTHER_PLACES = set(get_args(ErrorPlace)) - {"library"}
 
 # Typographic apostrophes and single quotes. UI text uses the straight one.
 LEFT_QUOTE, RIGHT_QUOTE = chr(0x2018), chr(0x2019)
@@ -80,9 +82,9 @@ def test_every_error_kind_has_its_status_and_headline() -> None:
 
 def test_every_error_reason_and_the_data_folder_have_their_own_words() -> None:
     # The variants under the error kinds, by the names job-view.js's errorVariant() gives: the
-    # disk error's, and the YouTube reasons a video is unavailable.
+    # disk error's, the YouTube reasons a video is unavailable, and a re-tag's file reasons.
     variants = keys_in_every_block(error_strings_text(), "variants")
-    assert variants == {*get_args(ErrorReason), "data"}
+    assert variants == {*get_args(ErrorReason), *OTHER_PLACES}
     for variant in variants:
         assert "headline" in keys_in_block(error_strings_text(), variant), variant
 

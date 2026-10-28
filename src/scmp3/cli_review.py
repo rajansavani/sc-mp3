@@ -1,4 +1,4 @@
-"""The review `scmp3 get` shows in the terminal, and the questions it asks there.
+"""The review `scmp3 get` and `scmp3 retag` show in the terminal, and the questions they ask.
 
 Everything goes to stderr, so stdout keeps only the paths of the saved files.
 """
@@ -51,6 +51,8 @@ WHOLE_NUMBER = re.compile(r"[0-9]+")
 
 # Asks a question and returns the answer, like `read_answer`. Tests pass their own.
 Reader = Callable[[str], str]
+# The text a review shows for the track as it stands, such as `saving_text(staged)`.
+Describe = Callable[["TrackReview"], str]
 
 
 class InputEnded(Exception):
@@ -134,11 +136,14 @@ def field_edit(text: str) -> tuple[str, str] | None:
     return None
 
 
-def run_review(review: TrackReview, staged: pipeline.Staged, read: Reader) -> Tags | None:
-    """Show the review until you save or skip. Returns the tags to save, or None to skip."""
+def run_review(review: TrackReview, describe: Describe, read: Reader) -> Tags | None:
+    """Show the review until you save or skip. Returns the tags to save, or None to skip.
+
+    `describe` gives the review's text each time round, such as `saving_text(staged)`.
+    """
     say(REVIEW_HELP)
     while True:
-        say(review_text(review, staged))
+        say(describe(review))
         answer = read("> ").strip()
         if answer.lower() in SAVE_ANSWERS:
             return review.tags()
@@ -149,26 +154,16 @@ def run_review(review: TrackReview, staged: pipeline.Staged, read: Reader) -> Ta
             say(problem)
 
 
+def saving_text(staged: pipeline.Staged) -> Describe:
+    """What a review of a downloaded track shows, for run_review."""
+    return lambda review: review_text(review, staged)
+
+
 def review_text(review: TrackReview, staged: pipeline.Staged) -> str:
     """The original title, the fields, the numbered changes and where the file goes."""
     tags = review.tags()
-    fields = {
-        "Title": tags.title,
-        "Artist": tags.artist,
-        "Album": tags.album,
-        "Album artist": tags.album_artist,
-        "Year": tags.year,
-        "Genre": tags.genre,
-        "Track": _track_text(tags),
-    }
-    width = max(len(name) for name in fields)
+    lines = review_lines(review, tags)
     source = review.source
-    lines = ["", f"Original title: {source.title}", f"Uploaded by {source.uploader}"]
-    lines += [f"  {name:<{width}} {_shown(value)}" for name, value in fields.items()]
-    if review.suggestion.changes:
-        lines.append("Changes:")
-    for number, change in enumerate(review.suggestion.changes, start=1):
-        lines.append(f"  {number}. {'on ' if change.enabled else 'off'}  {change.label}")
     dest = pipeline.destination(
         source,
         review.suggestion,
@@ -182,6 +177,37 @@ def review_text(review: TrackReview, staged: pipeline.Staged) -> str:
     lines.append(f"Audio: {audio_text(staged)}")
     lines.append(f"Saves as {dest.name} in {dest.parent}")
     return "\n".join(lines)
+
+
+def review_lines(review: TrackReview, tags: Tags) -> list[str]:
+    """Where the title came from, the fields as `tags` has them, and the numbered changes."""
+    fields = {
+        "Title": tags.title,
+        "Artist": tags.artist,
+        "Album": tags.album,
+        "Album artist": tags.album_artist,
+        "Year": tags.year,
+        "Genre": tags.genre,
+        "Track": _track_text(tags),
+    }
+    width = max(len(name) for name in fields)
+    lines = ["", *_origin_lines(review.source)]
+    lines += [f"  {name:<{width}} {_shown(value)}" for name, value in fields.items()]
+    if review.suggestion.changes:
+        lines.append("Changes:")
+    for number, change in enumerate(review.suggestion.changes, start=1):
+        lines.append(f"  {number}. {'on ' if change.enabled else 'off'}  {change.label}")
+    return lines
+
+
+def _origin_lines(source: SourceInfo) -> list[str]:
+    """What the source gave: a link's title and uploader, or a file's title and artist."""
+    if source.kind == "file":
+        return [
+            f"Title in the file: {_shown(source.title)}",
+            f"Artist in the file: {_shown(source.uploader)}",
+        ]
+    return [f"Original title: {source.title}", f"Uploaded by {source.uploader}"]
 
 
 def _shown(value: object) -> str:

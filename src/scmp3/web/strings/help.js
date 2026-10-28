@@ -42,9 +42,12 @@ export default {
     "Spotify keeps its own list of local files and can be slow to notice new or edited ones. Try these in order.",
   staleSteps: [
     "In Spotify's settings, turn Show Local Files off, then on again.",
-    "Remove the sc-mp3 folder from Spotify's sources, then add it again.",
+    "Remove the song's folder from Spotify's sources, then add it again.",
     "Quit Spotify, delete the file local-files.bnk, then open Spotify again. It rebuilds the list.",
   ],
+  // Spotify's own advice goes on to signing out and in, then reinstalling, and even that can miss.
+  staleNote:
+    "Spotify sometimes keeps an old title or cover even after all three. Its own support then suggests logging out and back in, or reinstalling Spotify.",
   openLocalFiles: "Open the folder with local-files.bnk",
   // Where the button looks, on each system.
   localFilesHint: {

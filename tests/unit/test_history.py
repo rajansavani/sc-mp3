@@ -458,3 +458,27 @@ def test_a_file_damaged_after_it_was_opened_is_replaced_by_the_next_call(
     assert error_info.value.kind is ErrorKind.disk
     assert store.recent() == []
     assert len(list(tmp_path.glob("history.bad-*.db"))) == 1
+
+
+def test_a_re_tag_gives_every_save_of_the_file_its_new_tags(store: History) -> None:
+    first = store.add(entry())
+    store.add(entry())
+    other = store.add(entry(title="Night Bus"))
+    changed = store.update_tags(
+        first.saved_path, "Midnight Drive (VIP)", "Kaia, Lou V", "Night Shift"
+    )
+    assert changed == 2
+    titles = sorted((found.title, found.artist, found.album) for found in store.recent())
+    assert titles == [
+        ("Midnight Drive (VIP)", "Kaia, Lou V", "Night Shift"),
+        ("Midnight Drive (VIP)", "Kaia, Lou V", "Night Shift"),
+        ("Night Bus", "Kaia", "Midnight Drive"),
+    ]
+    assert store.find_by_source_id("soundcloud:tracks:1") is not None
+    assert other.saved_path != first.saved_path
+
+
+def test_a_re_tag_of_a_file_sc_mp3_never_saved_changes_nothing(store: History) -> None:
+    store.add(entry())
+    assert store.update_tags(Path("elsewhere") / "song.mp3", "Song", "Kaia", "") == 0
+    assert [found.title for found in store.recent()] == ["Midnight Drive"]

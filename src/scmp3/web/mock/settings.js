@@ -30,6 +30,7 @@ const DEFAULTS = {
   review_before_saving: true,
   download_while_reviewing: true,
   offer_clipboard_links: true,
+  retag_playlist_warning: true,
   concurrent_downloads: 2,
   check_app_updates: true,
   check_engine_updates: true,

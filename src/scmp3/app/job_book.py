@@ -23,6 +23,7 @@ from scmp3.app.set_tracks import set_state
 from scmp3.app.workers import Pool, Timers
 from scmp3.core import download
 from scmp3.core.errors import ErrorKind, ScmpError
+from scmp3.core.inputs import ParsedInput
 from scmp3.core.models import JobError, JobState, Settings
 
 # The automatic retries the error messages promise, in seconds: the first wait, the second and
@@ -80,7 +81,17 @@ class LinkIndex:
 
 def _links_of(record: JobRecord) -> set[str]:
     source = record.job.source
-    return {url for url in (record.parsed.url, source.url if source else None) if url}
+    return {url for url in (queue_key(record.parsed), source.url if source else None) if url}
+
+
+def queue_key(parsed: ParsedInput) -> str | None:
+    """What a queued job is found by: its normalized link, or a file's full path.
+
+    A file's source has its path as its url, so the key stays the same once it's read.
+    """
+    if parsed.url is not None:
+        return parsed.url
+    return str(parsed.path) if parsed.path is not None else None
 
 
 class JobBook:
@@ -125,7 +136,7 @@ class JobBook:
     def add_record(self, record: JobRecord) -> None:
         """Put a job at the end of the queue, with its tracks if it's a set."""
         self.records[record.id] = record
-        self.links.add(record.parsed.url, record)
+        self.links.add(queue_key(record.parsed), record)
         if record.job.source is not None:
             self.links.add(record.job.source.url, record)
         self.add_tracks(record.children)

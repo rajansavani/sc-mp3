@@ -13,8 +13,25 @@ EXIT_ERROR = 1
 EXIT_USAGE = 2
 EXIT_STOPPED = 130  # what shells report for Ctrl+C
 
-NOT_IMPLEMENTED = "Not implemented yet."
 NOTHING_TO_SAVE = "Give at least one SoundCloud or YouTube link."
+NO_FILES = "Give at least one MP3 or M4A file."
+NOT_A_FILE = "Not an MP3 or M4A file. Give the file's path."
+FILES_NEED_RETAG = "To fix the tags of a file you already have, use scmp3 retag."
+LINKS_NEED_GET = "To save a link, use scmp3 get."
+RETAG_STOPPED = "Stopped. The file in progress wasn't changed."
+RETAGGED_NOTE = (
+    "Spotify can take a moment to notice. If it doesn't, turn Show Local Files off and on in "
+    "Spotify's settings."
+)
+# Asked before writing a new title, artist or album into a file, which Spotify's playlists lose.
+PLAYLIST_QUESTION = (
+    "If this song is in Spotify playlists, a new title, artist or album makes Spotify treat it as "
+    "a different song, so you'd add it to those playlists again. Write the new tags? [Y/n] "
+)
+PLAYLIST_NOTE = (
+    "The title, artist or album changed, so Spotify treats this as a different song. Add it to "
+    "its playlists again."
+)
 TITLE_NEEDS_ONE_LINK = "--title only works with one link, since every track would get it."
 FFMPEG_MISSING = (
     "ffmpeg wasn't found. Install it and put it on your PATH, or set SCMP3_FFMPEG to its full path."
@@ -78,6 +95,10 @@ PLACE_MESSAGES: dict[tuple[ErrorKind, ErrorPlace], str] = {
         "sc-mp3 couldn't write to its own data folder. "
         "Check that the drive has free space, then try again."
     ),
+    (ErrorKind.disk, "file"): (
+        "sc-mp3 couldn't write the new tags into the file, so it's unchanged. "
+        "Check that its drive is connected and has free space, then try again."
+    ),
 }
 # Messages for a failure that says more exactly what went wrong, ahead of the kind and place.
 REASON_MESSAGES: dict[ErrorReason, str] = {
@@ -109,6 +130,25 @@ REASON_MESSAGES: dict[ErrorReason, str] = {
     "live_stream": (
         "This is a live stream that hasn't ended. "
         "Try again once it's over and YouTube has the recording."
+    ),
+    "file_missing": (
+        "The file isn't there anymore. Check that it wasn't moved or renamed, "
+        "and that its drive is connected."
+    ),
+    "unreadable_file": (
+        "This file isn't MP3 or M4A audio that sc-mp3 can read. "
+        "It may be damaged, or have the wrong extension."
+    ),
+    "file_locked": (
+        "sc-mp3 couldn't read this file. Close any program that's using it, then try again."
+    ),
+    "file_changed": (
+        "Another program changed this file since sc-mp3 read it, so it wasn't overwritten. "
+        "Run the command again to start from what's in it now."
+    ),
+    "tag_write_failed": (
+        "sc-mp3 couldn't write the new tags into this file, so it's unchanged. "
+        "It may be damaged. The log has the details: {log}"
     ),
 }
 

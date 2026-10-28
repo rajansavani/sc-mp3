@@ -37,6 +37,9 @@ You can paste several links at once, then select Save all. Your first YouTube li
 
 A SoundCloud album or playlist link becomes one item in the queue, with a row for each track. A set that SoundCloud marks as an album, EP or single saves as an album, with one cover, the album name and track numbers. Other sets, such as playlists, save as separate songs. You can switch between the two, leave tracks out, and fix titles and artists in the table before you save.
 
+## Fix the tags of songs you already have
+
+Drop MP3 or M4A files on the sc-mp3 window, or select Open audio files when the queue is empty. The same editor opens with the file's own title, artist and cover, cleaned up the same way, and nothing is downloaded. Select Save changes to the file, and sc-mp3 writes the new tags into it where it is. If you change the title, artist or album of a song that's in a Spotify playlist, Spotify treats it as a different song, so add it to the playlist again. If Spotify keeps showing the old tags, see the next sections.
 ## Songs on your phone
 
 Spotify on a phone plays MP3 files stored on the phone itself. You don't need Premium.

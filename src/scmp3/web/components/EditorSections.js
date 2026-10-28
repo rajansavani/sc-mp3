@@ -14,7 +14,8 @@ import {
   selectAndFocus,
   skipJob,
 } from "./job-actions.js";
-import { audioLine, downloadPct, sourceKind, waitsForDownload } from "./job-view.js";
+import { audioLine } from "./audio-line.js";
+import { downloadPct, sourceKind, waitsForDownload } from "./job-view.js";
 import { baseName, folderLabel, folderOf } from "./paths.js";
 
 const text = strings.main;
@@ -37,6 +38,12 @@ function Chip({ job, change }) {
   `;
 }
 
+// The title the cleanups started from. A file with no title tag says so instead of showing "".
+function originalTitle(source, uploader) {
+  if (source.kind === "file" && !source.title) return text.noFileTitle;
+  return text.originalTitle(source.title, uploader);
+}
+
 export function Cleanups({ job }) {
   const { source } = job;
   if (!source) return null;
@@ -49,7 +56,7 @@ export function Cleanups({ job }) {
         <h2 id="cleanups-title" class="cleanups-title">${text.cleanupsTitle[sourceKind(job)]}</h2>
         ${changes.length > 0 && html`<span class="cleanups-hint">${text.cleanupsHint}</span>`}
       </div>
-      <p class="cleanups-original">${text.originalTitle(source.title, uploader)}</p>
+      <p class="cleanups-original">${originalTitle(source, uploader)}</p>
       ${changes.length > 0
         ? html`
             <div class="chips">
@@ -63,11 +70,11 @@ export function Cleanups({ job }) {
   `;
 }
 
+// A re-tagged file stays where it is, under its own name, so its folder is left to its banner.
 export function OutputStrip({ job, settings }) {
   const retag = job.kind === "retag";
   const audio = audioLine(job, settings);
-  // A re-tagged file stays where it is, under its own name.
-  const folder = retag ? folderOf(job.input) : (settings?.library_dir ?? "");
+  const folder = settings?.library_dir ?? "";
   return html`
     <section class="output" aria-label=${text.outputLabel}>
       <div class="output-name">
@@ -75,10 +82,11 @@ export function OutputStrip({ job, settings }) {
         <span class="output-file">${retag ? baseName(job.input) : job.filename}</span>
       </div>
       <div class="output-details">
-        <span class="output-detail" title=${folder}>
+        ${!retag &&
+        html`<span class="output-detail" title=${folder}>
           <${Icon} name="folder" />
           <span>${folderLabel(folder)}</span>
-        </span>
+        </span>`}
         ${audio &&
         html`
           <span class="output-detail">
@@ -184,6 +192,8 @@ function RetagSavedBanner({ job }) {
         <span>
           <span class="banner-title">${text.retagSavedTitle(name)}</span>
           <span class="banner-hint">${text.retagSavedHint}</span>
+          ${job.cover_missing &&
+          html`<span class="banner-hint">${text.retagSavedWithoutCover}</span>`}
         </span>
       </span>
       <div class="banner-actions">

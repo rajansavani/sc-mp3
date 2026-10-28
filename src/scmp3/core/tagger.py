@@ -1,21 +1,33 @@
 """Writing and reading tags in MP3 and M4A files, as TECH_SPEC §10 lists them.
 
 Writing replaces every tag in the file, so only these frames and atoms are left, plus an M4A's
-gapless playback info. `tag_mp3` and `tag_m4a` do the work for each format.
+gapless playback info. Updating, for a re-tag, changes only the fields asked for and keeps the
+rest. `tag_mp3` and `tag_m4a` do the work for each format.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Literal
 
-from scmp3.core import tag_m4a, tag_mp3
+from scmp3.core import tag_m4a, tag_mp3, tag_mp3_update
 from scmp3.core.artwork import Cover
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.models import Tags
 
 # The file types sc-mp3 saves, named as their extensions are.
 FileFormat = Literal["mp3", "m4a"]
+# The fields the editor changes, which are all a re-tag rewrites.
+EDITED_FIELDS = (
+    "title",
+    "artist",
+    "album",
+    "album_artist",
+    "year",
+    "genre",
+    "track_no",
+    "track_total",
+)
 
 # What each number may be by the time it's written. The editor checks what the user types.
 _NUMBER_RANGES: dict[str, range] = {
@@ -35,6 +47,28 @@ def write(path: Path, tags: Tags, cover: Cover | None, *, fmt: FileFormat | None
     file_format.write(path, tags, cover)
 
 
+def update(
+    path: Path,
+    tags: Tags,
+    *,
+    fields: Collection[str],
+    cover: Cover | None,
+    replace_cover: bool,
+    fmt: FileFormat | None = None,
+) -> None:
+    """Change only `fields` of a file's tags, and its cover when `replace_cover`, keeping the rest.
+
+    For re-tagging a file you already have, whose lyrics, ReplayGain and the like must survive.
+    `fields` are names from EDITED_FIELDS. `fmt` works as for write.
+    """
+    unknown = set(fields) - set(EDITED_FIELDS)
+    if unknown:
+        raise ScmpError(ErrorKind.internal, f"a re-tag doesn't change {sorted(unknown)}")
+    file_format = _format_of(path, fmt)
+    _check_tags(tags)
+    file_format.update(path, tags, fields, cover, replace_cover)
+
+
 def read(path: Path) -> tuple[Tags, bytes | None]:
     """The tags in an MP3 or M4A file, and its cover image if it has one."""
     return _format_of(path, None).read(path)
@@ -42,16 +76,17 @@ def read(path: Path) -> tuple[Tags, bytes | None]:
 
 @dataclass(frozen=True)
 class _Format:
-    """How to write and read one kind of audio file."""
+    """How to write, update and read one kind of audio file."""
 
     write: Callable[[Path, Tags, Cover | None], None]
+    update: Callable[[Path, Tags, Collection[str], Cover | None, bool], None]
     read: Callable[[Path], tuple[Tags, bytes | None]]
 
 
 # Keyed by the FileFormat names, which are also the extensions.
 _FORMATS: dict[str, _Format] = {
-    "mp3": _Format(tag_mp3.write_mp3, tag_mp3.read_mp3),
-    "m4a": _Format(tag_m4a.write_m4a, tag_m4a.read_m4a),
+    "mp3": _Format(tag_mp3.write_mp3, tag_mp3_update.update_mp3, tag_mp3.read_mp3),
+    "m4a": _Format(tag_m4a.write_m4a, tag_m4a.update_m4a, tag_m4a.read_m4a),
 }
 
 

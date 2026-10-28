@@ -4,7 +4,8 @@
 folder, and `finalize` tags the file and moves it into the library. A set is listed with
 `prepare_set`, and each of its tracks resolves with `prepare_set_track`. `album_places` numbers an
 album's tracks and loads their shared cover, and `finalize_set_track` saves one track, which
-`finalize_set` does for the whole set in order. They're plain functions; the app runs them on its
+`finalize_set` does for the whole set in order. A file you already have is read by `prepare` too,
+and `retag` writes its reviewed tags into it. They're plain functions; the app runs them on its
 worker threads. Callers use the names below, not the stage modules.
 """
 
@@ -30,7 +31,6 @@ from scmp3.core.pipeline.common import (
 )
 from scmp3.core.pipeline.downloading import STAGED_STEM, fetch
 from scmp3.core.pipeline.resolving import (
-    FILES_NOT_SUPPORTED,
     NOT_YET,
     RESOLVERS,
     SETS_NOT_SUPPORTED,
@@ -42,6 +42,7 @@ from scmp3.core.pipeline.resolving import (
     prepare_set_tracks,
     unsupported_reason,
 )
+from scmp3.core.pipeline.retagging import prepare_file, retag
 from scmp3.core.pipeline.saving import LoadedCover, destination, finalize
 from scmp3.core.pipeline.saving_sets import (
     AlbumPlace,
@@ -54,7 +55,6 @@ from scmp3.core.pipeline.tags import COMMENTS, NUMBER_RANGES, render_tags
 
 __all__ = [
     "COMMENTS",
-    "FILES_NOT_SUPPORTED",
     "LINK_SOURCES",
     "NOT_YET",
     "NUMBER_RANGES",
@@ -87,11 +87,13 @@ __all__ = [
     "finalize_set_track",
     "find_duplicate",
     "prepare",
+    "prepare_file",
     "prepare_set",
     "prepare_set_track",
     "prepare_set_tracks",
     "render_album_track",
     "render_tags",
+    "retag",
     "track_numbers",
     "unsupported_reason",
 ]

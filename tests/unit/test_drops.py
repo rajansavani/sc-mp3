@@ -22,7 +22,7 @@ class FakeJobs:
     def add_inputs(self, text: str) -> dict[str, Any]:
         self.added.append(text)
         rejected = [
-            {"input": line, "reason": "FILES_NOT_SUPPORTED"}
+            {"input": line, "reason": "NOT_RETAGGABLE"}
             for line in text.splitlines()
             if line in self._refuse
         ]
@@ -76,7 +76,7 @@ def test_files_that_werent_added_are_told_like_a_paste(events: FakeEvents) -> No
     jobs = FakeJobs(refuse=(SONG,))
     handler(jobs, events).dropped(drop(dropped_file(SONG)))
     assert events.sent == [
-        {"type": "rejected", "rejected": [{"input": SONG, "reason": "FILES_NOT_SUPPORTED"}]}
+        {"type": "rejected", "rejected": [{"input": SONG, "reason": "NOT_RETAGGABLE"}]}
     ]
 
 
@@ -85,7 +85,7 @@ def test_files_the_app_was_opened_with_are_added_like_a_drop(events: FakeEvents)
     handler(jobs, events).add_paths([SONG, OTHER])
     assert jobs.added == [f"{SONG}\n{OTHER}"]
     assert events.sent == [
-        {"type": "rejected", "rejected": [{"input": SONG, "reason": "FILES_NOT_SUPPORTED"}]}
+        {"type": "rejected", "rejected": [{"input": SONG, "reason": "NOT_RETAGGABLE"}]}
     ]
 
 

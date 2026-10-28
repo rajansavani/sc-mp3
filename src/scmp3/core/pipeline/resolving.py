@@ -13,6 +13,7 @@ from scmp3.core.history import History
 from scmp3.core.inputs import ParsedInput, classify
 from scmp3.core.models import HistoryEntry, PlaylistEntry, Settings, SourceInfo
 from scmp3.core.pipeline.common import Prepared, PreparedSet, SetTrack, Tools, only_scmp_errors
+from scmp3.core.pipeline.retagging import prepare_file
 from scmp3.core.pipeline.sources import link_ydl_maker
 from scmp3.core.sources import soundcloud, soundcloud_sets, youtube
 from scmp3.core.sources.soundcloud_formats import AVAILABILITY_KINDS
@@ -22,12 +23,10 @@ from scmp3.core.urls import NOT_SUPPORTED, UnsupportedInput
 if TYPE_CHECKING:
     from yt_dlp import YoutubeDL
 
-# Inputs a later version saves, with the reason given until then.
+# Inputs `prepare` doesn't take, with the reason given. The app lists sets with prepare_set.
 SETS_NOT_SUPPORTED = "SoundCloud sets and albums can't be saved yet. Add each track's own link."
-FILES_NOT_SUPPORTED = "Fixing the tags of files you already have isn't possible yet."
 NOT_YET: dict[str, str] = {
     "soundcloud_set": SETS_NOT_SUPPORTED,  # T-051
-    "local_file": FILES_NOT_SUPPORTED,  # T-062
 }
 
 log = logging.getLogger(__name__)
@@ -57,6 +56,8 @@ def unsupported_reason(parsed: ParsedInput) -> str | None:
     """Why `prepare` can't take this input, for the user, or None when it can."""
     if parsed.kind in RESOLVERS and parsed.url:
         return None
+    if parsed.kind == "local_file" and parsed.path:
+        return None
     return parsed.reason or NOT_YET.get(parsed.kind) or NOT_SUPPORTED
 
 
@@ -70,13 +71,16 @@ def prepare(
 ) -> Prepared:
     """Resolve an input, refuse tracks that can't be saved, look it up in history and suggest tags.
 
-    Raises ScmpError, or UnsupportedInput with the reason when the input is something sc-mp3 can't
-    save yet, such as a short link that leads to a set. `Prepared.duplicate` is set, rather than
-    an error raised, when the track was saved before.
+    A local file is read for re-tagging instead, by retagging.prepare_file. Raises ScmpError, or
+    UnsupportedInput with the reason when the input is something sc-mp3 can't save yet, such as
+    a short link that leads to a set. `Prepared.duplicate` is set, rather than an error raised,
+    when the track was saved before.
     """
     reason = unsupported_reason(parsed)
     if reason is not None:
         raise UnsupportedInput(reason)
+    if parsed.kind == "local_file":
+        return prepare_file(parsed, settings=settings, tools=tools, job_id=job_id)
     tools = tools or Tools()
     with only_scmp_errors(where="data"):
         with link_ydl_maker(tools, parsed.kind)(token) as ydl:

@@ -204,10 +204,13 @@ function SaveAllDialog({ jobIds, count, onClose }) {
   `;
 }
 
-// Save all shows once two or more items wait for review, and asks before it saves them.
+// Save all shows once two or more items wait for review, and asks before it saves them. Files to
+// re-tag are left out, since each one may need the question about Spotify playlists.
 function SaveAll({ jobs }) {
   const [asking, setAsking] = useState(null);
-  const waiting = jobs.filter((job) => job.state === "needs_review" && tracksToSave(job) > 0);
+  const waiting = jobs.filter(
+    (job) => job.kind !== "retag" && job.state === "needs_review" && tracksToSave(job) > 0,
+  );
   const ask = () => {
     const count = waiting.reduce((sum, job) => sum + tracksToSave(job), 0);
     setAsking({ jobIds: waiting.map((job) => job.id), count });

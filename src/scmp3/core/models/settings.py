@@ -54,6 +54,8 @@ class Settings(Model):
     review_before_saving: bool = True
     download_while_reviewing: bool = True
     offer_clipboard_links: bool = True
+    # Before a re-tag changes a song's title, artist or album, warn that it drops out of playlists.
+    retag_playlist_warning: bool = True
     concurrent_downloads: DownloadsAtOnce = 2
     # Engine and updates
     check_app_updates: bool = True

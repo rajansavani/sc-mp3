@@ -51,6 +51,7 @@ MENU_CHANGES: dict[str, Any] = {
     "review_before_saving": False,
     "download_while_reviewing": False,
     "offer_clipboard_links": False,
+    "retag_playlist_warning": False,
     "concurrent_downloads": 4,
     "check_app_updates": False,
     "check_engine_updates": False,

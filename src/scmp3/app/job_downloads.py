@@ -34,6 +34,9 @@ class DownloadTasks(CoverTasks):
     def start_download(self, record: JobRecord) -> None:
         if "download" in record.tickets or record.staged is not None:
             return
+        if record.job.kind == "retag":
+            # A file being re-tagged is its own audio, so there's nothing to download.
+            return
         ticket = self._new_ticket(record, "download")
         if record.download_running:
             # A cancelled download is still stopping, and two mustn't share the staging folder.

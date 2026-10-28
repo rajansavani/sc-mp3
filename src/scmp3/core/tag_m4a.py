@@ -4,6 +4,7 @@ Call these through `tagger.write` and `tagger.read`, which check the values firs
 """
 
 import re
+from collections.abc import Callable, Collection
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +49,66 @@ def write_m4a(path: Path, tags: Tags, cover: Cover | None) -> None:
         audio.tags.update({key: old[key] for key in _M4A_KEPT_ATOMS if key in old})
         audio.tags.update(atoms)
         audio.save()
+
+
+def update_m4a(
+    path: Path, tags: Tags, fields: Collection[str], cover: Cover | None, replace_cover: bool
+) -> None:
+    """Rewrite only the atoms of `fields`, and the cover with `replace_cover`, keeping every
+    other atom, including ones mutagen can't read."""
+    with file_errors("update the M4A tags"):
+        audio = MP4(path)
+        if audio.tags is None:
+            audio.add_tags()
+        atoms = audio.tags
+        assert atoms is not None
+        for name in fields:
+            _UPDATES[name](atoms, tags)
+        if replace_cover:
+            _set_atom(atoms, "covr", _m4a_atoms(tags, cover).get("covr"))
+        audio.save()
+
+
+def _set_atom(atoms: MP4Tags, key: str, values: list[Any] | None) -> None:
+    """Replace an atom, or remove it when there's nothing to write, as write_m4a leaves it out."""
+    if values:
+        atoms[key] = values
+    elif key in atoms:
+        del atoms[key]
+
+
+def _text_update(name: str) -> Callable[[MP4Tags, Tags], None]:
+    key = _M4A_TEXT_ATOMS[name]
+
+    def update(atoms: MP4Tags, tags: Tags) -> None:
+        value = getattr(tags, name)
+        _set_atom(atoms, key, [value] if value else None)
+
+    return update
+
+
+def _update_genre(atoms: MP4Tags, tags: Tags) -> None:
+    # Other taggers' numeric genre would still be read when the text one is removed.
+    _set_atom(atoms, "gnre", None)
+    _set_atom(atoms, "©gen", [tags.genre] if tags.genre else None)
+
+
+def _update_year(atoms: MP4Tags, tags: Tags) -> None:
+    _set_atom(atoms, "©day", _m4a_atoms(tags, None).get("©day"))
+
+
+def _update_track(atoms: MP4Tags, tags: Tags) -> None:
+    _set_atom(atoms, "trkn", _m4a_atoms(tags, None).get("trkn"))
+
+
+# How a re-tag rewrites each field it changes, by the Tags field.
+_UPDATES: dict[str, Callable[[MP4Tags, Tags], None]] = {
+    **{name: _text_update(name) for name in ("title", "artist", "album", "album_artist")},
+    "year": _update_year,
+    "genre": _update_genre,
+    "track_no": _update_track,
+    "track_total": _update_track,
+}
 
 
 def read_m4a(path: Path) -> tuple[Tags, bytes | None]:

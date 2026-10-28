@@ -3,7 +3,7 @@ jobs in review on a worker, outside the lock."""
 
 import logging
 
-from scmp3.app.job_editing import EDITABLE_STATES
+from scmp3.app.job_editing import tags_can_change
 from scmp3.app.job_flow import JobFlow
 from scmp3.app.job_record import JobRecord, rebuilt_suggestion
 from scmp3.app.job_views import planned_path, rendered_tags
@@ -55,9 +55,7 @@ class SettingsFollowing:
                     record.artists,
                 )
                 for record in flow.tracks()
-                if record.job.state in EDITABLE_STATES
-                and record.job.suggestion
-                and record.job.source
+                if tags_can_change(record.job) and record.job.suggestion and record.job.source
             ]
         rebuilt = [
             (record, before, rebuilt_suggestion(before, source, toggles, settings, artists))

@@ -13,9 +13,11 @@ from pathlib import Path
 
 import pytest
 
-from scmp3.core import placing
+from scmp3.core import placing, placing_retag
 from scmp3.core.errors import ErrorKind, ScmpError
-from scmp3.core.placing import atomic_place, remove_leftovers, retag_in_place
+from scmp3.core.placing import atomic_place, remove_leftovers
+from scmp3.core.placing_retag import retag_in_place
+from tests.fixtures.local_files import close_handle, exclusive_handle
 
 NEW = b"ID3 the new audio"
 OLD = b"ID3 the old audio"
@@ -751,3 +753,102 @@ def test_a_file_that_cant_be_checked_without_strerror_is_logged_with_its_message
         assert remove_leftovers(tmp_path, now=lambda: NOW) == []
     assert "another copy just removed it" in caplog.text
     assert gone.exists()
+
+
+# Links and attributes a re-tag keeps
+
+
+def leftover_names(folder: Path) -> list[str]:
+    return sorted(path.name for path in folder.iterdir() if path.name.startswith("."))
+
+
+def test_retag_writes_to_the_real_file_behind_a_symlink(tmp_path: Path) -> None:
+    real = make_file(tmp_path / "real" / "Kaia - Song.mp3", OLD)
+    link = tmp_path / "library" / "Kaia - Song.mp3"
+    link.parent.mkdir()
+    try:
+        link.symlink_to(real)
+    except OSError:
+        pytest.skip("this account can't make symlinks")
+    retag_in_place(link, lambda copy: copy.write_bytes(NEW))
+    assert link.is_symlink()
+    assert real.read_bytes() == NEW
+    assert leftover_names(real.parent) == []
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows file attributes")
+def test_retag_keeps_a_files_hidden_attribute(tmp_path: Path) -> None:
+    song = make_file(tmp_path / "Kaia - Song.mp3", OLD)
+    subprocess.run(["attrib", "+h", str(song)], check=True)
+    retag_in_place(song, lambda copy: copy.write_bytes(NEW))
+    assert song.read_bytes() == NEW
+    assert song.stat().st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN
+
+
+def test_retag_writes_a_hard_linked_file_in_place_for_every_name(tmp_path: Path) -> None:
+    song = make_file(tmp_path / "library" / "Kaia - Song.mp3", OLD)
+    other = tmp_path / "library" / "Song (copy).mp3"
+    os.link(song, other)
+    retag_in_place(song, lambda copy: copy.write_bytes(NEW))
+    assert (song.read_bytes(), other.read_bytes()) == (NEW, NEW)
+    assert os.path.samefile(song, other)
+    assert leftover_names(song.parent) == []
+
+
+def test_a_hard_linked_file_that_fails_partway_is_put_back_from_its_backup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    song = make_file(tmp_path / "library" / "Kaia - Song.mp3", OLD * 1000)
+    other = tmp_path / "library" / "Song (copy).mp3"
+    os.link(song, other)
+    copy_into = placing_retag._copy_into
+    calls: list[Path] = []
+
+    def fail_the_first_copy(source: Path, file: object) -> None:
+        calls.append(source)
+        if len(calls) == 1:
+            file.write(b"half")  # type: ignore[attr-defined]
+            raise OSError(errno.ENOSPC, "No space left on device")
+        copy_into(source, file)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(placing_retag, "_copy_into", fail_the_first_copy)
+    with pytest.raises(ScmpError) as error_info:
+        retag_in_place(song, lambda copy: copy.write_bytes(NEW))
+    assert error_info.value.kind == ErrorKind.disk
+    assert (song.read_bytes(), other.read_bytes()) == (OLD * 1000, OLD * 1000)
+    assert leftover_names(song.parent) == []
+
+
+def test_a_backup_that_cant_be_put_back_stays_next_to_the_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    song = make_file(tmp_path / "library" / "Kaia - Song.mp3", OLD)
+    os.link(song, tmp_path / "library" / "Song (copy).mp3")
+
+    def always_fail(source: Path, file: object) -> None:
+        raise OSError(errno.EIO, "Input/output error")
+
+    monkeypatch.setattr(placing_retag, "_copy_into", always_fail)
+    with pytest.raises(ScmpError):
+        retag_in_place(song, lambda copy: copy.write_bytes(NEW))
+    backup = song.parent / ".Kaia - Song.mp3.retag.bak"
+    assert backup.read_bytes() == OLD
+    assert placing.LEFTOVER_NAME.fullmatch(backup.name) is None
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows locks a file another program has open")
+def test_a_hard_linked_file_another_program_holds_is_called_in_use(
+    tmp_path: Path, sleep: RecordingSleep
+) -> None:
+    song = make_file(tmp_path / "library" / "Kaia - Song.mp3", OLD)
+    os.link(song, tmp_path / "library" / "Song (copy).mp3")
+    handle = exclusive_handle(song)
+    try:
+        # The copy is taken through the other name, as the lock is on the file itself.
+        with pytest.raises(ScmpError) as error_info:
+            retag_in_place(song, lambda copy: copy.write_bytes(NEW), sleep=sleep)
+    finally:
+        close_handle(handle)
+    assert error_info.value.reason == "file_in_use"
+    assert song.read_bytes() == OLD
+    assert leftover_names(song.parent) == []

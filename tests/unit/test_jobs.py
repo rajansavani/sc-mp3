@@ -110,13 +110,6 @@ def test_inputs_that_cant_be_saved_are_rejected_with_a_code(
     assert jobs.events.events == []
 
 
-def test_files_are_rejected_until_re_tagging_exists(jobs: Harness, tmp_path: Path) -> None:
-    song = tmp_path / "old favorite.mp3"
-    song.write_bytes(b"audio")
-    answer = jobs.manager.add_inputs(str(song))
-    assert answer["rejected"] == [{"input": str(song), "reason": "FILES_NOT_SUPPORTED"}]
-
-
 def test_a_paste_that_is_too_long_says_so_without_an_input(jobs: Harness) -> None:
     text = " ".join(f"https://soundcloud.com/kaia/track-{n}" for n in range(2_001))
     answer = jobs.manager.add_inputs(text)

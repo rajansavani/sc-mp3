@@ -90,3 +90,5 @@ class SourceInfo(Model):
     original: OriginalDownload | None = None
     formats: list[FormatOption] = field(default_factory=list)
     playlist: PlaylistInfo | None = None
+    # A file's size and modified time when it was read, so a re-tag can tell it changed since.
+    file_stamp: str | None = None

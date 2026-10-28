@@ -6,7 +6,12 @@ import { SelectSetting, Switches, bind } from "./fields.js";
 export function WorkflowSection({ settings, form }) {
   return html`
     <${Switches}
-      names=${["review_before_saving", "download_while_reviewing", "offer_clipboard_links"]}
+      names=${[
+        "review_before_saving",
+        "download_while_reviewing",
+        "offer_clipboard_links",
+        "retag_playlist_warning",
+      ]}
       settings=${settings}
       form=${form}
     />

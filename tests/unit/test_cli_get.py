@@ -502,7 +502,7 @@ def test_a_terminal_keeps_its_encoding_and_shows_what_it_cant_as_a_question_mark
 ) -> None:
     terminal = cp1252(terminal=True)
     monkeypatch.setattr("sys.stdout", terminal)
-    cli_get._set_up_streams()
+    cli_get.set_up_streams()
     print("Kaia → 夜", file=terminal)
     terminal.flush()
     assert terminal.encoding == "cp1252"

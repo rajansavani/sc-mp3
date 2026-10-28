@@ -15,6 +15,7 @@ const SHAPES = {
     <path d="M21 17l-5-5-9 8" />
   `,
   crop: () => html`<path d="M6 2v14a2 2 0 0 0 2 2h14" /><path d="M2 6h14a2 2 0 0 1 2 2v14" />`,
+  pencil: () => html`<path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />`,
   check: () => html`<path d="M5 12.5l4.2 4.2L19 7" />`,
   undo: () => html`<path d="M4 10h11a5 5 0 0 1 0 10h-3" /><path d="M8 6l-4 4 4 4" />`,
   folder: () => html`

@@ -28,6 +28,7 @@ from scmp3.core.convert import AudioInfo
 from scmp3.core.errors import ScmpError
 from scmp3.core.models import FormatChoice, FormatOption, Settings, Tags
 from scmp3.core.pipeline import Staged
+from scmp3.core.sources import localfile
 from scmp3.core.suggest import InvalidOverride
 from scmp3.core.tagger import FileFormat
 
@@ -126,6 +127,8 @@ def job_view(
     record: JobRecord, settings: Settings, place: TrackPlace | None = None
 ) -> dict[str, Any]:
     """A track as the UI gets it. A track of an album set is shown at its `place` in the album."""
+    if record.job.kind == "retag":
+        return retag_view(record, settings)
     view = record.job.to_dict()
     tags = rendered_tags(record, settings, place)
     path = planned_path(record, tags, settings, place) if tags else None
@@ -138,6 +141,24 @@ def job_view(
     # The suggestion credits the list set by hand, so this only says whether Reset applies.
     view["artists_edited"] = record.artists is not None
     view["needs_main_artist"] = needs_main_artist(record.artists, record.job.overrides)
+    _add_cover_and_error(view, record)
+    return view
+
+
+def retag_view(record: JobRecord, settings: Settings) -> dict[str, Any]:
+    """A file to re-tag as the UI gets it. It keeps its name and audio, so there's no format.
+
+    `file_tags` holds the title, artist and album in the file now, which the UI compares with
+    the new ones before it asks about playlists.
+    """
+    view = record.job.to_dict()
+    tags = rendered_tags(record, settings)
+    source = record.job.source
+    view["tags"] = tags.to_dict() if tags else None
+    view["filename"] = Path(record.job.input).name
+    view["format"] = None
+    view["saves_once_in"] = False
+    view["file_tags"] = localfile.identity(source) if source else None
     _add_cover_and_error(view, record)
     return view
 

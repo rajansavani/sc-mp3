@@ -10,7 +10,7 @@ export default {
 
   // The top bar and the clipboard offer under it.
   pasteLabel: "Add links",
-  pastePlaceholder: "Paste SoundCloud or YouTube links",
+  pastePlaceholder: "Paste SoundCloud or YouTube links, or drop audio files to re-tag",
   add: "Add",
   signIn: "Sign in to SoundCloud",
   settings: "Settings",
@@ -25,29 +25,25 @@ export default {
   alreadyQueuedMany: (count) => `${number(count)} of these are already in the queue.`,
 
   // Why an added item was rejected, by the reason code add_inputs returns. The codes are the
-  // constant names in core/urls.py and core/inputs.py. Worded for SoundCloud tracks and sets and
-  // YouTube videos; T-062 widens them to files.
+  // constant names in core/urls.py and core/inputs.py.
   rejectReasons: {
-    NOT_SUPPORTED: "Not a link sc-mp3 can save. Paste a SoundCloud track or set, or a YouTube video link.",
+    NOT_SUPPORTED:
+      "Not a link sc-mp3 can save. Paste a SoundCloud or YouTube link, or add an MP3 or M4A file to re-tag.",
     SOUNDCLOUD_NOT_TRACK: "This SoundCloud link isn't a track or a set. Open the track or set and copy its link.",
     SHORT_LINK_DEAD_END:
       "This SoundCloud short link doesn't lead to a track. Open it in a browser and copy the track's link.",
     YOUTUBE_PLAYLIST: "YouTube playlists can't be saved yet. Paste the link of one video instead.",
     YOUTUBE_NOT_VIDEO: "This YouTube link isn't a video. Open the video and copy its link.",
-    FILE_NOT_FOUND: "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead.",
-    FOLDER_NOT_FILE: "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead.",
-    NOT_RETAGGABLE: "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead.",
+    FILE_NOT_FOUND: "File not found. Check the path.",
+    FOLDER_NOT_FILE: "Folders can't be added. Add the MP3 or M4A files inside the folder instead.",
+    NOT_RETAGGABLE: "Only MP3 and M4A files can be re-tagged.",
     PASTE_TOO_LONG:
       "Only the first 2,000 links, up to 1,000,000 characters, were read. Add the rest in another paste.",
     ALREADY_IN_QUEUE: "Already in the queue.",
     // Only a short link reaches the UI with this code, since the queue takes set links.
     SETS_NOT_SUPPORTED: "This short link leads to a SoundCloud set. Open it in a browser and paste the set's own link instead.",
-    FILES_NOT_SUPPORTED:
-      "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead.",
     // From the drop handler: two dropped files with the same name could get each other's paths.
-    // Worded like the other file refusals until T-062, which can bring back "Add them one at a time".
-    SAME_NAME_DROP:
-      "Fixing the tags of files you already have isn't possible yet. Paste a SoundCloud track link instead.",
+    SAME_NAME_DROP: "Two of the dropped files have the same name, so sc-mp3 can't tell them apart. Add them one at a time.",
   },
 
   // The queue.
@@ -86,7 +82,9 @@ export default {
 
   // The editor with nothing selected.
   emptyTitle: "Paste a SoundCloud or YouTube link to start",
-  emptyBody: "You check the title, artist and cover, then it saves as an MP3 ready for Spotify.",
+  emptyBody:
+    "You check the title, artist and cover, then it saves as an MP3 ready for Spotify. To fix the tags of songs you already have, drop the MP3 or M4A files here.",
+  openAudioFiles: "Open audio files",
   setsToo: "Sets and albums work too",
   pasteKeys: { mac: "⌘V", other: "Ctrl+V" },
   pasteHint: "anywhere adds the links on your clipboard",
@@ -160,6 +158,15 @@ export default {
   codecNames: { aac: "AAC", mp3: "MP3", opus: "Opus", vorbis: "Vorbis", flac: "FLAC", wav: "WAV", alac: "ALAC" },
   audioTargets: { mp3_320: "MP3 320 kbps", mp3_v0: "MP3 V0", m4a: "AAC in .m4a" },
 
+  // Re-tagging a file you already have.
+  retagTitle: "Re-tagging a file you already have",
+  retagBody: "Nothing is downloaded. Your changes are written into this file.",
+  noFileTitle: "The file has no title.",
+  playlistTitle: "Is this song in a Spotify playlist?",
+  playlistBody:
+    "Changing its title, artist or album makes Spotify treat it as a different song. It drops out of those playlists, so you'd add it back afterwards.",
+  playlistDontAsk: "Don't ask again",
+  playlistSave: "Save anyway",
   // Saving.
   skip: "Skip",
   save: "Save to library",
@@ -173,6 +180,7 @@ export default {
   savedWithoutCover: "Saved without a cover: the cover couldn't be downloaded.",
   retagSavedTitle: (name) => `Tags updated in ${name}`,
   retagSavedHint: "Spotify can take a moment to notice. If it doesn't, the Spotify help has three things to try.",
+  retagSavedWithoutCover: "The new cover couldn't be used, so the file keeps its old one.",
   showInFolder: "Show in folder",
   openSpotify: "Open Spotify",
   backToReview: "Back to review",
@@ -209,6 +217,8 @@ export default {
   },
   // The sizes use no-break spaces, so "1000 × 1000" never splits over two lines.
   coverCaption: (from, size) => (size ? `${from} · embedded at ${size}\u00a0×\u00a0${size}` : from),
+  // A re-tagged file's own cover, untouched, goes back into the file exactly as it was.
+  coverKept: (from) => `${from} · kept as it is`,
   smallCover: (width, height) =>
     `This cover is only ${width}\u00a0×\u00a0${height}, so it may look soft in Spotify.`,
   avatarCover: (name) =>

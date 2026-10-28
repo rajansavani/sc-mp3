@@ -45,15 +45,27 @@ export const ERROR_KINDS = {
   },
   bot_check: { tone: "warn", icon: "error", actions: ["retry", "remove"] },
   offline: { tone: "warn", icon: "offline", actions: ["retry_now", "remove"] },
-  convert_failed: { tone: "danger", icon: "error", actions: ["retry", "remove"] },
+  convert_failed: {
+    tone: "danger",
+    icon: "error",
+    actions: ["retry", "remove"],
+    variants: {
+      unreadable_file: { actions: ["remove"] },
+      tag_write_failed: { actions: ["retry", "remove"] },
+    },
+  },
   disk: {
     tone: "danger",
     icon: "folder",
     actions: ["choose_folder", "retry", "remove"],
     variants: {
-      // Another library folder wouldn't help with these two, so it isn't offered.
+      // Another library folder wouldn't help with these, so it isn't offered.
       data: { actions: ["retry", "remove"] },
+      file: { actions: ["retry", "remove"] },
       file_in_use: { icon: "error", actions: ["retry", "remove"] },
+      file_missing: { icon: "error", actions: ["retry", "remove"] },
+      file_locked: { icon: "error", actions: ["retry", "remove"] },
+      file_changed: { tone: "warn", icon: "error", actions: ["reload_file", "remove"], primary: true },
     },
   },
   duplicate: { tone: "warn", icon: "clock", actions: ["show_it", "save_again", "remove"] },
@@ -222,13 +234,14 @@ export function cropStyle(crop) {
   };
 }
 
-// What an error says more exactly than its kind: its reason, such as a file in use, or else that
-// a disk error was about sc-mp3's own data folder rather than the library (TECH_SPEC §9).
+// What an error says more exactly than its kind: its reason, such as a file in use, or else the
+// folder a disk error was about when that isn't the library: sc-mp3's own data folder, or the
+// folder of a file being re-tagged (TECH_SPEC §9).
 export function errorVariant(job) {
   const error = job.error;
   if (!error) return null;
   if (error.reason) return error.reason;
-  return error.where === "data" ? "data" : null;
+  return error.where && error.where !== "library" ? error.where : null;
 }
 
 // An entry with the parts its variant replaces, for a table of kinds such as ERROR_KINDS.
@@ -312,32 +325,4 @@ export function savedOn(isoDate) {
   const sameYear = date.getFullYear() === new Date().getFullYear();
   const options = sameYear ? { month: "short", day: "numeric" } : { dateStyle: "medium" };
   return new Intl.DateTimeFormat("en-US", options).format(date);
-}
-
-// The audio line for a job, such as "AAC 160 kbps stream → MP3 320 kbps", or null.
-export function audioLine(job, settings) {
-  if (job.kind === "retag") return text.retagAudio;
-  const format = job.format?.format;
-  if (!format) return null;
-  const target = settings?.audio_format ?? "mp3_320";
-  const from = audioSource(format);
-  if (isCopied(format, target)) return text.audioCopied(from);
-  return text.audioConverted(from, text.audioTargets[target]);
-}
-
-function codecName(format) {
-  const codec = format.codec ?? format.ext;
-  return text.codecNames[codec] ?? codec.toUpperCase();
-}
-
-function audioSource(format) {
-  if (format.is_original) return text.audioOriginal(codecName(format));
-  return text.audioStream(codecName(format), format.bitrate ? Math.round(format.bitrate) : null);
-}
-
-// MP3 sources stay as they are, and so does AAC when it's kept as .m4a.
-function isCopied(format, target) {
-  const codec = format.codec ?? format.ext;
-  if (codec === "mp3") return target.startsWith("mp3");
-  return codec === "aac" && target === "m4a";
 }

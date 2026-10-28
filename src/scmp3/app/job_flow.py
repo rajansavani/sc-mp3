@@ -2,7 +2,8 @@
 
 Every method here expects the caller to hold `lock`, except the tasks, which take it themselves,
 as job_book.py describes. The download tasks are in job_downloads.py, the cover tasks in
-job_cover_tasks.py, and listing a set in job_set_tasks.py.
+job_cover_tasks.py, listing a set in job_set_tasks.py, and restoring and retrying jobs in
+job_retries.py.
 """
 
 import logging
@@ -13,18 +14,18 @@ from typing import Protocol
 from scmp3.app.events import EventBus
 from scmp3.app.input_reasons import reason_code
 from scmp3.app.job_artists import needs_main_artist
-from scmp3.app.job_book import unexpected_error
+from scmp3.app.job_book import queue_key, unexpected_error
 from scmp3.app.job_covers import CoverReader, CoverView
 from scmp3.app.job_downloads import DOWNLOAD_SPACING
 from scmp3.app.job_record import JobRecord, Ticket, rebuilt_suggestion
-from scmp3.app.job_saving import CollisionQuestion, save, save_order
-from scmp3.app.job_set_tasks import SetTasks
+from scmp3.app.job_retries import RetryTasks
+from scmp3.app.job_saving import CollisionQuestion, retag, retag_order, save, save_order
 from scmp3.app.job_steps import Steps
 from scmp3.app.workers import Pool, Spacing, Timers
 from scmp3.core import pipeline
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.inputs import ParsedInput
-from scmp3.core.models import Job, JobState, Settings
+from scmp3.core.models import Job, JobKind, JobState, Settings
 from scmp3.core.suggest import InvalidOverride
 from scmp3.core.urls import UnsupportedInput
 
@@ -35,6 +36,8 @@ RESOLVE_SPACING: dict[str, float] = {"youtube": 2.0}
 # Saves run one at a time, so two can't pick the same free file name (T-016).
 SAVE_WORKERS = 1
 MISC_WORKERS = 2
+# The kind of job each kind of input makes, besides a track.
+JOB_KINDS: dict[str, JobKind] = {"soundcloud_set": "set", "local_file": "retag"}
 
 SaveOutcome = pipeline.Saved | ScmpError | None
 
@@ -54,7 +57,7 @@ class PoolMaker(Protocol):
     ) -> Pool: ...
 
 
-class JobFlow(SetTasks):
+class JobFlow(RetryTasks):
     """The jobs and the pools that run their steps."""
 
     def __init__(
@@ -87,9 +90,12 @@ class JobFlow(SetTasks):
     # Adding and resolving
 
     def queue(self, parsed: ParsedInput) -> JobRecord:
-        """Add a job for a supported input and start resolving it, or listing it if it's a set."""
-        kind = "set" if parsed.kind == "soundcloud_set" else "track"
-        job = Job(id=uuid.uuid4().hex, kind=kind, input=parsed.url or parsed.raw)
+        """Add a job for a supported input and start resolving it, or listing it if it's a set.
+
+        A file's job is a re-tag, which reads the file instead of resolving a link.
+        """
+        kind = JOB_KINDS.get(parsed.kind, "track")
+        job = Job(id=uuid.uuid4().hex, kind=kind, input=queue_key(parsed) or parsed.raw)
         record = JobRecord(job=job, parsed=parsed)
         self.add_record(record)
         self.publish(record)
@@ -153,6 +159,10 @@ class JobFlow(SetTasks):
             self.links.add(prepared.source.url, record)
             # A set's track saves with its album's cover, or else loads its own when it saves.
             self.start_source_cover(record)
+        if job.kind == "retag":
+            # A file is never re-tagged unseen, whatever the review setting says (PLAN §4.7).
+            self.publish(record)
+            return
         if self.settings.download_while_reviewing and job.included:
             self.start_download(record)
         if job.included and record.wants_save:
@@ -228,7 +238,10 @@ class JobFlow(SetTasks):
             for track in record.children:
                 self.save_if_ready(track)
             return
-        if record.job.state != JobState.saving or record.staged is None:
+        if record.job.state != JobState.saving:
+            return
+        # A re-tag writes into the file itself, so it has no audio to wait for.
+        if record.staged is None and record.job.kind != "retag":
             return
         if any(step in record.tickets for step in ("cover", "source_cover", "save")):
             return
@@ -271,6 +284,9 @@ class JobFlow(SetTasks):
         """The save, taken now and run on the save worker. A set's track saves with its set."""
         if record.parent is not None:
             return self._set_track_save(record)
+        if record.job.kind == "retag":
+            retagging = retag_order(record, self.settings)
+            return lambda: retag(retagging, self._steps)
         order = save_order(record, self.settings)
         return lambda: save(order, self._steps)
 
@@ -298,47 +314,4 @@ class JobFlow(SetTasks):
             job.output_path = outcome.path if outcome else None
             record.cover_error = outcome.cover_error if outcome else None
             job.state = JobState.saved if outcome is not None else JobState.skipped
-        self.publish(record)
-
-    # Bringing jobs back after a restart
-
-    def restore(self, record: JobRecord) -> None:
-        """Put a job from queue.json at the end of the queue, and start the work it waits for,
-        and its tracks' if it's a set."""
-        self.add_record(record)
-        for job_record in (record, *record.children):
-            self._resume(job_record)
-
-    def _resume(self, record: JobRecord) -> None:
-        job = record.job
-        if job.state == JobState.queued:
-            self._start_resolving(record)
-        elif job.state == JobState.needs_review and record.prepared is not None:
-            # A download the person stopped stays stopped, as it was before the restart.
-            wanted = self.settings.download_while_reviewing and job.included
-            if wanted and not record.download_cancelled:
-                self.start_download(record)
-        elif job.error is not None:
-            self._schedule_auto_retry(record, job.error)
-
-    # Retrying
-
-    def retry(self, record: JobRecord) -> None:
-        """Run the failed step again, then carry on to where the job was going (TECH_SPEC §15)."""
-        job = record.job
-        kind = job.error.kind if job.error else None
-        self._cancel_auto_retry(record)
-        job.error = None
-        if kind == ErrorKind.convert_failed and record.staged is not None:
-            # The staged audio may be what failed, so it's downloaded again.
-            record.stale_audio = record.staged.path
-            record.staged = None
-            job.staged_audio = None
-        if record.failed_step == "resolve" or record.prepared is None:
-            self._start_resolving(record)
-        elif record.failed_step == "download" and not record.wants_save:
-            job.state = JobState.needs_review
-            self.start_download(record)
-        else:
-            self.start_saving(record)
         self.publish(record)

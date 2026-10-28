@@ -1,4 +1,5 @@
 // The editor for one track or re-tagged file: the cover, the fields, the cleanups and the actions.
+// A re-tag adds its banner and asks about playlists before a save, from RetagParts.js.
 import { html } from "htm/preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 
@@ -15,6 +16,7 @@ import { useFieldDrafts } from "./field-drafts.js";
 import { dialogIsOpen, isEditable } from "./inputs.js";
 import { focusSelectedItem, moveToNextReview, removeJob } from "./job-actions.js";
 import { linkText, sourceName } from "./job-view.js";
+import { PlaylistDialog, RetagBanner, renamesSong, usePlaylistQuestion } from "./RetagParts.js";
 
 const text = strings.main;
 
@@ -59,14 +61,16 @@ function useEnterToSave(onEnter) {
 }
 
 // Sends what's still being typed, then saves. A refused field gets focus instead.
-// `beforeSave` runs first, so a question closed without an answer can come up again. `afterSave`
-// moves focus on, since the fields lock while saving.
-async function saveJob(job, drafts, beforeSave, afterSave) {
+// `confirm` can ask first and resolve false to stay in review. `beforeSave` runs next, so a
+// question closed without an answer can come up again. `afterSave` moves focus on, since the
+// fields lock while saving.
+async function saveJob(job, drafts, { confirm, beforeSave, afterSave }) {
   if (!canSave(job)) return;
   if (!(await drafts.flush())) {
     document.getElementById(fieldId(drafts.firstRefused()))?.focus();
     return;
   }
+  if (!(await confirm())) return;
   beforeSave();
   if (reportError(await api.save([job.id]))) return;
   afterSave(job);
@@ -74,11 +78,24 @@ async function saveJob(job, drafts, beforeSave, afterSave) {
 
 // The Save button stays on the job, to show where it went. Enter goes on to the next job that
 // needs review, so a batch can be saved one Enter at a time.
-function useSave(job, drafts, beforeSave) {
+function useSave(job, drafts, { confirm, beforeSave }) {
+  const steps = { confirm, beforeSave };
   return {
-    save: () => saveJob(job, drafts, beforeSave, focusSelectedItem),
-    saveAndNext: () => saveJob(job, drafts, beforeSave, moveToNextReview),
+    save: () => saveJob(job, drafts, { ...steps, afterSave: focusSelectedItem }),
+    saveAndNext: () => saveJob(job, drafts, { ...steps, afterSave: moveToNextReview }),
   };
+}
+
+// A re-tag that gives the song a new title, artist or album asks about playlists first, unless
+// that was turned off.
+function usePlaylistCheck(job, settings, drafts) {
+  const question = usePlaylistQuestion();
+  const confirm = async () => {
+    if (settings?.retag_playlist_warning === false) return true;
+    if (!renamesSong(job, drafts.value)) return true;
+    return question.ask();
+  };
+  return { question, confirm };
 }
 
 // The question about a file with the same name, shown until it's answered or closed. Closing it
@@ -92,14 +109,15 @@ function useCollisionQuestion(job) {
 
 function EditorHeader({ job, jobs }) {
   const waiting = jobs.filter((other) => other.state === "needs_review").length;
-  const link = job.source?.url ?? job.input;
+  // A re-tagged file's path is in its banner instead.
+  const link = job.kind === "retag" ? null : (job.source?.url ?? job.input);
   return html`
     <div class="editor-header">
       <div class="editor-heading">
         <h1 class="editor-title" tabindex="-1">${text.reviewTitle}</h1>
         ${waiting > 0 && html`<span class="editor-waiting">${text.waiting(waiting)}</span>`}
       </div>
-      <span class="editor-link">${linkText(link)}</span>
+      ${link && html`<span class="editor-link">${linkText(link)}</span>`}
     </div>
   `;
 }
@@ -131,16 +149,22 @@ function TopBanner({ job, settings, onSave }) {
   if (job.duplicate && job.state === "needs_review") {
     return html`<${DuplicateBanner} job=${job} onSave=${onSave} />`;
   }
+  if (job.kind === "retag") return html`<${RetagBanner} job=${job} />`;
   return null;
 }
 
 function ReviewForm({ job, jobs, settings }) {
   const drafts = useFieldDrafts(job, renderedValue);
   const question = useCollisionQuestion(job);
-  const { save, saveAndNext } = useSave(job, drafts, question.reopen);
+  const playlist = usePlaylistCheck(job, settings, drafts);
+  const { save, saveAndNext } = useSave(job, drafts, {
+    confirm: playlist.confirm,
+    beforeSave: question.reopen,
+  });
   useEnterToSave(saveAndNext);
-  // Once saving starts, the tags are settled. A failed save can still be fixed and retried.
-  const editable = job.state === "needs_review" || job.state === "error";
+  // Once saving starts, the tags are settled. A failed save can still be fixed and retried,
+  // except a re-tag's, whose Retry writes the tags the playlist question was about.
+  const editable = job.state === "needs_review" || (job.state === "error" && job.kind !== "retag");
   return html`
     <div class="track-editor">
       <${EditorHeader} job=${job} jobs=${jobs} />
@@ -155,6 +179,8 @@ function ReviewForm({ job, jobs, settings }) {
       <${OutputStrip} job=${job} settings=${settings} />
       <${ActionBar} job=${job} onSave=${save} />
       ${question.open && html`<${CollisionDialog} job=${job} onClose=${question.close} />`}
+      ${playlist.question.open &&
+      html`<${PlaylistDialog} onClose=${playlist.question.close} />`}
     </div>
   `;
 }

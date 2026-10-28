@@ -32,8 +32,8 @@ from scmp3.core.sources import soundcloud_sets
 
 
 class Steps(Protocol):
-    """Resolving, downloading, saving, cleaning up and restoring a job, and listing and saving a
-    set. Only the restores are quick."""
+    """Resolving, downloading, saving, re-tagging, cleaning up and restoring a job, and listing
+    and saving a set. Only the restores are quick."""
 
     def prepare(self, parsed: ParsedInput, *, settings: Settings, job_id: str) -> Prepared: ...
 
@@ -66,6 +66,10 @@ class Steps(Protocol):
         overrides: dict[str, str],
         ask: AskFn,
     ) -> Saved | None: ...
+
+    def retag(
+        self, prepared: Prepared, tags: Tags, cover: ArtworkChoice, settings: Settings
+    ) -> Saved: ...
 
     def discard(self, prepared: Prepared) -> None: ...
 
@@ -155,6 +159,11 @@ class PipelineSteps:
             overrides=overrides,
             ask=ask,
         )
+
+    def retag(
+        self, prepared: Prepared, tags: Tags, cover: ArtworkChoice, settings: Settings
+    ) -> Saved:
+        return pipeline.retag(prepared, tags, cover, settings)
 
     def discard(self, prepared: Prepared) -> None:
         pipeline.discard(prepared)

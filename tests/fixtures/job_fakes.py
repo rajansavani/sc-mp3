@@ -45,6 +45,10 @@ OTHER = "https://soundcloud.com/kaia/night-bus"
 TITLE = "Midnight Drive (feat. Lou V) [prod. Hazy]"
 OTHER_TITLE = "Night Bus"
 ARTWORK = "https://i1.sndcdn.com/artworks-000243916348-ktoo7d-t500x500.jpg"
+# The tags a file to re-tag holds, as the fake reads them.
+FILE_TITLE = "Sunday Mornings (Official Audio)"
+FILE_ARTIST = "Teo Marr"
+FILE_ALBUM = "Sunday Mornings"
 AAC_STREAM = FormatOption(format_id="hls_aac_160k", ext="m4a", codec="aac", bitrate=160.0)
 PREVIEW = "data:image/jpeg;base64,AAAA"
 
@@ -66,6 +70,20 @@ def source_for(url: str, title: str = TITLE) -> SourceInfo:
     )
 
 
+def file_source(path: Path) -> SourceInfo:
+    """A file to re-tag, as localfile.read_file makes its source."""
+    return SourceInfo(
+        kind="file",
+        id=str(path),
+        url=str(path),
+        title=FILE_TITLE,
+        uploader=FILE_ARTIST,
+        artists=[FILE_ARTIST],
+        album=FILE_ALBUM,
+        duration=200.0,
+    )
+
+
 def no_ydl(*args: Any, **kwargs: Any) -> Any:
     raise AssertionError("the fake pipeline never uses yt-dlp")
 
@@ -81,6 +99,13 @@ class FinalizeCall:
 
 
 @dataclass
+class RetagCall:
+    tags: Tags
+    cover: ArtworkChoice
+    settings: Settings
+
+
+@dataclass
 class FakeSteps:
     """The pipeline's slow steps. Failures wait in lists, each raised by the next call."""
 
@@ -89,6 +114,7 @@ class FakeSteps:
     prepare_errors: list[Exception] = field(default_factory=list)
     fetch_errors: list[Exception] = field(default_factory=list)
     finalize_errors: list[Exception] = field(default_factory=list)
+    retag_errors: list[Exception] = field(default_factory=list)
     # Why the next saves' covers couldn't be loaded, as finalize reports it.
     cover_errors: list[ScmpError] = field(default_factory=list)
     # Called in the middle of a step, as a user acting while it runs would.
@@ -105,6 +131,7 @@ class FakeSteps:
     # The settings each download's format came from, as they were when it ran.
     fetched_settings: list[Settings] = field(default_factory=list)
     finalized: list[FinalizeCall] = field(default_factory=list)
+    retagged: list[RetagCall] = field(default_factory=list)
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
     def _called(self, step: str, job_id: str) -> None:
@@ -129,8 +156,12 @@ class FakeSteps:
         error = self._next_error(self.prepare_errors)
         if error:
             raise error
-        assert parsed.url is not None
-        source = self.sources.get(parsed.url) or source_for(parsed.url)
+        if parsed.kind == "local_file":
+            assert parsed.path is not None
+            source = file_source(parsed.path)
+        else:
+            assert parsed.url is not None
+            source = self.sources.get(parsed.url) or source_for(parsed.url)
         return Prepared(
             job_id=job_id,
             source=source,
@@ -224,6 +255,21 @@ class FakeSteps:
         with self._lock:
             cover_error = self.cover_errors.pop(0) if self.cover_errors else None
         return Saved(dest, cover_error)
+
+    def retag(
+        self, prepared: Prepared, tags: Tags, cover: ArtworkChoice, settings: Settings
+    ) -> Saved:
+        self._called("retag", prepared.job_id)
+        if self.during_finalize is not None:
+            self.during_finalize()
+        self.retagged.append(RetagCall(tags, cover, settings))
+        error = self._next_error(self.retag_errors)
+        if error:
+            raise error
+        pipeline.discard(prepared)
+        with self._lock:
+            cover_error = self.cover_errors.pop(0) if self.cover_errors else None
+        return Saved(Path(prepared.source.id), cover_error)
 
     def discard(self, prepared: Prepared) -> None:
         self._called("discard", prepared.job_id)

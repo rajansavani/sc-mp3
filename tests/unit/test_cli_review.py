@@ -18,6 +18,7 @@ from scmp3.cli_review import (
     read_answer,
     review_text,
     run_review,
+    saving_text,
 )
 from scmp3.core import pipeline
 from scmp3.core.convert import AudioInfo
@@ -167,7 +168,7 @@ def test_anything_else_gets_the_help(review: TrackReview) -> None:
 def test_enter_saves_the_tags_as_the_review_left_them(
     review: TrackReview, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    tags = run_review(review, staged(), scripted("year 2024", "bogus", ""))
+    tags = run_review(review, saving_text(staged()), scripted("year 2024", "bogus", ""))
     assert tags is not None
     assert tags.year == 2024
     shown = capsys.readouterr()
@@ -177,7 +178,7 @@ def test_enter_saves_the_tags_as_the_review_left_them(
 
 @pytest.mark.parametrize("answer", ["q", "skip", " Q "])
 def test_q_skips_the_track(review: TrackReview, answer: str) -> None:
-    assert run_review(review, staged(), scripted(answer)) is None
+    assert run_review(review, saving_text(staged()), scripted(answer)) is None
 
 
 def test_the_review_shows_the_original_the_fields_the_changes_and_the_file(

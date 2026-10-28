@@ -40,10 +40,10 @@ from scmp3.core.tag_common import file_errors, joined
 SOURCE_ID_DESC = "SCMP3_SOURCE_ID"
 
 # ID3v2.3 has no UTF-8, so text frames use UTF-16.
-_TEXT_ENCODING = Encoding.UTF16
+TEXT_ENCODING = Encoding.UTF16
 
 # The plain text frames, by the Tags field each one holds.
-_MP3_TEXT_FRAMES: dict[str, type[TextFrame]] = {
+MP3_TEXT_FRAMES: dict[str, type[TextFrame]] = {
     "title": TIT2,
     "artist": TPE1,
     "album_artist": TPE2,
@@ -68,7 +68,7 @@ _MOVE_CHUNK_BYTES = 1024 * 1024
 
 def write_mp3(path: Path, tags: Tags, cover: Cover | None) -> None:
     """Replace the MP3's tags with an ID3v2.3 tag of the §10 frames, and remove any ID3v1 tag."""
-    _check_mpeg_audio(path)
+    check_mpeg_audio(path)
     id3 = ID3()
     for frame in _mp3_frames(tags, cover):
         id3.add(frame)
@@ -76,7 +76,7 @@ def write_mp3(path: Path, tags: Tags, cover: Cover | None) -> None:
     id3.update_to_v23()
     # Added after the update, which would turn a genre like "140" into an ID3v1 genre name.
     if tags.genre:
-        id3.add(TCON(encoding=_TEXT_ENCODING, text=[_escape_genre(tags.genre)]))
+        id3.add(TCON(encoding=TEXT_ENCODING, text=[escape_genre(tags.genre)]))
     with file_errors("write the MP3 tags"):
         # The new tag replaces the first old ID3v2 tag whole, so none of its frames survive.
         id3.save(path, v2_version=3, v1=ID3v1SaveOptions.REMOVE)
@@ -96,7 +96,7 @@ def read_mp3(path: Path) -> tuple[Tags, bytes | None]:
         from_id3v1 = id3.version < (2, 0, 0)
         # This turns v2.2 and v2.3 frames into the v2.4 ones read below, such as TYER into TDRC.
         id3.update_to_v24()
-    texts = {name: _id3_text(id3, frame.__name__) for name, frame in _MP3_TEXT_FRAMES.items()}
+    texts = {name: _id3_text(id3, frame.__name__) for name, frame in MP3_TEXT_FRAMES.items()}
     track_no, track_total = _parse_track(_id3_text(id3, "TRCK"))
     tags = Tags(
         title=texts["title"] or "",
@@ -116,7 +116,7 @@ def read_mp3(path: Path) -> tuple[Tags, bytes | None]:
     return tags, _id3_cover(id3)
 
 
-def _check_mpeg_audio(path: Path) -> None:
+def check_mpeg_audio(path: Path) -> None:
     """Refuse a file with no MPEG audio, such as an M4A named .mp3, which a tag would break."""
     # This also refuses a missing file, where mutagen would create one holding only the tag.
     with file_errors("read the MP3 audio"), path.open("rb") as file:
@@ -188,35 +188,39 @@ def _blank_tags() -> Tags:
 def _mp3_frames(tags: Tags, cover: Cover | None) -> list[Frame]:
     """The ID3 frames for `tags` and `cover`, except the genre, leaving out empty fields."""
     frames: list[Frame] = []
-    for name, frame_type in _MP3_TEXT_FRAMES.items():
+    for name, frame_type in MP3_TEXT_FRAMES.items():
         value = getattr(tags, name)
         if value:
-            frames.append(frame_type(encoding=_TEXT_ENCODING, text=[value]))
+            frames.append(frame_type(encoding=TEXT_ENCODING, text=[value]))
     if tags.year is not None:
-        frames.append(TDRC(encoding=_TEXT_ENCODING, text=[f"{tags.year:04d}"]))
-    track = _track_text(tags.track_no, tags.track_total)
+        frames.append(TDRC(encoding=TEXT_ENCODING, text=[f"{tags.year:04d}"]))
+    track = track_text(tags.track_no, tags.track_total)
     if track:
-        frames.append(TRCK(encoding=_TEXT_ENCODING, text=[track]))
+        frames.append(TRCK(encoding=TEXT_ENCODING, text=[track]))
     if tags.comment:
-        frames.append(COMM(encoding=_TEXT_ENCODING, lang="eng", desc="", text=[tags.comment]))
+        frames.append(COMM(encoding=TEXT_ENCODING, lang="eng", desc="", text=[tags.comment]))
     if tags.source_url:
         frames.append(WOAS(url=_ascii_url(tags.source_url)))
     if tags.source_id:
-        frames.append(TXXX(encoding=_TEXT_ENCODING, desc=SOURCE_ID_DESC, text=[tags.source_id]))
+        frames.append(TXXX(encoding=TEXT_ENCODING, desc=SOURCE_ID_DESC, text=[tags.source_id]))
     if cover is not None:
-        # Latin-1 for the empty description, which old players read most reliably.
-        picture = APIC(
-            encoding=Encoding.LATIN1,
-            mime="image/jpeg",
-            type=PictureType.COVER_FRONT,
-            desc="",
-            data=cover.jpeg,
-        )
-        frames.append(picture)
+        frames.append(picture_frame(cover))
     return frames
 
 
-def _track_text(track_no: int | None, track_total: int | None) -> str | None:
+def picture_frame(cover: Cover) -> APIC:
+    """The front cover frame for a finished cover."""
+    # Latin-1 for the empty description, which old players read most reliably.
+    return APIC(
+        encoding=Encoding.LATIN1,
+        mime="image/jpeg",
+        type=PictureType.COVER_FRONT,
+        desc="",
+        data=cover.jpeg,
+    )
+
+
+def track_text(track_no: int | None, track_total: int | None) -> str | None:
     """TRCK's text: `n`, or `n/N` when the total is known."""
     if track_no is None:
         return None
@@ -225,7 +229,7 @@ def _track_text(track_no: int | None, track_total: int | None) -> str | None:
     return f"{track_no}/{track_total}"
 
 
-def _escape_genre(genre: str) -> str:
+def escape_genre(genre: str) -> str:
     """ID3 reads a "(" at the start as an ID3v1 genre reference, so a real one is doubled."""
     return f"({genre}" if genre.startswith("(") else genre
 

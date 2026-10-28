@@ -25,6 +25,8 @@ const ACTIONS = {
   sign_in_go_plus: () => openDialog("sign_in"),
   sign_in_again: () => openDialog("sign_in"),
   choose_folder: (job) => chooseAnotherFolder(job),
+  // Python reads a re-tag's changed file again on Retry, starting the review over.
+  reload_file: (job) => retryJob(job),
   show_it: (job) => revealPath(job.duplicate?.saved_path),
   save_again: (job, onSave) => onSave(),
   add_youtube_support: () => openDialog("youtube_support"),

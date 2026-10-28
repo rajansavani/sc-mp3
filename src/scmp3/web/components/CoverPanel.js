@@ -168,6 +168,14 @@ function coverFrom(job) {
   return text.coverFrom[sourceKind(job)];
 }
 
+// Where the cover comes from and the size it's embedded at. A re-tagged file's own cover, not
+// cropped, isn't processed at all.
+function caption(job, embedded) {
+  const untouched = job.kind === "retag" && job.artwork?.kind === "source" && !job.artwork.crop;
+  if (untouched && job.cover_url) return text.coverKept(coverFrom(job));
+  return text.coverCaption(coverFrom(job), embedded);
+}
+
 export function CoverPanel({ job, settings, editable = true }) {
   const panel = useRef(null);
   const image = useCoverImage(job.cover_url);
@@ -201,7 +209,7 @@ export function CoverPanel({ job, settings, editable = true }) {
           <span>${text.crop}</span>
         </button>
       </div>
-      <span class="cover-caption">${text.coverCaption(coverFrom(job), embedded)}</span>
+      <span class="cover-caption">${caption(job, embedded)}</span>
       ${dialog === "replace" && html`<${ReplaceCoverDialog} job=${job} onClose=${close} />`}
       ${dialog === "crop" &&
       canCrop &&

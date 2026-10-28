@@ -49,6 +49,7 @@ MENU_DEFAULTS: dict[str, Any] = {
     "review_before_saving": True,
     "download_while_reviewing": True,
     "offer_clipboard_links": True,
+    "retag_playlist_warning": True,
     "concurrent_downloads": 2,
     # Engine and updates
     "check_app_updates": True,

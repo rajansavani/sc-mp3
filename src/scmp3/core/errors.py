@@ -6,8 +6,9 @@ The app's wording for each kind is in `web/strings`, and the command line's is i
 from enum import StrEnum
 from typing import Literal
 
-# Which folder a disk error was about: the library, or sc-mp3's own data, cache and staging.
-ErrorPlace = Literal["library", "data"]
+# Which folder a disk error was about: the library, sc-mp3's own data, cache and staging, or the
+# folder of a file being re-tagged.
+ErrorPlace = Literal["library", "data", "file"]
 # What went wrong more exactly, for errors whose kind alone would give the wrong advice. The UI
 # has text for each.
 ErrorReason = Literal[
@@ -23,6 +24,16 @@ ErrorReason = Literal[
     "paid",
     "removed",
     "live_stream",
+    # The file to re-tag has gone, or its drive isn't connected.
+    "file_missing",
+    # The file to re-tag isn't MP3 or M4A audio sc-mp3 can read, whatever its extension says.
+    "unreadable_file",
+    # The file to re-tag is there but can't be read, as when another program holds it.
+    "file_locked",
+    # Another program changed the file since sc-mp3 read it, so it isn't overwritten.
+    "file_changed",
+    # mutagen couldn't write the new tags into the copy of a file being re-tagged.
+    "tag_write_failed",
 ]
 
 

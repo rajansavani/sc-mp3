@@ -1,4 +1,5 @@
-"""One save, as the save worker runs it: check the file name, then tag and move the file.
+"""One save, as the save worker runs it: check the file name, then tag and move the file. A
+re-tag writes into the file where it is instead.
 
 A taken name under the "ask" policy comes back as a question instead of waiting for an answer,
 so the one save worker never sits blocked on the user (T-016).
@@ -104,6 +105,48 @@ def save(order: SaveOrder, steps: Steps) -> pipeline.Saved | CollisionQuestion |
         overrides=order.overrides,
         ask=keep_both,
     )
+
+
+@dataclass(frozen=True)
+class RetagOrder:
+    """Everything one re-tag needs, taken under the lock like a SaveOrder. There's no audio to
+    wait for and no name to check, since the file keeps its own."""
+
+    prepared: pipeline.Prepared
+    suggestion: TagSuggestion
+    overrides: dict[str, str]
+    style: TitleStyle | None
+    artwork: ArtworkChoice
+    settings: Settings
+
+
+def retag_order(record: JobRecord, settings: Settings) -> RetagOrder:
+    """What a re-tag job writes, as it is now. The job must be resolved."""
+    job = record.job
+    if record.prepared is None or job.suggestion is None:
+        raise ValueError("a file is re-tagged only once it's read")
+    return RetagOrder(
+        prepared=record.prepared,
+        suggestion=job.suggestion,
+        overrides=dict(job.overrides),
+        style=job.style,
+        # As chosen, not the kept copy: an untouched cover of the file's own stays as it is.
+        artwork=job.artwork,
+        settings=settings,
+    )
+
+
+def retag(order: RetagOrder, steps: Steps) -> pipeline.Saved:
+    """Write the reviewed tags into the file. Raises ScmpError, or InvalidOverride for hand edits
+    that can't be rendered."""
+    tags = pipeline.render_tags(
+        order.prepared.source,
+        order.suggestion,
+        order.settings,
+        style=order.style,
+        overrides=order.overrides,
+    )
+    return steps.retag(order.prepared, tags, order.artwork, order.settings)
 
 
 def answered_policy(order: SaveOrder, planned: Path) -> CollisionPolicy:

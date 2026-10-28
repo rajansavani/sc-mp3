@@ -103,6 +103,7 @@ function StalePanel() {
         `,
       )}
     </ol>
+    <p class="help-note">${text.staleNote}</p>
   `;
 }
 

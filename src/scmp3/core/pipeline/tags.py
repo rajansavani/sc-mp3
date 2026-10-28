@@ -36,6 +36,9 @@ def render_tags(
     """
     tags = render(suggestion, style, overrides or {}, settings)
     _check_numbers(tags)
+    if source.kind == "file":
+        # A file keeps its own comment and link, which retag reads again as it writes.
+        return replace(tags, comment=source.description, isrc=source.isrc, label=source.label)
     return replace(
         tags,
         comment=COMMENTS[settings.comment_mode](source),

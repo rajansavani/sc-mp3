@@ -26,6 +26,7 @@ from scmp3.app.job_covers import (
 from scmp3.core import paths
 from scmp3.core.errors import ErrorKind, ScmpError
 from scmp3.core.models import CropBox, SourceInfo
+from tests.fixtures.local_files import make_cover, tagged_copy
 
 ARTWORK = "https://i1.sndcdn.com/artworks-000243916348-ktoo7d-t500x500.jpg"
 ORIGINAL = "https://i1.sndcdn.com/artworks-000243916348-ktoo7d-original.jpg"
@@ -239,3 +240,21 @@ def test_a_letterboxed_cover_says_where_python_cuts_it() -> None:
 
 def test_a_cover_that_fills_its_frame_has_no_default_crop() -> None:
     assert inspect(image(1280, 720)).default_crop is None
+
+
+def test_a_files_own_cover_is_read_from_the_file_as_a_preview(
+    tiny_mp3: Path, tmp_path: Path
+) -> None:
+    cover = make_cover(side=640)
+    path = tagged_copy(tiny_mp3, tmp_path / "old favorite.mp3", cover=cover)
+    file_source = SourceInfo(kind="file", id=str(path), url=str(path), title="", uploader="")
+    view, kept = CoverReader(FakeWeb({}).session).source(file_source)
+    assert (view.width, view.height) == (640, 640)
+    assert view.url is not None and view.url.startswith("data:image/jpeg;base64,")
+    assert kept == KeptImage(cover.jpeg, "jpeg")
+
+
+def test_a_file_without_a_cover_has_none(tiny_mp3: Path, tmp_path: Path) -> None:
+    path = tagged_copy(tiny_mp3, tmp_path / "old favorite.mp3")
+    file_source = SourceInfo(kind="file", id=str(path), url=str(path), title="", uploader="")
+    assert CoverReader(FakeWeb({}).session).source(file_source) == (NO_COVER, None)

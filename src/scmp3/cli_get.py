@@ -23,6 +23,7 @@ from scmp3.cli_output import (
     EXIT_STOPPED,
     EXIT_USAGE,
     FFMPEG_MISSING,
+    FILES_NEED_RETAG,
     INPUT_ENDED,
     NO_LOG,
     NOTHING_TO_SAVE,
@@ -41,6 +42,7 @@ from scmp3.cli_review import (
     ask_about_collision,
     read_answer,
     run_review,
+    saving_text,
     say,
 )
 from scmp3.core import paths, pipeline
@@ -114,7 +116,7 @@ class GetOptions:
 
 def run_get(args: argparse.Namespace) -> int:
     """Save each link, after a review unless --yes was given. Returns the exit code."""
-    _set_up_streams()
+    set_up_streams()
     # Separate arguments are joined with newlines, so a quoted path with spaces stays whole.
     inputs = parse_inputs("\n".join(args.urls))
     problem = _usage_problem(inputs, args)
@@ -129,7 +131,7 @@ def run_get(args: argparse.Namespace) -> int:
     settings = _load_settings(args.out)
     options = GetOptions.from_args(args)
     tools = pipeline.Tools()
-    with _logging_to_file():
+    with logging_to_file():
         log_start(args.engine_start)
         try:
             results = [_get_one(parsed, options, settings, tools) for parsed in inputs]
@@ -149,6 +151,8 @@ def _usage_problem(inputs: list[ParsedInput], args: argparse.Namespace) -> str |
     rejects = []
     for parsed in inputs:
         reason = pipeline.unsupported_reason(parsed)
+        if parsed.kind == "local_file":
+            reason = FILES_NEED_RETAG
         if reason is not None:
             # A paste that was too long has no text of its own to show.
             rejects.append(f"{parsed.raw}: {reason}" if parsed.raw else reason)
@@ -199,7 +203,8 @@ def _save(prepared: pipeline.Prepared, options: GetOptions, settings: Settings) 
     staged = _fetch(prepared)
     review = TrackReview(prepared.source, prepared.suggestion, settings, options.style)
     review.overrides.update(options.overrides)
-    tags: Tags | None = review.tags() if options.yes else run_review(review, staged, read_answer)
+    describe = saving_text(staged)
+    tags: Tags | None = review.tags() if options.yes else run_review(review, describe, read_answer)
     if tags is None:
         say(SKIPPED)
         return True
@@ -286,7 +291,7 @@ def _report(label: str, error: ScmpError, settings: Settings, source: str) -> No
     say(f"{label}: {error_message(error, settings, source=source)}")
 
 
-def _set_up_streams() -> None:
+def set_up_streams() -> None:
     """Use UTF-8 for pipes and files, so piped answers and printed paths come through exactly.
 
     A terminal keeps its own encoding, and shows "?" for a character it can't, instead of failing
@@ -309,7 +314,7 @@ def _set_up_stream(stream: TextIO | None, *, piped_encoding: str) -> None:
 
 
 @contextmanager
-def _logging_to_file() -> Iterator[None]:
+def logging_to_file() -> Iterator[None]:
     """Log to the app's log file while a command runs, carrying on without it if it can't."""
     try:
         setup_logging()
