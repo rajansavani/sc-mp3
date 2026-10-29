@@ -1,4 +1,4 @@
-"""Draw the app's logo with Pillow into packaging/icons/: app.ico for Windows and one PNG per size.
+"""Draw the app's logo with Pillow into packaging/icons/: app.ico, app.icns and a PNG per size.
 
 Usage: uv run python packaging/make_icons.py
 The logo is the one in the UI's top bar: a tangerine rounded square holding a dark arrow that
@@ -16,6 +16,7 @@ from PIL import Image, ImageDraw
 PACKAGING_DIR = Path(__file__).resolve().parent
 ICONS_DIR = PACKAGING_DIR / "icons"
 ICO_NAME = "app.ico"
+ICNS_NAME = "app.icns"
 
 TANGERINE = (0xFF, 0x7A, 0x30, 255)
 INK = (0x1B, 0x0E, 0x04, 255)
@@ -32,6 +33,8 @@ STROKES: tuple[tuple[tuple[tuple[float, float], ...], Callable[[float], int]], .
 )
 # Transparent space around the square, as a share of the icon, so it sits like other app icons.
 MARGIN = 1 / 16
+# Apple's icon grid puts the square in the middle 824 of 1024 pixels, so macOS gets more space.
+MACOS_MARGIN = 100 / 1024
 # At 32 px and below a 2.2-unit line blurs, so small sizes get a heavier one.
 SMALL_SIZE = 32
 SMALL_STROKE_WIDTH = 2.8
@@ -43,6 +46,9 @@ SNAPPED_WIDTH = 2
 ICO_SIZES = (16, 20, 24, 32, 40, 48, 64, 128, 256)
 # The PNGs cover the sizes a macOS iconset needs (T-070) and a large one for the README.
 PNG_SIZES = (16, 32, 64, 128, 256, 512, 1024)
+# The sizes Pillow writes into an .icns: 128 to 512 points at 1x and 2x, and 16 and 32 points
+# at 2x. macOS scales those two down for 1x.
+ICNS_SIZES = (32, 64, 128, 256, 512, 1024)
 # Each size is drawn up to this many times larger, then scaled down, for smooth edges.
 SUPERSAMPLE = 8
 # The largest canvas drawn on, which keeps the 1024 px icon from needing 268 MB.
@@ -54,12 +60,12 @@ def on_pixels(x: float, y: float, move_y: Callable[[float], int]) -> tuple[float
     return round(x), move_y(y)
 
 
-def draw_logo(size: int) -> Image.Image:
-    """Draw the logo as a square RGBA image of `size` pixels."""
+def draw_logo(size: int, margin: float = MARGIN) -> Image.Image:
+    """Draw the logo as a square RGBA image of `size` pixels, with `margin` of it clear around."""
     scale = max(1, min(SUPERSAMPLE, MAX_CANVAS // size))
     snap = size <= SNAP_SIZE
     # Positions are in the icon's own pixels until they're scaled onto the canvas.
-    inset = round(size * MARGIN) if snap else size * MARGIN
+    inset = round(size * margin) if snap else size * margin
     unit = (size - 2 * inset) / GRID
     image = Image.new("RGBA", (size * scale, size * scale), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
@@ -91,7 +97,7 @@ def png_name(size: int) -> str:
 
 
 def write_icons(folder: Path) -> list[Path]:
-    """Write app.ico and the PNGs into `folder`, and return their paths."""
+    """Write app.ico, app.icns and the PNGs into `folder`, and return their paths."""
     folder.mkdir(parents=True, exist_ok=True)
     written = []
     for size in PNG_SIZES:
@@ -105,6 +111,12 @@ def write_icons(folder: Path) -> list[Path]:
     largest = frames[-1]
     largest.save(ico, sizes=[(size, size) for size in ICO_SIZES], append_images=frames[:-1])
     written.append(ico)
+
+    # Pillow matches each size it writes to an appended image of that width.
+    frames = [draw_logo(size, MACOS_MARGIN) for size in ICNS_SIZES]
+    icns = folder / ICNS_NAME
+    frames[-1].save(icns, append_images=frames)
+    written.append(icns)
     return written
 
 

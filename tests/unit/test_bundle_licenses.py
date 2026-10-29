@@ -134,3 +134,18 @@ def test_ffmpeg_notices_are_the_license_and_readme_in_the_archives_top_folder(
 
 def test_the_ffmpeg_top_folder_comes_from_the_pinned_archive_member() -> None:
     assert FFMPEG_TOP == "ffmpeg-9.0.2-essentials_build"
+
+
+@pytest.mark.parametrize("target", ["macos-arm64", "macos-x64"])
+def test_a_mac_ffmpeg_gets_sc_mp3s_gpl_since_its_archive_holds_ffmpeg_alone(target: str) -> None:
+    assert licenses.ffmpeg_top_folder(target) is None
+    assert licenses.target_ffmpeg_notices(target) == {"LICENSE": licenses.GPL_TEXT.read_bytes()}
+
+
+def test_pythons_license_is_the_first_place_that_has_it(tmp_path: Path) -> None:
+    (tmp_path / "Lib").mkdir()
+    (tmp_path / "Lib" / "LICENSE.txt").write_text("PSF", encoding="utf-8")
+    candidates = [tmp_path / "LICENSE.txt", tmp_path / "Lib" / "LICENSE.txt"]
+    assert licenses.python_license(candidates) == tmp_path / "Lib" / "LICENSE.txt"
+    with pytest.raises(licenses.LicenseError, match=r"Couldn't find Python's LICENSE\.txt"):
+        licenses.python_license(candidates[:1])

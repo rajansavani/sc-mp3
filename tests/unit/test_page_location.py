@@ -13,6 +13,7 @@ import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
 from urllib.parse import urljoin
+from wsgiref.simple_server import WSGIRequestHandler
 
 import pytest
 import webview.http
@@ -121,3 +122,31 @@ def test_pywebviews_server_finds_the_page_in_an_odd_install_folder(
     assert fetch(page_url) == (200, b"<!doctype html><title>sc-mp3</title>")
     assert fetch(urljoin(page_url, "styles/base.css"))[0] == 200
     assert fetch(urljoin(address, "../outside.txt"))[0] == 404
+
+
+def no_name_lookups(*args: object) -> str:
+    raise AssertionError("the server looked up a host name")
+
+
+def test_the_page_server_never_looks_up_its_host_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    # On macOS 15 that lookup asks the user about local network access, and the server waits.
+    monkeypatch.setattr(socket, "getfqdn", no_name_lookups)
+    server = page_loading.LoopbackServer(("127.0.0.1", 0), WSGIRequestHandler)
+    try:
+        assert server.server_name == "127.0.0.1"
+        assert server.base_environ["SERVER_NAME"] == "127.0.0.1"
+    finally:
+        server.server_close()
+
+
+def test_pywebviews_server_serves_the_page_without_a_name_lookup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    web, app_root = make_install(tmp_path)
+    monkeypatch.setattr(webview.util, "get_app_root", lambda: str(app_root))
+    monkeypatch.setattr(socket, "getfqdn", no_name_lookups)
+    monkeypatch.setattr(webview.http, "ThreadedAdapter", webview.http.ThreadedAdapter)
+    page_loading.serve_without_name_lookup(webview.http)
+    location = page_loading.page_location(web / "index.html", app_root)
+    address = page_loading.start_page_server(webview.http.start_server, location)
+    assert fetch(urljoin(address, "index.html"))[0] == 200

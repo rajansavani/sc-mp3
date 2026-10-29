@@ -5,6 +5,7 @@ import html
 import logging
 import mimetypes
 import threading
+import time
 import webbrowser
 from collections.abc import Sequence
 from pathlib import Path
@@ -26,11 +27,31 @@ IDNO = 7
 PAGE = "../web/index.html"
 APP_URL = "http://127.0.0.1:5000/index.html"
 RETRY_URL = "http://127.0.0.1:5000/index.html?retry"
-# What PAGE_CHECK reads on each kind of page: the address, and whether api.js ran.
-UI_PAGE = (APP_URL, "object")
-ERROR_PAGE = ("chrome-error://chromewebdata/", "undefined")
-WRONG_ADDRESS = ("http://127.0.0.1:5000/c", "undefined")
-SERVER_ERROR = (APP_URL, "undefined")
+# What PAGE_CHECK reads on each kind of page: the address, whether api.js ran, and whether the
+# page is the UI's own HTML.
+UI_PAGE = (APP_URL, "object", True)
+ERROR_PAGE = ("chrome-error://chromewebdata/", "undefined", False)
+WRONG_ADDRESS = ("http://127.0.0.1:5000/c", "undefined", False)
+# An error page from pywebview's server, such as a 404, at the UI's own address.
+SERVER_ERROR = (APP_URL, "undefined", False)
+# The UI's HTML before its scripts have run, as WKWebView reports it right after the load.
+UI_STARTING = (APP_URL, "undefined", True)
+LATE_UI_PAGE = [UI_STARTING, UI_STARTING, UI_PAGE]
+# The real one, before the fixture below swaps it for running checks in line.
+IN_BACKGROUND = page_loading.in_background
+
+
+@pytest.fixture(autouse=True)
+def quick_ui_start(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A UI page whose scripts never start is given up on in a moment, not in 10 s."""
+    monkeypatch.setattr(page_loading, "UI_START_SECONDS", 0.2)
+    monkeypatch.setattr(page_loading, "UI_POLL_SECONDS", 0.01)
+
+
+@pytest.fixture(autouse=True)
+def checks_in_line(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Page checks run in the caller's thread, so a test sees their result when open_window ends."""
+    monkeypatch.setattr(page_loading, "in_background", lambda task: task())
 
 
 @pytest.fixture(autouse=True)
@@ -62,7 +83,7 @@ class FakeWindow:
     """A window whose loads show the given pages in turn: the first load, then each reload.
 
     A page is what PAGE_CHECK reads there, its address and `typeof window.scmp3`, or an exception
-    when the check can't run.
+    when the check can't run. A list of those is read one per check, staying on the last.
     """
 
     def __init__(self, loads: list[Any]) -> None:
@@ -84,9 +105,12 @@ class FakeWindow:
 
     def evaluate_js(self, script: str) -> Any:
         if script == page_loading.PAGE_CHECK:
-            if isinstance(self.page, Exception):
-                raise self.page
-            return list(self.page)
+            page = self.page
+            if isinstance(page, list):
+                page = page.pop(0) if len(page) > 1 else page[0]
+            if isinstance(page, Exception):
+                raise page
+            return list(page)
         self.scripts.append(script)
         self.sent.set()
         return None
@@ -99,7 +123,7 @@ class FakeWindow:
 
     def load_html(self, html: str) -> None:
         self.html_pages.append(html)
-        self._loads.append(("about:blank", "undefined"))
+        self._loads.append(("about:blank", "undefined", False))
         self.show_next_page()
 
 
@@ -345,6 +369,34 @@ def test_the_ready_hook_gets_the_window_once_the_ui_has_loaded(api: Api) -> None
     assert ready == [toolkit.window]
 
 
+def test_the_log_says_when_the_window_shows_the_ui(
+    api: Api, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO, logger="scmp3.app.page_loading")
+    main.open_window(FakeToolkit(loads=[ERROR_PAGE, UI_PAGE]), api, EventBus(), page=PAGE)
+    assert [record.message for record in caplog.records].count("The window shows the UI") == 1
+
+
+def test_a_ui_whose_scripts_start_after_the_load_isnt_reloaded(api: Api) -> None:
+    toolkit = FakeToolkit(loads=[list(LATE_UI_PAGE)])
+    ready: list[Any] = []
+    assert main.open_window(toolkit, api, EventBus(), page=PAGE, on_ready=ready.append) == 0
+    assert ready == [toolkit.window]
+    assert toolkit.window.reloads == []
+
+
+@pytest.mark.parametrize("failed_page", [ERROR_PAGE, SERVER_ERROR])
+def test_an_error_page_is_retried_without_waiting_for_the_ui_to_start(
+    api: Api, monkeypatch: pytest.MonkeyPatch, failed_page: Any
+) -> None:
+    monkeypatch.setattr(page_loading, "UI_START_SECONDS", 30.0)
+    toolkit = FakeToolkit(loads=[failed_page, UI_PAGE])
+    started = time.monotonic()
+    assert main.open_window(toolkit, api, EventBus(), page=PAGE) == 0
+    assert time.monotonic() - started < 5
+    assert toolkit.window.reloads == [RETRY_URL]
+
+
 def test_the_ready_hook_waits_for_the_ui_after_a_failed_first_load(api: Api) -> None:
     toolkit = FakeToolkit(loads=[ERROR_PAGE, UI_PAGE])
     ready: list[Any] = []
@@ -444,3 +496,39 @@ def test_pywebview_records_are_masked_like_ours(logging_to_file: Path) -> None:
     text = logging_to_file.read_text(encoding="utf-8")
     assert "Cookie: [redacted]" in text
     assert "AbCdEfGhIjKl" not in text
+
+
+def test_closing_the_window_stops_the_wait_for_the_ui(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(page_loading, "UI_START_SECONDS", 30.0)
+    window = FakeWindow([])
+    window.page = UI_STARTING
+    closed = threading.Event()
+    threading.Timer(0.1, closed.set).start()
+    started = time.monotonic()
+    assert not page_loading.shows_the_ui(window, closed)
+    assert time.monotonic() - started < 5
+
+
+def test_a_window_closed_before_its_check_isnt_reloaded_or_replaced() -> None:
+    watch = page_loading.PageWatch(EventBus())
+    window = FakeWindow([ERROR_PAGE])
+    window.events.loaded += watch.loaded
+    watch.window_closed()
+    window.show_next_page()
+    assert window.reloads == []
+    assert window.html_pages == []
+    assert not watch.failed
+
+
+def test_each_page_check_runs_on_a_daemon_thread() -> None:
+    # pywebview's evaluate_js can wait forever on a closed window, which mustn't keep the app open.
+    daemons: list[bool] = []
+    done = threading.Event()
+
+    def record() -> None:
+        daemons.append(threading.current_thread().daemon)
+        done.set()
+
+    IN_BACKGROUND(record)
+    assert done.wait(5)
+    assert daemons == [True]

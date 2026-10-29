@@ -2,13 +2,13 @@
 
 sc-mp3 saves songs from SoundCloud and YouTube as MP3 files that Spotify can play as local files. You paste a link, check the title, artist and cover it suggests, and save. The songs go into a folder on your computer, which you add to Spotify once.
 
-Version 0.1 is for 64-bit Windows.
+sc-mp3 runs on 64-bit Windows, on Macs with macOS 12 or later, and on Linux.
 
 ![The sc-mp3 window, reviewing a track before saving it](docs/screenshots/main-window.png)
 
-## Install
+## Install on Windows
 
-1. Download `sc-mp3-<version>-windows-x64.zip` from the [latest release](../../releases/latest). It's about 66 MB.
+1. Download `sc-mp3-<version>-windows-x64.zip` from the [latest release](../../releases/latest). It's about 68 MB.
 2. Extract the zip: right-click it, choose Extract All, then Extract. sc-mp3 doesn't run from inside the zip. Extracted, it takes about 155 MB.
 3. Open the extracted `sc-mp3` folder and double-click `sc-mp3.exe`.
 
@@ -19,6 +19,26 @@ If Smart App Control is on, Windows blocks sc-mp3 with no option to run it. Smar
 If sc-mp3 says it needs WebView2, select Yes to open Microsoft's download page, install it, then open sc-mp3 again.
 
 To update, quit sc-mp3, download the new zip, extract it, and replace the old `sc-mp3` folder with the new one. Your songs, settings and queue stay, since sc-mp3 keeps them outside that folder.
+
+## Install on a Mac
+
+1. Check which kind of Mac you have: open the Apple menu, then About This Mac. If it shows a Chip such as Apple M1 or later, you need `sc-mp3-<version>-macos-arm64.zip`, about 58 MB. If it shows a Processor from Intel, you need `sc-mp3-<version>-macos-x64.zip`, about 65 MB.
+2. Download that zip from the [latest release](../../releases/latest).
+3. Open your Downloads folder. If Safari didn't unzip the file already, double-click it. You get a folder named `sc-mp3`.
+4. Drag `sc-mp3` (sc-mp3.app) from that folder into Applications. It takes about 121 MB, or about 151 MB on an Intel Mac.
+5. Open sc-mp3 from Applications.
+
+sc-mp3 isn't notarized by Apple, so macOS stops it the first time. On macOS 15 and later:
+
+1. macOS says "sc-mp3" Not Opened, because Apple could not verify it is free of malware. Select Done.
+2. Open System Settings, then Privacy & Security. Scroll down to Security, where it says "sc-mp3" was blocked. Select Open Anyway. The button stays there for about an hour after you tried to open sc-mp3.
+3. macOS asks you to confirm with Open Anyway, and for your password or Touch ID. Answer both.
+
+On macOS 12 to 14, Control-click sc-mp3 in Applications, choose Open, then select Open in the message. On macOS 15 and later, Control-click and Open no longer gets past the check.
+
+After that, sc-mp3 opens like any other app.
+
+To update, quit sc-mp3, download the new zip, and drag the new sc-mp3 into Applications to replace the old one. macOS asks again the first time you open each new version. Your songs, settings and queue stay, since sc-mp3 keeps them outside the app.
 
 ## Install on Linux
 
@@ -111,7 +131,7 @@ Setup has four steps:
 
 ## Save a song
 
-Copy a SoundCloud, YouTube or YouTube Music link, then press Ctrl+V in the sc-mp3 window, or paste it into the box at the top and select Add. sc-mp3 suggests a title, artist and cover. Fix anything that's wrong, then select Save to library or press Enter.
+Copy a SoundCloud, YouTube or YouTube Music link, then press Ctrl+V in the sc-mp3 window (Command-V on a Mac), or paste it into the box at the top and select Add. sc-mp3 suggests a title, artist and cover. Fix anything that's wrong, then select Save to library or press Enter.
 
 You can paste several links at once, then select Save all. Your first YouTube link asks to add YouTube support, about 40 MB, downloaded once. Select Download it.
 
@@ -126,7 +146,7 @@ Spotify on a phone plays MP3 files stored on the phone itself. You don't need Pr
 
 1. In Spotify on the phone, go to Settings and privacy › Apps and devices and turn on Local audio files.
 2. Copy the MP3 files to the phone.
-   - iPhone: copy them into Files › On My iPhone › Spotify. From a Windows PC, connect the iPhone and use file sharing in the Apple Devices app or iTunes. Copy the song files themselves, not the artist folders they're in.
+   - iPhone: copy them into Files › On My iPhone › Spotify. From a Windows PC, connect the iPhone and use file sharing in the Apple Devices app or iTunes. From a Mac, connect the iPhone, select it in the Finder sidebar, open Files, and drag the songs onto Spotify. Copy the song files themselves, not the artist folders they're in.
    - Android: copy them into the phone's storage, for example the Music folder, over USB.
 
 ## Spotify isn't showing my changes
@@ -153,4 +173,4 @@ uv run pytest
 uv run python packaging/build.py
 ```
 
-Some tests need ffmpeg. They skip when ffmpeg isn't on your PATH. `packaging/build.py` builds the Windows zip into `dist/`.
+Some tests need ffmpeg. They skip when ffmpeg isn't on your PATH. `packaging/build.py` builds the zip for the computer it runs on into `dist/`: the Windows zip on Windows, and on a Mac the zip for that Mac's kind of processor. On a Mac, the build stops if the app would hold your home folder's path, and uv keeps its Python in your home folder. Set `UV_PYTHON_INSTALL_DIR` to a folder outside it, such as `/Users/Shared/uv-python`, before `uv sync`.

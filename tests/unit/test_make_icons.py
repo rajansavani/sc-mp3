@@ -1,4 +1,4 @@
-"""Tests for packaging/make_icons.py, which draws the logo into app.ico and PNGs."""
+"""Tests for packaging/make_icons.py, which draws the logo into app.ico, app.icns and PNGs."""
 
 import importlib.util
 import itertools
@@ -7,7 +7,7 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
-from PIL import IcoImagePlugin, Image, ImageChops
+from PIL import IcnsImagePlugin, IcoImagePlugin, Image, ImageChops
 
 SCRIPT = Path(__file__).resolve().parents[2] / "packaging" / "make_icons.py"
 # Pillow updates can move an edge pixel by a step or two without changing the drawing.
@@ -42,8 +42,18 @@ def drawn(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return folder
 
 
-def test_it_writes_the_ico_and_a_png_per_size(drawn: Path) -> None:
-    expected = {make_icons.ICO_NAME, *(make_icons.png_name(size) for size in make_icons.PNG_SIZES)}
+def icns_frames(path: Path) -> dict[int, Image.Image]:
+    """Each image in an .icns, by its width in pixels."""
+    with path.open("rb") as file:
+        icns = IcnsImagePlugin.IcnsFile(file)
+        # Each image reads from the file, so it is copied while the file is open.
+        frames = [icns.getimage(size).copy() for size in icns.itersizes()]
+    return {frame.width: frame for frame in frames}
+
+
+def test_it_writes_the_ico_the_icns_and_a_png_per_size(drawn: Path) -> None:
+    pngs = [make_icons.png_name(size) for size in make_icons.PNG_SIZES]
+    expected = {make_icons.ICO_NAME, make_icons.ICNS_NAME, *pngs}
     assert {path.name for path in drawn.iterdir()} == expected
     for size in make_icons.PNG_SIZES:
         with Image.open(drawn / make_icons.png_name(size)) as image:
@@ -61,6 +71,22 @@ def test_each_ico_size_is_drawn_for_itself_rather_than_scaled(drawn: Path, size:
     with (drawn / make_icons.ICO_NAME).open("rb") as file:
         frame = IcoImagePlugin.IcoFile(file).getimage((size, size))
         assert differs(frame, make_icons.draw_logo(size)) == 0
+
+
+def test_the_icns_holds_each_size_drawn_with_apples_margin(drawn: Path) -> None:
+    frames = icns_frames(drawn / make_icons.ICNS_NAME)
+    assert sorted(frames) == list(make_icons.ICNS_SIZES)
+    for size, frame in frames.items():
+        assert differs(frame, make_icons.draw_logo(size, make_icons.MACOS_MARGIN)) == 0, size
+
+
+def test_the_macos_icon_leaves_more_space_around_the_square() -> None:
+    windows = make_icons.draw_logo(1024)
+    macos = make_icons.draw_logo(1024, make_icons.MACOS_MARGIN)
+    # Just inside the Windows square's edge, level with the middle.
+    assert windows.getpixel((70, 512)) == make_icons.TANGERINE
+    assert macos.getpixel((70, 512))[3] == 0
+    assert macos.getpixel((110, 512)) == make_icons.TANGERINE
 
 
 def test_the_logo_is_a_tangerine_square_holding_a_dark_arrow() -> None:
@@ -102,3 +128,6 @@ def test_the_committed_icons_match_the_drawing() -> None:
             assert differs(committed, make_icons.draw_logo(size)) <= TOLERANCE, size
     with Image.open(icons / make_icons.ICO_NAME) as ico:
         assert sorted(ico.info["sizes"]) == [(size, size) for size in make_icons.ICO_SIZES]
+    for size, frame in icns_frames(icons / make_icons.ICNS_NAME).items():
+        expected = make_icons.draw_logo(size, make_icons.MACOS_MARGIN)
+        assert differs(frame, expected) <= TOLERANCE, size

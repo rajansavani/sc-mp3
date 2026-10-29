@@ -5,12 +5,16 @@ import html
 import logging
 import os
 import socket
+import socketserver
 import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
+from wsgiref.simple_server import WSGIRequestHandler, WSGIServer, make_server
+
+import bottle
 
 from scmp3.app.events import EventBus
 from scmp3.core import paths
@@ -26,10 +30,15 @@ font:15px/1.45 'Segoe UI',system-ui,sans-serif">
 <p style="color:#ABA59C">{label} <code>{path}</code></p>
 </body>"""
 
-# Where the window is, and whether the UI's scripts ran there; api.js defines window.scmp3.
-PAGE_CHECK = "[window.location.href, typeof window.scmp3]"
+# Where the window is, whether the UI's scripts ran there, and whether the page is the UI's own
+# HTML, which has the #app element the UI renders into. api.js defines window.scmp3.
+PAGE_CHECK = '[window.location.href, typeof window.scmp3, document.getElementById("app") !== null]'
 # Added to the page's address for the one retry. The UI ignores it.
 RETRY_QUERY = "retry"
+# How long the UI's scripts may take to start once its page has loaded, and how often to look.
+# WKWebView reports the load before the page's modules have run.
+UI_START_SECONDS = 10.0
+UI_POLL_SECONDS = 0.05
 
 # How long to wait for pywebview's server to take connections, and how long each try may take.
 # Each try is short, since Windows takes 2 s to refuse a connection to a closed local port.
@@ -74,6 +83,40 @@ def wait_for_server(address: str, timeout: float = SERVER_WAIT_SECONDS) -> bool:
             time.sleep(SERVER_PAUSE_SECONDS)
 
 
+class LoopbackServer(socketserver.ThreadingMixIn, WSGIServer):
+    """pywebview's threaded server, without http.server's lookup of the host's name."""
+
+    def server_bind(self) -> None:
+        # HTTPServer names itself with socket.getfqdn, a reverse lookup that macOS 15 counts as
+        # finding devices on the local network: it asks the user, and the server waits.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
+        self.setup_environ()
+
+
+class QuietHandler(WSGIRequestHandler):
+    def log_request(self, *args: Any, **kwargs: Any) -> None:
+        """Log nothing per request, like pywebview's server outside debug mode."""
+
+
+class LoopbackAdapter(bottle.ServerAdapter):
+    """Runs pywebview's server the way pywebview does, but on LoopbackServer."""
+
+    def run(self, handler: Any) -> None:
+        if self.quiet:
+            self.options["handler_class"] = QuietHandler
+        server = make_server(
+            self.host, self.port, handler, server_class=LoopbackServer, **self.options
+        )
+        server.serve_forever()
+
+
+def serve_without_name_lookup(http_module: Any) -> None:
+    """Make pywebview's server skip the host-name lookup that macOS 15 asks the user about."""
+    # pywebview looks its server adapter up by this name each time it starts a server.
+    http_module.ThreadedAdapter = LoopbackAdapter
+
+
 def start_page_server(start_server: Callable[..., tuple[str, Any, Any]], page: str) -> str:
     """Start the page's server and wait until it takes connections. Returns the server's address.
 
@@ -93,21 +136,48 @@ def plain_page(message: str, label: str, path: Path) -> str:
     )
 
 
-def shows_the_ui(window: Any) -> bool:
-    """Whether the window is on the UI's own page and its scripts ran, not on an error page."""
-    try:
-        location, scmp3_type = window.evaluate_js(PAGE_CHECK)
-    except Exception:
-        log.warning("Couldn't check which page the window shows", exc_info=True)
-        return False
-    expected = urlsplit(window.real_url or "")
-    actual = urlsplit(str(location))
-    same_page = (actual.scheme, actual.netloc, actual.path) == (
+def is_the_ui_address(location: str, ui_url: str | None) -> bool:
+    """Whether the page's own address is the UI's, whatever its query."""
+    actual = urlsplit(location)
+    expected = urlsplit(ui_url or "")
+    return (actual.scheme, actual.netloc, actual.path) == (
         expected.scheme,
         expected.netloc,
         expected.path,
     )
-    return same_page and scmp3_type == "object"
+
+
+def shows_the_ui(window: Any, closed: threading.Event | None = None) -> bool:
+    """Whether the window is on the UI's own page and its scripts ran, not on an error page.
+
+    On the UI's own HTML it waits up to UI_START_SECONDS for the scripts to start, or until
+    `closed` is set. Anywhere else, such as on an error page, it answers at once.
+    """
+    closed = closed or threading.Event()
+    deadline = time.monotonic() + UI_START_SECONDS
+    while not closed.is_set():
+        try:
+            location, scmp3_type, ui_html = window.evaluate_js(PAGE_CHECK)
+        except Exception:
+            log.warning("Couldn't check which page the window shows", exc_info=True)
+            return False
+        if not ui_html or not is_the_ui_address(str(location), window.real_url):
+            log.info(
+                "The window is on %s, which isn't the UI's page at %s", location, window.real_url
+            )
+            return False
+        if scmp3_type == "object":
+            return True
+        if time.monotonic() >= deadline:
+            log.info("The UI's scripts didn't start within %s s at %s", UI_START_SECONDS, location)
+            return False
+        closed.wait(UI_POLL_SECONDS)
+    return False
+
+
+def in_background(task: Callable[[], None]) -> None:
+    """Run the task on a daemon thread, which can't keep the app from exiting."""
+    threading.Thread(target=task, daemon=True).start()
 
 
 def retry_address(url: str) -> str:
@@ -129,15 +199,30 @@ class PageWatch:
         # pywebview runs each `loaded` handler on a thread of its own.
         self._lock = threading.Lock()
         self._retried = False
+        self._closed = threading.Event()
         self.failed = False
 
     def loaded(self, window: Any) -> None:
-        if self.failed:
+        # evaluate_js can wait forever once the window has closed, and pywebview's own handler
+        # threads would then keep the app from exiting.
+        in_background(lambda: self.check(window))
+
+    def window_closed(self) -> None:
+        """Stop a check that's waiting for the UI, and start no retry."""
+        self._closed.set()
+
+    def check(self, window: Any) -> None:
+        """Start events once the window shows the UI, or retry the load, or show the plain page."""
+        if self.failed or self._closed.is_set():
             return
-        if shows_the_ui(window):
+        if shows_the_ui(window, self._closed):
+            # macOS reports no failed loads, so this line is how a log shows the UI came up.
+            log.info("The window shows the UI")
             self._events.attach(window)
             if self._on_ready is not None:
                 self._on_ready(window)
+            return
+        if self._closed.is_set():
             return
         with self._lock:
             retry = not self._retried

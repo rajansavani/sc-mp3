@@ -1,14 +1,18 @@
 # Third-party notices
 
-sc-mp3 is licensed under GPL-3.0-or-later. Its license is in LICENSE, which the Windows release zip holds as LICENSE.txt.
+sc-mp3 is licensed under GPL-3.0-or-later. Its license is in LICENSE, which each release zip holds as LICENSE.txt.
 
-The Windows release zip also holds the software below, each under its own license. The list and the versions come from the files in the 0.1.0 build. Paths are inside the unzipped `sc-mp3` folder.
+The release zips for Windows and Mac also hold the software below, each under its own license. The list and the versions come from the files in the 0.1.0 builds. Paths are inside the unzipped `sc-mp3` folder, as in the Windows zip. In the Mac zips, what the Windows zip keeps in `_internal` is inside `sc-mp3.app/Contents`, in `Frameworks` and `Resources`.
 
-The `licenses` folder, next to `sc-mp3.exe`, holds the license files that each bundled package, Python, PyInstaller and ffmpeg ship, one folder each.
+The `licenses` folder, next to `sc-mp3.exe` or `sc-mp3.app`, holds the license files that each bundled package, Python, PyInstaller and ffmpeg ship, one folder each.
 
 ## ffmpeg
 
-sc-mp3 runs ffmpeg as a separate program, `_internal\ffmpeg.exe`, to convert audio.
+sc-mp3 runs ffmpeg as a separate program to convert audio. The Windows and Mac releases bundle different builds of FFmpeg 9.0.2.
+
+### Windows
+
+The Windows release runs `_internal\ffmpeg.exe`.
 
 - Build: FFmpeg 9.0.2, the "essentials" static build for 64-bit Windows from gyan.dev. It reports its version as `9.0.2-essentials_build-www.gyan.dev`.
 - License: GPL-3.0-or-later.
@@ -62,12 +66,62 @@ zimg release-3.0.6-253-g67e0603
 
 gyan.dev doesn't publish its build scripts or the sources of these libraries. A later release of sc-mp3 will ship an ffmpeg it builds itself, with the full source of FFmpeg and every library published.
 
+### Mac
+
+The Mac releases run `sc-mp3.app/Contents/Frameworks/ffmpeg`.
+
+- Build: FFmpeg 9.0.2, Martin Riedl's static release builds, one for Apple silicon (arm64) and one for Intel (x86_64). They report their version as `9.0.2-https://www.martin-riedl.de`.
+- License: GPL-3.0-or-later. The archives hold ffmpeg alone, so `licenses/ffmpeg/LICENSE` is the GPL text from sc-mp3's own LICENSE, which is the same license.
+- FFmpeg 9.0.2 source: the same tarball as for Windows, above.
+- Martin Riedl's build scripts: https://git.martin-riedl.de/ffmpeg/build-script
+- The archive for Apple silicon: https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/ffmpeg.zip, SHA-256 `c8ed4c4e6978a03c485edbfe4e0a5dc2380f8a30bba5150531b31b094492d924`. Its configuration and library versions: https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/versions.txt
+- The archive for Intel: https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/ffmpeg.zip, SHA-256 `7c6b4125b191cbf773832dc51f424cf2b6bb7da43007d1e066f95909e47cacd4`. Its configuration and library versions: https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/versions.txt
+
+Both builds' configuration turns on these libraries: aom, dav1d, fontconfig, FreeType, HarfBuzz, LAME, libass, libbluray, libklvanc, libxml2, OpenH264, OpenJPEG, OpenSSL, Opus, rav1e, Snappy, SRT, SVT-AV1, libtheora, VMAF, libvorbis, libvpx, vvenc, libwebp, x264, x265, zimg and zvbi. libass brings in FriBidi.
+
+The versions both builds' versions.txt lists:
+
+```
+aom                 3.15.0
+libass              0.17.5
+libbluray           1.5.0
+dav1d               1.5.4
+fontconfig          2.17.1
+freetype            2.13.0
+fribidi             1.0.16
+harfbuzz            14.4.0
+libklvanc           1.6.0
+lame                4.0
+openh264            2.6.0
+openJPEG            2.5.4
+openssl             3.6.4
+opus                1.6.1
+rav1e               0.8.1
+sdl                 2.32.10
+snappy              1.2.2
+srt                 1.5.7
+svt-av1             4.2.0
+libtheora           1.2.0
+libvmaf             3.2.0
+libvorbis           1.3.7
+vpx                 1.16.0
+vvenc               1.14.0
+libwebp             1.6.0
+x264                0.165.x
+x265                4.2
+libxml2             2.15.3
+zimg                3.0.6
+zlib                1.3.2
+zvbi                0.2.35
+```
+
 ## Python
 
 - Python 3.13.7: `_internal\python313.dll`, `_internal\python3.dll` and the standard library. PSF-2.0. https://docs.python.org/3.13/license.html
 - Libraries that come with Python: OpenSSL 3.5.3 (Apache-2.0), SQLite 3.50.4 (public domain), zlib 1.3.1 (Zlib), Expat 2.7.1 (MIT), mpdecimal 4.0.0 (BSD-2-Clause), bzip2 1.0.8 (bzip2-1.0.6), libffi (MIT), liblzma from xz (public domain) and `HACL*` (MIT). Python's own license file is in `licenses\python`.
-- PyInstaller 6.22.3's bootloader, which is `sc-mp3.exe` itself. GPL-2.0-or-later with PyInstaller's bootloader exception, which allows it to ship with programs under any license.
-- The Microsoft Visual C++ runtime 14.44, `_internal\VCRUNTIME140.dll` and `_internal\VCRUNTIME140_1.dll`. Microsoft's redistributable code, under the Visual Studio license terms. https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files
+- On a Mac, Python 3.13.7 is `sc-mp3.app/Contents/Frameworks/libpython3.13.dylib` and the standard library. It has OpenSSL 3.5.3, SQLite 3.50.4, Expat 2.6.3, mpdecimal 4.0.0, bzip2 1.0.8, libffi, liblzma from xz 5.2.12 and `HACL*` built in, under the licenses above, and uses the zlib that comes with macOS.
+- PyInstaller 6.22.3's bootloader, which is `sc-mp3.exe` itself, or `sc-mp3.app/Contents/MacOS/sc-mp3` on a Mac. GPL-2.0-or-later with PyInstaller's bootloader exception, which allows it to ship with programs under any license.
+- In the Windows release, the Microsoft Visual C++ runtime 14.44, `_internal\VCRUNTIME140.dll` and `_internal\VCRUNTIME140_1.dll`. Microsoft's redistributable code, under the Visual Studio license terms. https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files
 
 ## Python packages
 
@@ -93,6 +147,10 @@ Each package's page, with its source and license, is at `https://pypi.org/projec
 | proxy_tools | 0.1.0 | BSD-2-Clause, from its repository's LICENSE.txt; its package metadata says MIT |
 | pycparser | 3.11 | BSD-3-Clause |
 | pycryptodomex | 3.24.1 | BSD-2-Clause, and public domain |
+| pyobjc-core | 12.2.2 | MIT |
+| pyobjc-framework-Cocoa | 12.2.2 | MIT |
+| pyobjc-framework-UniformTypeIdentifiers | 12.2.2 | MIT |
+| pyobjc-framework-WebKit | 12.2.2 | MIT |
 | pythonnet | 3.2.1 | MIT |
 | pywebview | 6.2.1 | BSD-3-Clause |
 | requests | 2.34.2 | Apache-2.0 |
@@ -103,11 +161,13 @@ Each package's page, with its source and license, is at `https://pypi.org/projec
 | yt-dlp | 2026.8.19 | Unlicense |
 | yt-dlp-ejs | 0.8.0 | Unlicense, MIT and ISC |
 
+clr_loader and pythonnet are in the Windows release only, and the four pyobjc packages in the Mac releases only. pyobjc-core and pyobjc-framework-UniformTypeIdentifiers ship no license file, so the files in their `licenses` folders come from their 12.2.2 source releases.
+
 Some of these packages include other libraries:
 
-- Pillow: libjpeg-turbo 3.2.0 (IJG and BSD-3-Clause), OpenJPEG 2.5.4 (BSD-2-Clause), libtiff 4.7.2 (libtiff), liblzma from xz 5.8.4 (0BSD), zlib-ng 2.3.3 (Zlib), Little CMS 2.19.1 (MIT), libwebp 1.6.0 (BSD-3-Clause), libavif 1.4.2 (BSD-2-Clause), dav1d 1.5.3 (BSD-2-Clause), aom 3.14.1 (BSD-2-Clause, with the Alliance for Open Media Patent License 1.0) and libyuv (BSD-3-Clause). Pillow's wheel has their license texts in its LICENSE file.
-- curl_cffi, in `_internal\curl_cffi.libs`: libcurl-impersonate, which is curl 8.21.0 (curl) with curl-impersonate's changes (MIT), BoringSSL (Apache-2.0), nghttp2 1.63.0, ngtcp2 1.20.0 and nghttp3 1.15.0 (MIT), brotli 1.2.0 (MIT), zstd 1.5.7 (BSD-3-Clause or GPL-2.0-only) and zlib 1.3.1 (Zlib).
-- pywebview, in `_internal\webview\lib`: Microsoft's WebView2 SDK 1.0.3856.49 (`Microsoft.Web.WebView2.Core.dll`, `Microsoft.Web.WebView2.WinForms.dll` and `WebView2Loader.dll`), under Microsoft's BSD-3-Clause-style license. https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.3856.49/License
+- Pillow: libjpeg-turbo 3.2.0 (IJG and BSD-3-Clause), OpenJPEG 2.5.4 (BSD-2-Clause), libtiff 4.7.2 (libtiff), liblzma from xz 5.8.4 (0BSD), zlib-ng 2.3.3 (Zlib), Little CMS 2.19.1 (MIT), libwebp 1.6.0 (BSD-3-Clause), libavif 1.4.2 (BSD-2-Clause), dav1d 1.5.3 (BSD-2-Clause), aom 3.14.1 (BSD-2-Clause, with the Alliance for Open Media Patent License 1.0) and libyuv (BSD-3-Clause). On a Mac it also has libxcb and libXau (MIT). Pillow's wheel has their license texts in its LICENSE file.
+- curl_cffi, in `_internal\curl_cffi.libs`: libcurl-impersonate, which is curl 8.21.0 (curl) with curl-impersonate's changes (MIT), BoringSSL (Apache-2.0), nghttp2 1.63.0, ngtcp2 1.20.0 and nghttp3 1.15.0 (MIT), brotli 1.2.0 (MIT), zstd 1.5.7 (BSD-3-Clause or GPL-2.0-only) and zlib 1.3.1 (Zlib). On a Mac they're built into `curl_cffi/_wrapper.abi3.so`.
+- pywebview, in `_internal\webview\lib`: Microsoft's WebView2 SDK 1.0.3856.49 (`Microsoft.Web.WebView2.Core.dll`, `Microsoft.Web.WebView2.WinForms.dll` and `WebView2Loader.dll`), under Microsoft's BSD-3-Clause-style license. https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.3856.49/License. On a Mac, pywebview uses the WebKit that comes with macOS instead.
 - setuptools: backports.tarfile 1.2.0, jaraco.text 4.0.0, tomli 2.4.0 and wheel 0.46.3 (MIT), and packaging 26.0 (Apache-2.0 or BSD-2-Clause).
 - certifi: Mozilla's list of certificate authorities, `_internal\certifi\cacert.pem` (MPL-2.0).
 

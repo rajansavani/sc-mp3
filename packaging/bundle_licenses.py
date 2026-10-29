@@ -8,27 +8,36 @@ RECORD lists it.
 import importlib.metadata
 import shutil
 import sys
+import sysconfig
 import tomllib
 import zipfile
 from collections.abc import Iterable, Iterator
 from pathlib import Path, PurePosixPath
 
 PACKAGING_DIR = Path(__file__).resolve().parent
+REPO_ROOT = PACKAGING_DIR.parent
 
-# The folder next to sc-mp3.exe with the license files of everything bundled, one folder each.
+# The folder next to the app with the license files of everything bundled, one folder each.
 LICENSES_DIR = "licenses"
 # File names a package's metadata folder uses for its license texts and notices.
 LICENSE_NAMES = ("license", "licence", "copying", "notice", "authors")
 # License files kept in the repo, by package, for packages whose wheels ship none.
 REPO_LICENSES = PACKAGING_DIR / "licenses"
-# sc-mp3.exe is PyInstaller's bootloader, which no bundled file is named after.
+# The app's own program is PyInstaller's bootloader, which no bundled file is named after.
 ALWAYS_LICENSED = frozenset({"pyinstaller"})
-PYTHON_LICENSE = Path(sys.base_prefix) / "LICENSE.txt"
+# Python keeps its license at the top on Windows and in the standard library's folder elsewhere.
+PYTHON_LICENSES = (
+    Path(sys.base_prefix) / "LICENSE.txt",
+    Path(sysconfig.get_path("stdlib")) / "LICENSE.txt",
+)
 BINARIES_LOCK = PACKAGING_DIR / "binaries.lock"
 # Where fetch_binaries.py keeps each target's verified downloads.
 BIN_DIR = PACKAGING_DIR / "bin"
 # What gyan.dev's archive holds beside its bin folder: the GPL and the build's configuration.
 FFMPEG_NOTICE_FILES = frozenset({"LICENSE", "README.txt"})
+# Martin Riedl's macOS archives hold ffmpeg alone. His builds are GPL-3.0-or-later, whose text is
+# sc-mp3's own LICENSE, and the notices list their libraries.
+GPL_TEXT = REPO_ROOT / "LICENSE"
 
 # Where a license file goes under licenses/<name>, and where it is now.
 type LicenseFile = tuple[PurePosixPath, Path]
@@ -54,9 +63,9 @@ def module_files(module: str) -> list[str]:
     return [f"{base}.py", f"{base}/__init__.py"]
 
 
-def bundled_names(folder: Path, exe: Path) -> list[str]:
-    """Every bundled file and module, named by its path in site-packages."""
-    internal = folder / "_internal"
+def bundled_names(built: Path, exe: Path) -> list[str]:
+    """Every file in PyInstaller's folder and module in its exe, by its path in site-packages."""
+    internal = built / "_internal"
     files = [
         path.relative_to(internal).as_posix() for path in internal.rglob("*") if path.is_file()
     ]
@@ -104,10 +113,30 @@ def package_license_files(name: str, kept: Path = REPO_LICENSES) -> list[License
     return found
 
 
-def ffmpeg_top_folder(target: str, lock: Path = BINARIES_LOCK) -> str:
-    """The folder the pinned ffmpeg archive keeps everything in, from binaries.lock."""
+def python_license(candidates: Iterable[Path]) -> Path:
+    """The first of the candidates that exists: Python's license, wherever this Python keeps it."""
+    found = next((path for path in candidates if path.is_file()), None)
+    if found is None:
+        raise LicenseError(f"Couldn't find Python's LICENSE.txt in {sys.base_prefix}.")
+    return found
+
+
+def ffmpeg_top_folder(target: str, lock: Path = BINARIES_LOCK) -> str | None:
+    """The folder the pinned ffmpeg archive keeps everything in, or None when it has no folder."""
     pin = tomllib.loads(lock.read_text(encoding="utf-8"))["ffmpeg"][target]
-    return PurePosixPath(pin["archive_member"]).parts[0]
+    *folders, _ = PurePosixPath(pin["archive_member"]).parts
+    return folders[0] if folders else None
+
+
+def target_ffmpeg_notices(target: str) -> dict[str, bytes]:
+    """The notice files for the target's ffmpeg: from its archive, or the GPL when it has none."""
+    top = ffmpeg_top_folder(target)
+    if top is not None:
+        return ffmpeg_notices(BIN_DIR / target / "ffmpeg.zip", top)
+    try:
+        return {"LICENSE": GPL_TEXT.read_bytes()}
+    except OSError as error:
+        raise LicenseError(f"Couldn't read the GPL from {GPL_TEXT.name}: {error}") from error
 
 
 def ffmpeg_notices(archive: Path, top: str) -> dict[str, bytes]:
@@ -134,16 +163,18 @@ def copy_licenses(files: Iterable[LicenseFile], folder: Path) -> None:
             ) from error
 
 
-def add_licenses(folder: Path, app_name: str, target: str) -> list[str]:
-    """Fill licenses/ for every bundled package, Python and ffmpeg, and return the packages."""
-    licenses = folder / LICENSES_DIR
-    names = bundled_names(folder, folder / f"{app_name}.exe")
-    packages = bundled_packages(names, installed_owners(), app_name)
+def add_licenses(built: Path, exe: Path, release: Path, app_name: str, target: str) -> list[str]:
+    """Fill licenses/ in the release folder for every package, Python and ffmpeg in the build.
+
+    `built` is PyInstaller's folder, with `exe` and _internal. Returns the packages.
+    """
+    licenses = release / LICENSES_DIR
+    packages = bundled_packages(bundled_names(built, exe), installed_owners(), app_name)
     for name in packages:
         copy_licenses(package_license_files(name), licenses / name)
-    copy_licenses([(PurePosixPath("LICENSE.txt"), PYTHON_LICENSE)], licenses / "python")
+    python = python_license(PYTHON_LICENSES)
+    copy_licenses([(PurePosixPath("LICENSE.txt"), python)], licenses / "python")
     (licenses / "ffmpeg").mkdir(parents=True, exist_ok=True)
-    notices = ffmpeg_notices(BIN_DIR / target / "ffmpeg.zip", ffmpeg_top_folder(target))
-    for name, data in notices.items():
+    for name, data in target_ffmpeg_notices(target).items():
         (licenses / "ffmpeg" / name).write_bytes(data)
     return packages

@@ -22,6 +22,7 @@ from scmp3.app.page_loading import (
     is_servable,
     page_location,
     plain_page,
+    serve_without_name_lookup,
     start_page_server,
 )
 from scmp3.app.webview_data import EarlyDeleteFilter
@@ -185,6 +186,7 @@ def open_window(
     if on_closing is not None:
         window.events.closing += on_closing
     window.events.closed += events.close
+    window.events.closed += watch.window_closed
     storage = {"storage_path": str(data_folder)} if data_folder is not None else {}
     try:
         toolkit.start(http_server=True, private_mode=True, **storage)
@@ -236,6 +238,7 @@ def run_window(paths: Sequence[str] = (), engine_start: EngineStart | None = Non
     drops.add_paths(paths)
     page = page_location(INDEX_PAGE, Path(get_app_root()))
     if is_servable(page):
+        serve_without_name_lookup(webview.http)
         # webview.start() reuses the server that's already running.
         start_page_server(webview.http.start_global_server, page)
     try:
