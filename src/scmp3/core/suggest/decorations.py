@@ -36,13 +36,13 @@ def artist_bounds(
     # Each edge is checked on the name at that edge, so "Lou V & Kaia ✧" keeps Kaia's star.
     names = joined_names(masked[start:end].strip()) or [""]
     wrapped: list[Claim] = []
-    if before and _spelled_with_symbols(draft.text[before[0].start : start] + names[0], context):
+    if before and spelled_with_symbols(draft.text[before[0].start : start] + names[0], context):
         start, wrapped = before[0].start, [*before]
-    elif not _spelled_with_symbols(names[0], context):
+    elif not spelled_with_symbols(names[0], context):
         start = inner_start
-    if after and _spelled_with_symbols(names[-1] + draft.text[end : after[-1].end], context):
+    if after and spelled_with_symbols(names[-1] + draft.text[end : after[-1].end], context):
         end, wrapped = after[-1].end, [*wrapped, *after]
-    elif not _spelled_with_symbols(names[-1], context):
+    elif not spelled_with_symbols(names[-1], context):
         end = inner_end
     return PartBounds(start, end, tuple(wrapped))
 
@@ -86,7 +86,7 @@ def _emoji_claims(draft: Draft) -> list[Claim]:
     return [claim for claim in draft.claims if claim.kind == "remove_emoji"]
 
 
-def _spelled_with_symbols(name: str, context: Context) -> bool:
+def spelled_with_symbols(name: str, context: Context) -> bool:
     """Whether the uploader or a publisher name is `name`, its symbols included."""
     name = name.strip()
     return any(same_spelling(name, other) for other in [context.uploader, *context.publisher])

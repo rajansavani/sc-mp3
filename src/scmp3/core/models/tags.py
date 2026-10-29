@@ -8,6 +8,7 @@ from scmp3.core.models.base import Model
 ChangeKind = Literal[
     "remove_promo",
     "remove_producer",
+    "credit_producer",
     "extract_feature",
     "artist_from_title",
     "strip_redundant_artist",

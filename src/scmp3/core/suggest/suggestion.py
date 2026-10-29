@@ -4,9 +4,20 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 
 from scmp3.core.models import Change, Settings, SourceInfo, TagSuggestion
-from scmp3.core.suggest import artist_lists, artists, emoji, rules, youtube
-from scmp3.core.suggest.draft import VERSION, Claim, Context, Draft, assemble
-from scmp3.core.suggest.labels import change_label
+from scmp3.core.suggest import (
+    artist_end,
+    artist_lists,
+    artists,
+    emoji,
+    file_names,
+    producers,
+    rules,
+    title_text,
+    youtube,
+)
+from scmp3.core.suggest.assembly import assemble
+from scmp3.core.suggest.draft import VERSION, Claim, Context, Draft
+from scmp3.core.suggest.labels import change_label, feature_label, new_change_id, shown_text
 from scmp3.core.suggest.names import any_same_artist, split_artist_list, strip_invisible
 from scmp3.core.suggest.words import Wordlists, load_wordlists
 
@@ -26,7 +37,7 @@ TITLE_STEPS: tuple[Step, ...] = (
     rules.claim_trailing_promo,
     emoji.claim_emoji,
     rules.claim_inline_producers,
-    youtube.claim_artist_at_end,  # before the dash split, so "Numb - Linkin Park" isn't read as one
+    artist_end.claim_artist_at_end,  # before the dash split, so "Numb - Linkin Park" isn't one
     artists.claim_title_artist,
     artists.claim_inline_features,
     rules.claim_custom_words,
@@ -77,14 +88,17 @@ def build(source: SourceInfo, settings: Settings, toggles: Mapping[str, bool]) -
     """Run every rule, then settle each change from `toggles` or its default."""
     words = load_wordlists()
     drafts = _detect(source, settings, words)
-    caps_span = _caps_span(drafts.title)
+    caps_span = title_text.caps_span(drafts.title)
     changes = _changes(drafts, toggles)
-    caps = _caps_change(caps_span, toggles, drafts.taken)
+    credits = _producer_changes(drafts, toggles)
+    changes.extend(credits)
+    caps = title_text.caps_change(caps_span, toggles, drafts.taken)
     if caps:
         changes.append(caps)
     caps_on = bool(caps and caps.enabled)
-    base_title, version = _title_and_version(drafts.title, words, caps_on=caps_on)
-    main, featured = _artists(drafts)
+    base_title, version = title_text.title_and_version(drafts.title, words, caps_on=caps_on)
+    main, featured = _artists(drafts, held=producers.held_back(credits))
+    changes = _feature_labels(changes, drafts, main, featured)
     when = source.release_date or source.upload_date
     return TagSuggestion(
         base_title=base_title,
@@ -109,6 +123,8 @@ class _Drafts:
     # The uploader's emoji change only shows when the uploader is the artist to begin with.
     uploader_is_artist: bool
     taken: dict[str, int] = field(default_factory=dict)  # change ids used so far
+    # The names each feature change credits, by change id, spelled as the tags spell them.
+    feature_names: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 def _detect(source: SourceInfo, settings: Settings, words: Wordlists) -> _Drafts:
@@ -123,7 +139,7 @@ def _detect(source: SourceInfo, settings: Settings, words: Wordlists) -> _Drafts
         publisher=tuple(name for names in publisher for name in names),
         uploader=_name(uploader, cut_all=True),
     )
-    title = _run(source.title, TITLE_STEPS, context)
+    title = _run(file_names.title_to_read(source), TITLE_STEPS, context)
     _apply_settings(title, settings)
     # Last, so an emoji next to a credit the settings keep stays too.
     emoji.settle_emoji(title, context)
@@ -142,12 +158,41 @@ def _listed_names(name: str, context: Context) -> list[str]:
 def _changes(drafts: _Drafts, toggles: Mapping[str, bool]) -> list[Change]:
     """Settle the title's changes, then the publisher artists' and the uploader's."""
     spell = _credited_spelling(drafts)
-    changes = _settle(drafts.title, toggles, drafts.taken, spell)
+    changes = _settle(drafts.title, toggles, drafts, spell)
     for credit in drafts.credits:
-        changes.extend(_settle(credit, toggles, drafts.taken, spell, follow=drafts.title))
+        changes.extend(_settle(credit, toggles, drafts, spell, follow=drafts.title))
     if drafts.uploader_is_artist:
-        changes.extend(_settle(drafts.uploader, toggles, drafts.taken, spell))
+        changes.extend(_settle(drafts.uploader, toggles, drafts, spell))
     return changes
+
+
+def _producer_changes(drafts: _Drafts, toggles: Mapping[str, bool]) -> list[Change]:
+    """A change for each listed producer that would be featured, crediting them as featured."""
+    featured = _publisher(drafts).featured
+    context = drafts.context
+    marked = producers.marked_producers(
+        featured, drafts.title, context.source.description, context.words
+    )
+    # A name the title also features or takes as its artist, as in "(feat. Kaia) (prod. Kaia)",
+    # stays credited.
+    credited = [name for names in drafts.feature_names.values() for name in names]
+    credited += [artist.base for artist in artist_lists.title_artists(drafts.title)]
+    held = [name for name in marked if not any_same_artist([name], credited)]
+    return producers.producer_changes(held, toggles, drafts.taken)
+
+
+def _feature_labels(
+    changes: list[Change], drafts: _Drafts, main: list[str], featured: list[str]
+) -> list[Change]:
+    """Each feature's change labelled with what it did, once the artists are known."""
+    labelled: list[Change] = []
+    for change in changes:
+        names = drafts.feature_names.get(change.id)
+        if names:
+            span = rules.balance_brackets(change.span)
+            change = replace(change, label=feature_label(span, names, main, featured))
+        labelled.append(change)
+    return labelled
 
 
 def _credited_spelling(drafts: _Drafts) -> Callable[[str], str]:
@@ -164,14 +209,28 @@ def _credited_spelling(drafts: _Drafts) -> Callable[[str], str]:
     return lambda name: artist_lists.credited_spelling(name, publisher, uploader)
 
 
-def _artists(drafts: _Drafts) -> tuple[list[str], list[str]]:
-    """Step 9: the main and featured artists, given which changes are on."""
+def _publisher(drafts: _Drafts) -> artist_lists.PublisherArtists:
+    """The publisher's artists as main and featured names, given which changes are on."""
     uploader = _name(drafts.uploader, cut_all=not drafts.uploader_is_artist)
     names = [_name(credit, cut_all=False) for credit in drafts.credits]
     lists = [_listed_names(name, drafts.context) for name in names]
     from_title = artist_lists.title_artists(drafts.title)
+    words = drafts.context.words
+    named_producers = [
+        name for names in lists for name in names if producers.is_producer_credit(name, words)
+    ]
     uploaders = [drafts.uploader.text, uploader]
-    publisher = artist_lists.publisher_artists(lists, from_title, uploaders)
+    return artist_lists.publisher_artists(lists, from_title, uploaders, named_producers)
+
+
+def _artists(drafts: _Drafts, held: list[str]) -> tuple[list[str], list[str]]:
+    """Step 9: the main and featured artists, given which changes are on.
+
+    `held` has the listed producers whose credit is off.
+    """
+    uploader = _name(drafts.uploader, cut_all=not drafts.uploader_is_artist)
+    from_title = artist_lists.title_artists(drafts.title)
+    publisher = _publisher(drafts)
     # A listed name whose feat. text a toggle put back in the title isn't credited twice.
     put_back = [
         name
@@ -179,7 +238,9 @@ def _artists(drafts: _Drafts) -> tuple[list[str], list[str]]:
         if claim.kind == "extract_feature" and not claim.enabled
         for name in claim.names
     ]
-    listed = [name for name in publisher.featured if not any_same_artist([name], put_back)]
+    listed = [
+        name for name in publisher.featured if not any_same_artist([name], [*put_back, *held])
+    ]
     featured = artist_lists.merge_featured(
         listed + _names(drafts.title, "extract_feature"),
         [name for credit in drafts.credits for name in _names(credit, "extract_feature")],
@@ -220,14 +281,15 @@ def _keep_title_from_emptying(draft: Draft) -> None:
 def _settle(
     draft: Draft,
     toggles: Mapping[str, bool],
-    taken: dict[str, int],
+    drafts: _Drafts,
     spell: Callable[[str], str],
     follow: Draft | None = None,
 ) -> list[Change]:
     """Turn a draft's claims into changes, in text order, switched as `toggles` says.
 
     `spell` gives each credited name in its labels the spelling the tags use. With `follow`, a
-    feature that the followed draft already credits shares its change.
+    feature that the followed draft already credits shares its change. The ids used so far and
+    each feature's names are kept in `drafts`.
     """
     settled: list[Claim] = []
     changes: list[Change] = []
@@ -237,11 +299,13 @@ def _settle(
             settled.append(replace(claim, enabled=leader.enabled) if leader else claim)
             continue
         span = draft.span(claim)
-        change_id = _new_id(claim.kind, span, taken)
+        change_id = new_change_id(claim.kind, shown_text(claim.kind, span), drafts.taken)
         enabled = toggles.get(change_id, claim.enabled)
         settled.append(replace(claim, enabled=enabled, default_on=claim.enabled))
         # A credit cut short by a version, like "(prod. Hazy", shows its bracket closed.
         names = tuple(spell(name) for name in claim.names)
+        if claim.kind == "extract_feature":
+            drafts.feature_names[change_id] = names
         label = change_label(claim.kind, rules.balance_brackets(span), names)
         changes.append(Change(change_id, claim.kind, span, label, enabled))
     draft.claims = settled
@@ -259,56 +323,6 @@ def _same_feature(claim: Claim, title: Draft) -> Claim | None:
         if all(any_same_artist([name], other.names) for name in claim.names):
             return other
     return None
-
-
-def _new_id(kind: str, span: str, taken: dict[str, int]) -> str:
-    """A change id made from its kind and text, so it stays the same when other changes flip."""
-    base = f"{kind}:{span}"
-    taken[base] = taken.get(base, 0) + 1
-    return base if taken[base] == 1 else f"{base}#{taken[base]}"
-
-
-def _caps_span(draft: Draft) -> str | None:
-    """The title as the default changes leave it, when it's all in capitals.
-
-    A title that's nothing but promo or credits, like "[FREE DL]" alone, isn't offered.
-    """
-    own_words = rules.tidy(" ".join(assemble(draft, cut=lambda claim: True)))
-    kept = rules.tidy(" ".join(assemble(draft, cut=lambda claim: claim.enabled)))
-    return kept if own_words and rules.is_all_caps(kept) else None
-
-
-def _caps_change(
-    span: str | None, toggles: Mapping[str, bool], taken: dict[str, int]
-) -> Change | None:
-    """Offer title case for an all-caps title. It starts off, and never touches artist names."""
-    if span is None:
-        return None
-    change_id = _new_id("fix_caps", span, taken)
-    label = change_label("fix_caps", span)
-    return Change(change_id, "fix_caps", span, label, toggles.get(change_id, False))
-
-
-def _title_and_version(draft: Draft, words: Wordlists, *, caps_on: bool) -> tuple[str, str | None]:
-    """The base title and version, with the changes that are on applied."""
-    carried = artist_lists.carried_features(draft)
-
-    def cut(claim: Claim) -> bool:
-        # A feature inside a taken artist part leaves the title with it, on or off.
-        return claim.enabled or claim.start in carried
-
-    def transform(text: str) -> str:
-        return rules.title_case(text, words.caps_keep) if caps_on else text
-
-    title, version = rules.carry_open_bracket(*assemble(draft, cut=cut, transform=transform))
-    # The version keeps the space before it, or the lack of one, as written.
-    spaced = not title or title[-1].isspace() or version[:1].isspace()
-    base_title = rules.tidy(title)
-    kept_version = rules.tidy_version(version, spaced=spaced)
-    # A title that is only a version, like "(Intro)", keeps it as the title.
-    if not base_title and kept_version:
-        return kept_version.strip(), None
-    return base_title, kept_version
 
 
 def _names(draft: Draft, kind: str) -> list[str]:

@@ -179,6 +179,20 @@ def test_a_stream_without_a_recording_yet_is_refused(status: str) -> None:
     assert (error.value.kind, error.value.reason) == (ErrorKind.unavailable, "live_stream")
 
 
+def test_a_rental_film_whose_trailer_comes_back_is_refused_as_paid(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # YouTube points a rental film to its trailer, and yt-dlp extracts that video instead.
+    trailer = {**recorder.load("topic_upload"), "id": "uGpuVWrhIzE"}
+    with pytest.raises(ScmpError) as error:
+        youtube.resolve_track(link("yYr8q0y5Jfg"), ReplayYdl(trailer))  # type: ignore[arg-type]
+    assert (error.value.kind, error.value.reason) == (ErrorKind.unavailable, "paid")
+    warnings = [record for record in caplog.records if record.levelname == "WARNING"]
+    assert any(
+        "uGpuVWrhIzE" in r.getMessage() and "yYr8q0y5Jfg" in r.getMessage() for r in warnings
+    )
+
+
 def test_resolving_takes_only_a_youtube_video_link() -> None:
     with pytest.raises(ValueError, match="soundcloud_track"):
         youtube.resolve_track("https://soundcloud.com/kaia/midnight-drive", ReplayYdl())  # type: ignore[arg-type]

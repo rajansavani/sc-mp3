@@ -1,11 +1,11 @@
 """A title being cleaned up: its text, and the regions the rules have claimed in it.
 
-Rules never edit the text. Each one claims the region it acts on, and the title is rebuilt from
-the text and the claims that are switched on. That is what makes every change reversible.
+Rules never edit the text. Each one claims the region it acts on, and `assembly.py` rebuilds the
+title from the text and the claims that are switched on. That makes every change reversible.
 """
 
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -50,6 +50,10 @@ CUT = "\x1f"
 # Kind of a claim that keeps its text and moves it into the version, like "(VIP Mix)".
 VERSION: Literal["version"] = "version"
 ClaimKind = ChangeKind | Literal["version"]
+# The claims that take an artist out of the title.
+ARTIST_KINDS = ("artist_from_title", "strip_redundant_artist")
+# Separators and spaces trimmed off each part of a title between its dashes or pipes.
+SEPARATORS = " -|/:"
 
 
 @dataclass(frozen=True)
@@ -148,9 +152,9 @@ class Draft:
         if not inside:
             return False
         last = max(inside, key=lambda claim: claim.end)
-        # Only claims with nothing after them but the closing bracket.
+        # A version in the middle, as in "(feat. Lou V (VIP Mix) & Mara)", stays inside the credit.
         if self.text[last.end : group.end - 1].strip():
-            return False
+            return self._claim_around(kind, group, inside, names)
         if not self.claim(kind, group.start, min(claim.start for claim in inside), names=names):
             return False
         if last.kind != VERSION:
@@ -158,6 +162,27 @@ class Draft:
             return True
         # A version takes the closing bracket too, which tidying then balances.
         return self.claim(VERSION, group.end - 1, group.end)
+
+    def _claim_around(
+        self, kind: ClaimKind, group: Group, inside: list[Claim], names: tuple[str, ...]
+    ) -> bool:
+        """Claim a whole group around the version claims inside it, which keep their own claims.
+
+        A title that is only the credit, like "(feat. Lou V (VIP Mix) & Mara) [FREE DL]", stays
+        whole. Text other rules claimed, like the promo, doesn't count as the title.
+        """
+        masked = self.masked()
+        if not has_words(masked[: group.start] + masked[group.end :]):
+            return False
+        others = [
+            claim
+            for claim in self.claims
+            if claim not in inside and claim.start < group.end and group.start < claim.end
+        ]
+        if others or any(claim.kind != VERSION for claim in inside):
+            return False
+        self.claims.append(Claim(kind, group.start, group.end, names=names))
+        return True
 
     def groups(self) -> list[Group]:
         """The bracketed parts nobody has claimed yet."""
@@ -214,7 +239,7 @@ def is_emoticon(text: str, index: int) -> bool:
 
 def spaced_dashes(text: str) -> list[int]:
     """Where the spaced dashes outside brackets are. A face like "(˵ •̀ ᴗ - ˵ )" never splits."""
-    pairs = _bracket_pairs(text)
+    pairs = bracket_pairs(text)
     return [
         match.start()
         for match in _SPACED_DASH.finditer(text)
@@ -222,7 +247,7 @@ def spaced_dashes(text: str) -> list[int]:
     ]
 
 
-def _bracket_pairs(text: str) -> list[tuple[int, int]]:
+def bracket_pairs(text: str) -> list[tuple[int, int]]:
     """Where each matched pair of brackets opens and closes. Emoticons and strays don't count."""
     pairs: list[tuple[int, int]] = []
     open_at: list[int] = []
@@ -234,97 +259,3 @@ def _bracket_pairs(text: str) -> list[tuple[int, int]]:
         elif open_at and BRACKET_PAIRS[text[open_at[-1]]] == char:
             pairs.append((open_at.pop(), index))
     return pairs
-
-
-def assemble(
-    draft: Draft,
-    cut: Callable[[Claim], bool],
-    transform: Callable[[str], str] = str,
-) -> tuple[str, str]:
-    """Rebuild the text as (title, version), leaving out each claim that `cut` accepts.
-
-    The version is the trailing run of version claims, plus any claims mixed in with them, so
-    a restored "FREE DL" after "(VIP Mix)" stays after it. `transform` changes the kept text.
-    """
-    claims = sorted(draft.claims, key=lambda claim: claim.start)
-    split_at = _version_start(draft.text, claims)
-    pieces = _Pieces(draft.text, _orphaned_closers(draft.text, claims, cut), transform)
-    title: list[str] = []
-    version: list[str] = []
-    position = 0
-    for claim in claims:
-        _add_gap(pieces, position, claim.start, split_at, title, version)
-        target = version if claim.start >= split_at else title
-        target.append(_claim_text(pieces, claim, cut))
-        position = claim.end
-    _add_gap(pieces, position, len(draft.text), split_at, title, version)
-    return "".join(title), "".join(version)
-
-
-@dataclass(frozen=True)
-class _Pieces:
-    """The text being rebuilt, and how its kept parts are written out."""
-
-    text: str
-    orphans: set[int]  # closers whose opener was cut
-    transform: Callable[[str], str]
-
-    def as_written(self, start: int, end: int) -> str:
-        """text[start:end], with a cut marked before each orphaned closer, so tidying drops it."""
-        return "".join(
-            CUT + self.text[index] if index in self.orphans else self.text[index]
-            for index in range(start, end)
-        )
-
-    def kept(self, start: int, end: int) -> str:
-        """text[start:end] as written, transformed."""
-        return self.transform(self.as_written(start, end))
-
-
-def _orphaned_closers(text: str, claims: list[Claim], cut: Callable[[Claim], bool]) -> set[int]:
-    """Where the closers are whose opener is in a cut claim while they aren't."""
-    cut_claims = [claim for claim in claims if claim.kind != VERSION and cut(claim)]
-
-    def is_cut(index: int) -> bool:
-        return any(claim.start <= index < claim.end for claim in cut_claims)
-
-    return {end for start, end in _bracket_pairs(text) if is_cut(start) and not is_cut(end)}
-
-
-def _add_gap(
-    pieces: _Pieces, start: int, end: int, split_at: int, title: list[str], version: list[str]
-) -> None:
-    """Add the unclaimed text from `start` to `end`, splitting it where the version starts."""
-    middle = min(max(split_at, start), end)
-    title.append(pieces.kept(start, middle))
-    version.append(pieces.kept(middle, end))
-
-
-def _claim_text(pieces: _Pieces, claim: Claim, cut: Callable[[Claim], bool]) -> str:
-    """The text a claim contributes: its own text, or a gap where it was cut."""
-    if claim.kind == VERSION:
-        return pieces.kept(claim.start, claim.end)
-    # A gap keeps "Song(feat. X)Remix" from becoming "SongRemix"; tidying collapses it.
-    if cut(claim):
-        return CUT
-    # Text a toggle put back stays as written; text that was never cut is the title's own.
-    if claim.default_on:
-        return pieces.as_written(claim.start, claim.end)
-    return pieces.kept(claim.start, claim.end)
-
-
-def _version_start(text: str, claims: list[Claim]) -> int:
-    """Where the trailing version starts, or the end of the text when there's none."""
-    start = len(text)
-    end = len(text)
-    for claim in reversed(claims):
-        if text[claim.end : end].strip():
-            break
-        if claim.kind == VERSION:
-            start = claim.start
-        end = claim.start
-    # A separator just before the version goes with it, as in "Song - (VIP Mix)".
-    lead = re.search(r"\s[-|/:]+\s*$", text[:start])
-    if start < len(text) and lead:
-        return lead.start()
-    return start

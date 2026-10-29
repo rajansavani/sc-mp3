@@ -40,6 +40,8 @@ bracket_endings = ["release"]
 [producer]
 # A producer credit is one of these followed by names, as in "(prod. Hazy)".
 keywords = ["produced by", "prod. by", "prod by", "prod.", "prod"]
+# A producer bracket with one of these is a remix, kept as the version: "(Prod. H2T pluggnb rmx)".
+remixes = ["rmx", "remix", "flip", "edit", "bootleg", "vip"]
 
 [features]
 # A feature is one of these followed by names, in brackets or not.
@@ -136,6 +138,8 @@ bracket_only = ["interlude", "intro", "outro"]
 leads = ["live at", "live from", "live in"]
 # These don't protect a bracket that also has promo in it, as in "[Free Download - Full Version]".
 weak = ["version"]
+# A name right before one of these made the version, as tikkoii did in "(tikkoii edit)".
+made_by = ["remix", "edit", "vip", "bootleg", "flip", "rework", "refix", "mix", "dub"]
 
 [labels]
 # Words in an uploader's name that mark a label or channel rather than an artist.

@@ -172,6 +172,7 @@ def test_a_credit_cut_short_by_a_version_shows_its_bracket_closed_in_the_label()
         ("strip_redundant_artist", "Kaia", (), "Removed the artist name “Kaia” from the title"),
         ("fix_caps", "LUCID DREAMS", (), "Changed “LUCID DREAMS” to title case"),
         ("custom_word", "Sessions", (), "Removed “Sessions”"),
+        ("credit_producer", "zayok", (), "Credited the producer zayok as a featured artist"),
     ],
 )
 def test_each_kind_of_change_has_a_plain_label(

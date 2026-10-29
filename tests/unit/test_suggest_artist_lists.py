@@ -172,7 +172,25 @@ def test_choose_main_adds_a_title_duo_only_when_a_list_doesnt_name_both() -> Non
     listed = ["Kaia", "Mara"]
 
     assert choose_main(["Kaia"], plain("Kaia & Mara"), "x", listed) == ["Kaia"]
-    assert choose_main(["Kaia"], plain("Kaia & Lou V"), "x", listed) == ["Kaia", "Kaia & Lou V"]
+    assert choose_main(["Kaia"], plain("Kaia & Lou V"), "x", listed) == ["Kaia", "Lou V"]
+
+
+def test_choose_main_splits_a_title_credit_around_each_listed_name() -> None:
+    listed = ["Kaia", "Obito"]
+
+    assert choose_main(["Obito"], plain("Lou V & Obito & Mara"), "x", listed) == [
+        "Obito",
+        "Lou V",
+        "Mara",
+    ]
+
+
+def test_publisher_artists_count_a_name_a_list_never_splits_as_one_title_credit() -> None:
+    names = [["Kaia", "Above & Beyond"]]
+
+    publisher = publisher_artists(names, plain("Above & Beyond"), ["Kaia"])
+
+    assert (publisher.main, publisher.featured) == (["Above & Beyond"], ["Kaia"])
 
 
 def test_publisher_artists_keep_every_listed_name_a_title_duo_credits_main() -> None:
@@ -183,12 +201,32 @@ def test_publisher_artists_keep_every_listed_name_a_title_duo_credits_main() -> 
     assert (publisher.main, publisher.featured) == (["Cadmium", "Rival"], ["Harley Bird"])
 
 
-def test_publisher_artists_use_the_uploader_rule_when_the_title_credits_one_listed_name() -> None:
+def test_publisher_artists_make_one_listed_name_the_title_credits_main() -> None:
     names = [["gunk", "zayok", "edyn"]]
 
     publisher = publisher_artists(names, plain("zayok & Lou V"), ["gunk"])
 
-    assert (publisher.main, publisher.featured) == (["gunk"], ["zayok", "edyn"])
+    assert (publisher.main, publisher.featured) == (["zayok"], ["gunk", "edyn"])
+
+
+def test_publisher_artists_keep_the_uploader_main_when_the_title_credits_only_the_uploader() -> (
+    None
+):
+    publisher = publisher_artists([["gunk", "zayok"]], plain("gunk"), ["gunk"])
+
+    assert (publisher.main, publisher.featured) == (["gunk"], ["zayok"])
+
+
+def test_publisher_artists_make_an_uploader_named_as_a_producer_main_only_alone() -> None:
+    names = [["Prod. H2T", "Obito"]]
+
+    publisher = publisher_artists(names, [], ["Prod. H2T"], ["Prod. H2T"])
+    alone = publisher_artists(
+        [["Prod. H2T", "prod. by Hazy"]], [], ["Prod. H2T"], ["Prod. H2T", "prod. by Hazy"]
+    )
+
+    assert (publisher.main, publisher.featured) == (["Obito"], ["Prod. H2T"])
+    assert (alone.main, alone.featured) == (["Prod. H2T"], ["prod. by Hazy"])
 
 
 def test_publisher_artists_make_every_listed_name_of_a_duo_uploader_main() -> None:

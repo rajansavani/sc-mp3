@@ -4,8 +4,9 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from scmp3.core.suggest import decorations, rules, youtube
+from scmp3.core.suggest import decorations, file_names, rules, youtube
 from scmp3.core.suggest.draft import (
+    SEPARATORS,
     VERSION,
     Claim,
     Context,
@@ -27,8 +28,6 @@ from scmp3.core.suggest.names import (
 )
 from scmp3.core.suggest.words import Wordlists, pattern, phrase_pattern
 
-# Separators and spaces trimmed off each part between spaced dashes.
-_SEGMENT_TRIM = " -|/:"
 # Stands in for a publisher name while feature text is split, so the name stays whole.
 _HELD = re.compile("\x00([0-9]+)\x00")
 
@@ -163,13 +162,21 @@ def claim_pipe_artist(draft: Draft, context: Context) -> None:
 
 
 def _names_promo_or_label(text: str, context: Context) -> bool:
-    """Whether text after a pipe is promo or a label tag, like "Monstercat Release"."""
+    """Whether text after a pipe is promo or a label tag, like "Monstercat Release".
+
+    The channel's own event, like "Boiler Room London: Beeyou Records", is neither.
+    """
     words = context.words
-    promo = pattern(f"{words.promo}|{words.promo_tail}|{words.label_words}")
+    promo = pattern(f"{words.promo}|{words.promo_tail}")
     if promo.search(text) or pattern(rf"{words.promo_bracket_endings}\W*$").search(text):
         return True
-    key = channel_key(text)
-    return key == channel_key(context.uploader) or key in words.channels
+    key, uploader = channel_key(text), channel_key(context.uploader)
+    if key == uploader or key in words.channels:
+        return True
+    # The label words in an event's name, like "Records" in a host's, don't make it a label tag.
+    if uploader and key.startswith(uploader):
+        return False
+    return bool(pattern(words.label_words).search(text))
 
 
 def read_artist_part(
@@ -178,22 +185,23 @@ def read_artist_part(
     """Read the text between `start` and the separator at `part_end` as an artist credit."""
     masked = draft.masked()
     end = part_end
-    while start < end and masked[start] in _SEGMENT_TRIM:
+    while start < end and masked[start] in SEPARATORS:
         start += 1
     feature = pattern(context.words.feature).search(masked, start, end)
     if feature:
         end = feature.start()
-    while end > start and masked[end - 1] in _SEGMENT_TRIM:
+    while end > start and masked[end - 1] in SEPARATORS:
         end -= 1
     # A closing bracket left by a credit cut short, as in "Kaia (feat. Lou V (prod. Hazy))".
     while end > start and rules.ends_with_stray_closer(masked[start:end]):
         end -= 1
-        while end > start and masked[end - 1] in _SEGMENT_TRIM:
+        while end > start and masked[end - 1] in SEPARATORS:
             end -= 1
     bounds = decorations.artist_bounds(draft, context, start, end, part_end)
     start, end = bounds.start, bounds.end
     text = strip_invisible(decorations.part_text(draft, bounds))
-    if not has_words(text):
+    # A name of only symbols, like "✝✝✝", counts only as the uploader or a listed artist spells it.
+    if not text or (not has_words(text) and not decorations.spelled_with_symbols(text, context)):
         return None
     has_feature = feature is not None or any(
         claim.kind == "extract_feature" and start <= claim.start < part_end
@@ -236,11 +244,16 @@ def _claim_artist_part(draft: Draft, context: Context, part: ArtistPart, *, uncl
     if part.redundant:
         draft.claim("strip_redundant_artist", part.start, part.end, part_end=part.part_end)
         return
+    # An uploader who made the version, as in "obvious - oklou (tikkoii edit)", is an artist,
+    # though the publisher names someone else. A known channel or label still counts as one.
+    differs = _differs_from_publisher(context) and not _version_by_uploader(draft, context)
+    from_label = differs or uploader_is_channel(context)
     signal = (
         part.from_publisher
         or part.is_list
-        or uploader_is_label(context)
+        or from_label
         or youtube.names_another_artist(draft, context)
+        or _names_a_tagless_files_artist(context)
     )
     draft.claim(
         "artist_from_title",
@@ -252,6 +265,20 @@ def _claim_artist_part(draft: Draft, context: Context, part: ArtistPart, *, uncl
     )
 
 
+def _names_a_tagless_files_artist(context: Context) -> bool:
+    """Whether the title is the name of a file with no artist tag, like "Kaia - Song.mp3"."""
+    return file_names.is_from_file_name(context.source) and not context.uploader.strip()
+
+
+def _version_by_uploader(draft: Draft, context: Context) -> bool:
+    """Whether a version in the title names the uploader, as "(tikkoii edit)" from tikkoii does."""
+    uploader = context.uploader.strip()
+    if not has_words(uploader):
+        return False
+    named = pattern(rf"{phrase_pattern(uploader)}(?:'s)?\s+{context.words.made_by}")
+    return any(claim.kind == VERSION and named.search(draft.span(claim)) for claim in draft.claims)
+
+
 def dash_segments(masked: str) -> list[Segment]:
     """The non-empty parts of the text between spaced dashes, trimmed of separators."""
     cuts = spaced_dashes(masked)
@@ -259,9 +286,9 @@ def dash_segments(masked: str) -> list[Segment]:
     segments: list[Segment] = []
     for index in range(len(bounds) - 1):
         start, end = bounds[index] + 1, bounds[index + 1]
-        while start < end and masked[start] in _SEGMENT_TRIM:
+        while start < end and masked[start] in SEPARATORS:
             start += 1
-        while end > start and masked[end - 1] in _SEGMENT_TRIM:
+        while end > start and masked[end - 1] in SEPARATORS:
             end -= 1
         if start < end:
             segments.append(Segment(start, end, bounds[index] if index else start))
@@ -270,9 +297,17 @@ def dash_segments(masked: str) -> list[Segment]:
 
 def uploader_is_label(context: Context) -> bool:
     """Whether the uploader looks like a label or channel rather than the artist."""
+    return _differs_from_publisher(context) or uploader_is_channel(context)
+
+
+def _differs_from_publisher(context: Context) -> bool:
+    """Whether the publisher names artists and the uploader isn't one of them."""
+    return bool(context.publisher) and not any_same_artist([context.uploader], context.publisher)
+
+
+def uploader_is_channel(context: Context) -> bool:
+    """Whether the uploader's name is a known channel's, a website's, or has a label word."""
     uploader = context.uploader
-    if context.publisher and not any_same_artist([uploader], context.publisher):
-        return True
     if channel_key(uploader) in context.words.channels:
         return True
     if uploader.strip() in context.words.channels_exact:

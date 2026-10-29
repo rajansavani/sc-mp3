@@ -22,6 +22,7 @@ class Wordlists:
     promo_bracket_only: str
     promo_bracket_endings: str
     producer: str
+    producer_remix: str  # words that make a producer credit a remix
     feature: str
     feature_bracketed: str
     not_names: frozenset[str]  # casefolded
@@ -31,6 +32,7 @@ class Wordlists:
     keep_strong: str  # the keep words that protect a bracket from promo removal
     keep_dash: str  # the keep words that also mark a " - " ending as a version
     keep_leads: str
+    made_by: str  # the keep words after the name of whoever made the version
     label_words: str
     channels: frozenset[str]  # channel keys
     channels_exact: frozenset[str]  # names matched exactly as written
@@ -53,6 +55,7 @@ def load_wordlists() -> Wordlists:
         promo_bracket_only=alternation(promo["bracket_only"]),
         promo_bracket_endings=alternation(promo["bracket_endings"]),
         producer=alternation(data["producer"]["keywords"]),
+        producer_remix=alternation(data["producer"]["remixes"]),
         feature=alternation(features["keywords"]),
         feature_bracketed=alternation(features["bracket_keywords"]),
         not_names=frozenset(word.casefold() for word in features["not_names"]),
@@ -64,6 +67,7 @@ def load_wordlists() -> Wordlists:
         ),
         keep_dash=alternation(keep["words"]),
         keep_leads=alternation(keep["leads"]),
+        made_by=alternation(keep["made_by"]),
         label_words=alternation(data["labels"]["words"]),
         channels=frozenset(channel_key(name) for name in data["labels"]["channels"]),
         channels_exact=frozenset(data["labels"]["channels_exact"]),

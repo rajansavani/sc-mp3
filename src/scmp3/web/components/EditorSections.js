@@ -38,9 +38,9 @@ function Chip({ job, change }) {
   `;
 }
 
-// The title the cleanups started from. A file with no title tag says so instead of showing "".
+// The title the cleanups started from. A file with no title tag names the file it was read from.
 function originalTitle(source, uploader) {
-  if (source.kind === "file" && !source.title) return text.noFileTitle;
+  if (source.kind === "file" && !source.title) return text.titleFromFileName(baseName(source.url));
   return text.originalTitle(source.title, uploader);
 }
 

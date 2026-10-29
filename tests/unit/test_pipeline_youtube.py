@@ -79,10 +79,14 @@ def world(tiny_webm: Path, tiny_m4a: Path) -> FakeYouTube:
 
 
 def prepare(
-    world: FakeYouTube, settings: Settings, history: History, **kwargs: object
+    world: FakeYouTube,
+    settings: Settings,
+    history: History,
+    url: str = TOPIC_URL,
+    **kwargs: object,
 ) -> pipeline.Prepared:
     tools = world.tools(history, **kwargs)
-    return pipeline.prepare(classify(TOPIC_URL), settings=settings, tools=tools)
+    return pipeline.prepare(classify(url), settings=settings, tools=tools)
 
 
 def test_a_youtube_link_resolves_on_deno_with_youtube_musics_fields(
@@ -160,8 +164,10 @@ def test_a_saved_track_gets_its_tags_and_a_square_cover_from_the_largest_thumbna
 def test_the_dubbed_video_downloads_its_original_audio_track(
     tiny_webm: Path, settings: Settings, history: History
 ) -> None:
-    world = FakeYouTube(fakes.recorded("dubbed_audio"), {"*": tiny_webm})
-    pipeline.fetch(prepare(world, settings, history))
+    info = fakes.recorded("dubbed_audio")
+    world = FakeYouTube(info, {"*": tiny_webm})
+    url = f"https://www.youtube.com/watch?v={info['id']}"
+    pipeline.fetch(prepare(world, settings, history, url))
     assert world.downloaded == ["251-22"]
 
 

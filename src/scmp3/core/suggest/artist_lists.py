@@ -1,12 +1,14 @@
 """Step 9 of the suggestion engine: the final main and featured lists, from the publisher's
 artists, the artists the title credits, and the uploader."""
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
 from scmp3.core.suggest import rules
-from scmp3.core.suggest.draft import CUT, Claim, Draft
+from scmp3.core.suggest.draft import ARTIST_KINDS, CUT, VERSION, Claim, Draft
 from scmp3.core.suggest.names import (
+    JOINERS,
     any_same_artist,
     comma_parts,
     dedupe,
@@ -18,9 +20,6 @@ from scmp3.core.suggest.names import (
     same_artist,
     split_credit,
 )
-
-# The claims that take an artist from the title.
-ARTIST_KINDS = ("artist_from_title", "strip_redundant_artist")
 
 
 @dataclass(frozen=True)
@@ -53,6 +52,20 @@ def carried_features(draft: Draft) -> set[int]:
     }
 
 
+def carried_versions(draft: Draft) -> set[int]:
+    """Where the versions inside a taken artist part start, like "(live)" in "AEREA (live) | Set".
+
+    They describe the track, so they move to the version rather than start the title.
+    """
+    return {
+        claim.start
+        for artist in draft.claims
+        if artist.kind in ARTIST_KINDS and artist.enabled and artist.part_end is not None
+        for claim in draft.claims
+        if claim.kind == VERSION and artist.start <= claim.start < artist.part_end
+    }
+
+
 def title_artists(draft: Draft) -> list[TitleArtist]:
     """The artists the title credits. A feature turned off goes back into the name."""
     credits: list[TitleArtist] = []
@@ -73,10 +86,20 @@ def _credits_with_features(draft: Draft, artist: Claim, kept: list[Claim]) -> li
     if not kept:
         return [TitleArtist(name, name) for name in artist.names]
     end = max(feature.end for feature in kept)
-    cut = [feature for feature in features_inside(draft, artist) if feature not in kept]
+    features = features_inside(draft, artist)
+    cut = [feature for feature in features if feature not in kept]
+    # A version beside the name moves to the track's version, so it isn't put back into the name.
+    # One inside a feature goes back with the feature.
+    cut += [
+        claim
+        for claim in draft.claims
+        if claim.kind == VERSION
+        and artist.start <= claim.start < end
+        and not any(feature.start <= claim.start < feature.end for feature in features)
+    ]
     text = draft.text[artist.start : end]
-    for feature in sorted(cut, key=lambda claim: claim.start, reverse=True):
-        start, stop = feature.start - artist.start, feature.end - artist.start
+    for claim in sorted(cut, key=lambda claim: claim.start, reverse=True):
+        start, stop = claim.start - artist.start, claim.end - artist.start
         text = text[:start] + CUT + text[stop:]
     restored = tuple(name for feature in kept for name in feature.names)
     names, bases = split_credit(rules.tidy(text)), split_credit(base)
@@ -97,16 +120,19 @@ class PublisherArtists:
 
 
 def publisher_artists(
-    lists: list[list[str]], from_title: list[TitleArtist], uploader: Sequence[str]
+    lists: list[list[str]],
+    from_title: list[TitleArtist],
+    uploader: Sequence[str],
+    producers: Sequence[str] = (),
 ) -> PublisherArtists:
     """Main and featured names from the publisher's artists, each given as the names it lists.
 
-    In a list of several, the names the title's artist part credits stay main when it credits
-    more than one, as in "Rival & Cadmium - Seasons". Otherwise the uploader is the main artist
-    when it's listed, or else the first name is. The others are featured. `uploader` has the
-    uploader's spellings, such as with and without emoji.
+    In a list of several, the names the title's artist part credits are main, as described in
+    `_leads`, and the others are featured. `uploader` has the uploader's spellings, such as with
+    and without emoji. `producers` has the names that are producer credits, like "Prod. H2T".
     """
-    credited = [part for artist in from_title for part in joined_names(artist.base)]
+    # Whole, for a name that's never split like "Above & Beyond", and in parts.
+    credited = [part for artist in from_title for part in [artist.base, *joined_names(artist.base)]]
     main: list[str] = []
     featured: list[str] = []
     listed: list[str] = []
@@ -114,24 +140,30 @@ def publisher_artists(
         if len(names) < 2:
             main.extend(names)
             continue
-        leads = _leads(names, credited, uploader)
+        leads = _leads(names, credited, uploader, producers)
         main.extend(leads)
         featured.extend(name for name in names if name not in leads)
         listed.extend(names)
     return PublisherArtists(main, featured, listed)
 
 
-def _leads(names: list[str], credited: list[str], uploader: Sequence[str]) -> list[str]:
-    """A list's main names: the ones the title credits, in its order, when it credits several.
+def _leads(
+    names: list[str], credited: list[str], uploader: Sequence[str], producers: Sequence[str]
+) -> list[str]:
+    """A list's main names: the ones the title's artist part credits, in its order, when it
+    credits several, or one that isn't the uploader, as in "Obito - Song" from Prod. H2T.
 
     Otherwise the user's rule applies: the uploader when it's listed, every name of it when it's
-    a duo like "Rival & Cadmium", or else the first name.
+    a duo like "Rival & Cadmium", or else the first name. A name that is a producer credit, like
+    "Prod. H2T", is main only when every name is one.
     """
     named = _named(names, credited)
-    if len(named) > 1:
-        return named
     uploader_parts = [part for spelling in uploader for part in [spelling, *joined_names(spelling)]]
-    return _named(names, uploader_parts) or names[:1]
+    by_uploader = _named(names, uploader_parts)
+    if len(named) > 1 or (named and not any_same_artist(named, by_uploader)):
+        return named
+    artists = [name for name in names if not any_same_artist([name], producers)] or names
+    return [name for name in by_uploader if name in artists] or artists[:1]
 
 
 def _named(names: list[str], credits: list[str]) -> list[str]:
@@ -190,7 +222,29 @@ def _add_title_artist(
     # A feature put back must show, so only a plain credit counts as named by a list.
     if artist.name == artist.base and _all_in_lists(parts, main, listed):
         return
+    # "Obito & Lou V" with Obito listed adds Lou V beside the listed Obito, never Obito again.
+    if artist.name == artist.base and any_same_artist(parts, listed):
+        main.extend(_around(artist.base, listed))
+        return
     main.append(artist.name)
+
+
+def _around(credit: str, names: Sequence[str]) -> list[str]:
+    """The runs of a credit between the names `names` has: "Obito & Lou V" around Obito is Lou V."""
+    tokens = re.split(f"({JOINERS})", credit)
+    parts, joiners = tokens[0::2], tokens[1::2]
+    runs: list[str] = []
+    run = ""
+    for index, part in enumerate(parts):
+        if any_same_artist([part], names):
+            runs.append(run)
+            run = ""
+        elif run:
+            run += joiners[index - 1] + part
+        else:
+            run = part
+    runs.append(run)
+    return [run.strip() for run in runs if run.strip()]
 
 
 def _all_in_lists(parts: list[str], main: list[str], listed: Sequence[str]) -> bool:

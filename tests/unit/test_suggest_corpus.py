@@ -1,5 +1,6 @@
 """The title corpus in tests/data/titles.toml, run through suggest, apply_changes and render."""
 
+import re
 import tomllib
 from dataclasses import replace
 from pathlib import Path
@@ -44,9 +45,12 @@ SOURCE_IDS = {
 
 
 def source_for(case: dict[str, Any]) -> SourceInfo:
-    """The source a case describes: SoundCloud unless its `kind` says otherwise."""
+    """The source a case describes: SoundCloud unless its `kind` says otherwise.
+
+    A file is known by its `path`, whose name gives the title when the file has no title tag.
+    """
     kind = case.get("kind", "soundcloud")
-    source_id, url = SOURCE_IDS[kind]
+    source_id, url = (case["path"], case["path"]) if kind == "file" else SOURCE_IDS[kind]
     return SourceInfo(
         kind=kind,
         id=source_id,
@@ -54,6 +58,7 @@ def source_for(case: dict[str, Any]) -> SourceInfo:
         title=case["title"],
         uploader=case["uploader"],
         artists=case.get("artists", []),
+        description=case.get("description"),
     )
 
 
@@ -75,6 +80,14 @@ def _without_one(text: str, span: str) -> set[str]:
     """`text` with one occurrence of `span` cut, for each occurrence, tidied and balanced."""
     starts = [index for index in range(len(text)) if text.startswith(span, index)]
     return {balanced(text[:start] + CUT + text[start + len(span) :]) for start in starts}
+
+
+def _moved_version(default: TagSuggestion, rebuilt: TagSuggestion) -> str:
+    """The start of the default version that a switched-off change took back into the title."""
+    version, left = (default.version or "").strip(), (rebuilt.version or "").strip()
+    if left and not version.endswith(left):
+        return ""
+    return version[: len(version) - len(left)].strip()
 
 
 def balanced(text: str) -> str:
@@ -154,7 +167,16 @@ def test_turning_each_change_off_puts_its_exact_text_back(case: dict[str, Any]) 
         tags = render(rebuilt, "artist_field", {}, settings)
         if change.span in tags.title:
             # Taking the text out again gives the default title, so it went back where it was.
-            assert balanced(default.title) in _without_one(tags.title, change.span), change.id
+            expected = balanced(default.title)
+            restored = _without_one(tags.title, change.span)
+            # A version inside the credit or next to the artist, as in "(feat. Lou V (VIP Mix) &
+            # Mara)" or "AEREA (live) | Set", goes back with it, so it's compared without.
+            moved = _moved_version(suggestion, rebuilt)
+            beside = re.search(rf"{re.escape(change.span)}\s*{re.escape(moved)}", source.title)
+            if moved and (moved in change.span or beside):
+                expected = balanced(default.title.replace(moved, "", 1))
+                restored = {balanced(title.replace(moved, "", 1)) for title in restored}
+            assert expected in restored, change.id
         else:
             # A feat. part or emoji of an artist name goes back into the name.
             assert change.span in tags.artist, change.id

@@ -2,7 +2,8 @@
 
 import pytest
 
-from scmp3.core.suggest.draft import CUT, Draft, assemble, is_emoticon, spaced_dashes
+from scmp3.core.suggest.assembly import assemble
+from scmp3.core.suggest.draft import CUT, Draft, is_emoticon, spaced_dashes
 
 
 def spans(draft: Draft, groups: str) -> list[str]:
@@ -86,12 +87,39 @@ def test_claim_credit_leaves_an_inner_producer_credit_its_own_claim() -> None:
     ]
 
 
-def test_claim_credit_refuses_when_credit_text_follows_the_version() -> None:
+def test_claim_credit_takes_the_whole_group_around_a_version_in_the_middle() -> None:
     draft = Draft("Song (feat. Lou V (VIP Mix) & Mara)")
     draft.claim("version", 18, 27)
 
+    assert draft.claim_credit("extract_feature", draft.groups()[0], names=("Lou V", "Mara"))
+    assert claimed(draft) == [
+        ("extract_feature", "(feat. Lou V (VIP Mix) & Mara)"),
+        ("version", "(VIP Mix)"),
+    ]
+
+
+def test_claim_credit_refuses_a_group_around_a_claim_that_isnt_a_version() -> None:
+    draft = Draft("Song (feat. Lou V (prod. Hazy) & Mara)")
+    draft.claim("remove_producer", 18, 30)
+
     assert not draft.claim_credit("extract_feature", draft.groups()[0], names=("Lou V",))
-    assert claimed(draft) == [("version", "(VIP Mix)")]
+    assert claimed(draft) == [("remove_producer", "(prod. Hazy)")]
+
+
+def test_assemble_moves_a_version_inside_a_cut_credit_to_the_version() -> None:
+    draft = Draft("Song (feat. Lou V (VIP Mix) & Mara)")
+    draft.claim("version", 18, 27)
+    draft.claim_credit("extract_feature", draft.groups()[0], names=("Lou V", "Mara"))
+
+    assert assemble(draft, cut=lambda claim: True) == (f"Song {CUT}", " (VIP Mix)")
+    assert assemble(draft, cut=lambda claim: False) == (draft.text, "")
+
+
+def test_assemble_moves_the_versions_it_is_given_to_the_version() -> None:
+    draft = Draft("AEREA (live) | Set")
+    draft.claim("version", 6, 12)
+
+    assert assemble(draft, cut=lambda claim: True, moved={6}) == (f"AEREA {CUT} | Set", " (live)")
 
 
 def test_is_emoticon_spots_a_bracket_after_a_colon_or_semicolon() -> None:

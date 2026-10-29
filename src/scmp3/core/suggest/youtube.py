@@ -1,10 +1,10 @@
 """The YouTube additions to the suggestion engine (TECH_SPEC §8): channel names as artist names,
-the channel's own name at the end of a title, and the video labels that mark another's song."""
+and the video labels that mark another's song."""
 
 import re
 
 from scmp3.core.models import SourceInfo
-from scmp3.core.suggest.draft import Context, Draft, has_words, spaced_dashes
+from scmp3.core.suggest.draft import Context, Draft
 from scmp3.core.suggest.names import same_artist
 from scmp3.core.suggest.rules import normalize
 from scmp3.core.suggest.words import pattern
@@ -14,8 +14,6 @@ _TOPIC = re.compile(r"\s+-\s+Topic$")
 # Label-run channels are "<artist>VEVO", usually with the artist's spaces taken out.
 _VEVO = re.compile(r"(?<=\S)\s*VEVO$", re.IGNORECASE)
 _TITLE_ARTIST = re.compile(r"\s-\s")
-# Trimmed off the part after the last dash, as dash_segments trims each part.
-_END_TRIM = " -|/:"
 
 
 def uploader_name(source: SourceInfo) -> str:
@@ -50,26 +48,6 @@ def _spelled_as_in_title(name: str, title: str, *, spaced_only: bool) -> str:
 def is_youtube_without_music_fields(context: Context) -> bool:
     """Whether the source is a YouTube video that YouTube Music says nothing about."""
     return context.source.kind == "youtube" and not context.publisher
-
-
-def claim_artist_at_end(draft: Draft, context: Context) -> None:
-    """Drop the channel's own name after the title's last dash, as in "Numb - Linkin Park".
-
-    The artist's channel names itself there, so the title before the dash is the song.
-    """
-    if not is_youtube_without_music_fields(context) or not context.uploader.strip():
-        return
-    masked = draft.masked()
-    dashes = spaced_dashes(masked)
-    if not dashes or not has_words(masked[: dashes[-1]]):
-        return
-    start, end = dashes[-1] + 1, len(masked)
-    while start < end and masked[start] in _END_TRIM:
-        start += 1
-    while end > start and masked[end - 1] in _END_TRIM:
-        end -= 1
-    if same_artist(masked[start:end], context.uploader):
-        draft.claim("strip_redundant_artist", start, end)
 
 
 def names_another_artist(draft: Draft, context: Context) -> bool:

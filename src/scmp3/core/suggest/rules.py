@@ -58,8 +58,13 @@ def claim_bracket_versions(draft: Draft, context: Context) -> None:
     credit = pattern(rf"^\W*(?:{words.feature}|{words.feature_bracketed}|{words.producer})")
     promo = pattern(f"{words.promo}|{words.promo_tail}")
     feature_inside = pattern(rf"\s{words.feature}\s*:?\s*\S")
+    producer_remix = pattern(rf"^\W*{words.producer}.*{words.producer_remix}")
     for group in draft.groups():
         inner = group.inner
+        # A producer's remix, like "(Prod. H2T pluggnb rmx)", is the track's version, kept as typed.
+        if producer_remix.search(inner):
+            draft.claim(VERSION, group.start, group.end)
+            continue
         # "(feat. Little Mix)" and "[prod. Mix Master]" are credits, whatever names they hold.
         if not keep.search(inner) or credit.search(inner):
             continue

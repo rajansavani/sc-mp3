@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import parse_qs, urlsplit
 
 from scmp3.core import cover_sources, engine
 from scmp3.core.errors import ErrorKind, ScmpError
@@ -83,7 +84,20 @@ def resolve_track(url: str, ydl: YoutubeDL, token: str | None = None) -> Resolve
     if status in LIVE_STATUSES:
         detail = f"the video's live status is {status}"
         raise ScmpError(ErrorKind.unavailable, detail, reason="live_stream")
+    _refuse_another_video(link, info)
     return ResolvedTrack(source_from_info(link, info), info)
+
+
+def _refuse_another_video(link: str, info: Mapping[str, Any]) -> None:
+    """Refuse a rental film as paid. YouTube points to its trailer, which yt-dlp gives instead."""
+    asked = parse_qs(urlsplit(link).query).get("v", [""])[0]
+    given = str(info.get("id") or "")
+    if asked and given and given != asked:
+        log.warning(
+            "YouTube gave video %s for %s, so it's refused as a rental's trailer", given, asked
+        )
+        detail = f"YouTube gave {given} in place of {asked}, as it does for a rental's trailer"
+        raise ScmpError(ErrorKind.unavailable, detail, reason="paid")
 
 
 def _youtube_refusal(error: BaseException) -> ScmpError:

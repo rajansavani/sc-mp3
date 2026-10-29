@@ -3,6 +3,8 @@ import jobErrors from "./errors.js";
 
 // A count as people read it, such as 2,000.
 const number = (count) => count.toLocaleString("en-US");
+// An artist at the end of a title comes with the dash before it, as "- Kaia", which isn't shown.
+const withoutSeparators = (span) => span.replace(/^[\s|/:-]+|[\s|/:-]+$/g, "");
 
 export default {
   appName: "sc-mp3",
@@ -137,11 +139,12 @@ export default {
   // A cleanup that's switched off, by its kind. The text it acts on goes in the quotes.
   keptLabels: {
     extract_feature: (span) => `Kept “${span}” as text`,
-    artist_from_title: (span) => `Kept “${span}” in the title`,
-    strip_redundant_artist: (span) => `Kept “${span}” in the title`,
+    artist_from_title: (span) => `Kept “${withoutSeparators(span)}” in the title`,
+    strip_redundant_artist: (span) => `Kept “${withoutSeparators(span)}” in the title`,
     fix_caps: (span) => `Kept “${span}” as written`,
     remove_promo: (span) => `Kept “${span}”`,
     remove_producer: (span) => `Kept “${span}”`,
+    credit_producer: (span) => `Left the producer ${span} out of the artists`,
     remove_emoji: (span) => `Kept “${span}”`,
     custom_word: (span) => `Kept “${span}”`,
   },
@@ -161,7 +164,7 @@ export default {
   // Re-tagging a file you already have.
   retagTitle: "Re-tagging a file you already have",
   retagBody: "Nothing is downloaded. Your changes are written into this file.",
-  noFileTitle: "The file has no title.",
+  titleFromFileName: (name) => `The file has no title tag, so the title comes from its name, “${name}”.`,
   playlistTitle: "Is this song in a Spotify playlist?",
   playlistBody:
     "Changing its title, artist or album makes Spotify treat it as a different song. It drops out of those playlists, so you'd add it back afterwards.",

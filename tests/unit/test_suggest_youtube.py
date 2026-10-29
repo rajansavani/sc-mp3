@@ -1,6 +1,6 @@
 """Tests for the YouTube additions to the suggestion engine: channel names as artist names, the
 channel's own name at the end of a title, and video labels crediting another artist's song. The
-title corpus has the whole-title cases."""
+title corpus has the whole-title cases, and test_suggest_artist_end.py the end of a title."""
 
 import pytest
 
@@ -87,12 +87,7 @@ def test_known_channels_count_as_channels_on_youtube_as_on_soundcloud() -> None:
 def test_the_channels_name_after_the_last_dash_leaves_the_title() -> None:
     suggestion = suggest(source("Numb (Live in Munich) - Linkin Park", "Linkin Park"), Settings())
     assert suggestion.main_artists == ["Linkin Park"]
-    assert suggestion.base_title == "Numb (Live in Munich)"
-
-
-def test_on_soundcloud_the_name_after_the_last_dash_stays() -> None:
-    suggestion = suggest(source("Midnight Drive - Kaia", "Kaia", kind="soundcloud"), Settings())
-    assert suggestion.base_title == "Midnight Drive - Kaia"
+    assert (suggestion.base_title, suggestion.version) == ("Numb", " (Live in Munich)")
 
 
 def test_a_name_inside_a_bracket_isnt_the_end_of_the_title() -> None:

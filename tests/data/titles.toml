@@ -2,6 +2,7 @@
 #
 # Input: `title`, `uploader`, and optionally the publisher `artists` and `settings` changes.
 # `kind = "youtube"` makes the source a YouTube video, whose `artists` are YouTube Music's.
+# `kind = "file"` makes it a file to re-tag, at `path`. A `description` is the track's.
 # Expected:
 # - `base_title`, `main`, `featured` and `version` ("" for none) of the suggestion
 # - `on` and `off`: the ids of the changes that start on and those offered switched off, in order.
@@ -3118,18 +3119,18 @@ feat_in_title = ["Song", "Tyler, The Creator, Tyler, The Creator & Kaia"]
 all_in_title = ["Song (Tyler, The Creator, Tyler, The Creator & Kaia)", "Tyler, The Creator, Tyler, The Creator & Kaia"]
 
 [[case]]
-checks = "a title duo with one name in a publisher list is still added"
+checks = "a title duo with one name in a publisher list adds the other name beside it, never the listed one twice"
 title = "Kaia & Lou V - Song"
 uploader = "Some Label Records"
 artists = ["Kaia, Mara"]
 base_title = "Song"
-main = ["Kaia", "Kaia & Lou V"]
+main = ["Kaia", "Lou V"]
 featured = ["Mara"]
 version = ""
 on = ["artist_from_title:Kaia & Lou V"]
-artist_field = ["Song", "Kaia, Kaia & Lou V, Mara"]
-feat_in_title = ["Song (feat. Mara)", "Kaia, Kaia & Lou V"]
-all_in_title = ["Song (Kaia, Kaia & Lou V, Mara)", "Kaia, Kaia & Lou V"]
+artist_field = ["Song", "Kaia, Lou V, Mara"]
+feat_in_title = ["Song (feat. Mara)", "Kaia, Lou V"]
+all_in_title = ["Song (Kaia, Lou V, Mara)", "Kaia, Lou V"]
 
 [[case]]
 checks = "a featured name with the letter a publisher artist lost replaces that main artist"
@@ -3857,18 +3858,18 @@ feat_in_title = ["My Eternity (Live on KEXP)", "Numeron"]
 all_in_title = ["My Eternity (Numeron) (Live on KEXP)", "Numeron"]
 
 [[case]]
-checks = "an artist's channel naming itself after the dash keeps the live version"
+checks = "an artist's channel naming itself after the dash keeps the live version as the version"
 kind = "youtube"
 title = "Numb [Live in São Paulo] (Official Visualizer) - Linkin Park"
 uploader = "Linkin Park"
-base_title = "Numb [Live in São Paulo]"
+base_title = "Numb"
 main = ["Linkin Park"]
 featured = []
-version = ""
+version = " [Live in São Paulo]"
 on = ["remove_promo:(Official Visualizer)", "strip_redundant_artist:Linkin Park"]
 artist_field = ["Numb [Live in São Paulo]", "Linkin Park"]
 feat_in_title = ["Numb [Live in São Paulo]", "Linkin Park"]
-all_in_title = ["Numb [Live in São Paulo] (Linkin Park)", "Linkin Park"]
+all_in_title = ["Numb (Linkin Park) [Live in São Paulo]", "Linkin Park"]
 
 [[case]]
 checks = "a soundtrack title without a video label stays whole, with its split offered"
@@ -4531,3 +4532,846 @@ on = ["extract_feature:(feat. Future)"]
 artist_field = ["Back to the Future", "Kaia, Future"]
 feat_in_title = ["Back to the Future (feat. Future)", "Kaia"]
 all_in_title = ["Back to the Future (Kaia, Future)", "Kaia"]
+
+[[case]]
+checks = "a name in small capitals after the last dash is the uploader's, so it leaves the title (T-033 real title)"
+title = "CHƠI #2 - JXSTZEN"
+uploader = "✧ jxstzen ✧"
+artists = ["ᴊ x ꜱ ᴛ ᴢ ᴇ ɴ"]
+base_title = "CHƠI #2"
+main = ["ᴊ x ꜱ ᴛ ᴢ ᴇ ɴ"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:JXSTZEN"]
+off = ["fix_caps:CHƠI #2"]
+artist_field = ["CHƠI #2", "ᴊ x ꜱ ᴛ ᴢ ᴇ ɴ"]
+feat_in_title = ["CHƠI #2", "ᴊ x ꜱ ᴛ ᴢ ᴇ ɴ"]
+all_in_title = ["CHƠI #2 (ᴊ x ꜱ ᴛ ᴢ ᴇ ɴ)", "ᴊ x ꜱ ᴛ ᴢ ᴇ ɴ"]
+
+[[case.toggle]]
+off = ["strip_redundant_artist:JXSTZEN"]
+artist_field = ["CHƠI #2 - JXSTZEN", "ᴊ x ꜱ ᴛ ᴢ ᴇ ɴ"]
+feat_in_title = ["CHƠI #2 - JXSTZEN", "ᴊ x ꜱ ᴛ ᴢ ᴇ ɴ"]
+all_in_title = ["CHƠI #2 - JXSTZEN (ᴊ x ꜱ ᴛ ᴢ ᴇ ɴ)", "ᴊ x ꜱ ᴛ ᴢ ᴇ ɴ"]
+
+[[case]]
+checks = "a listed artist after the last dash is main, and an uploader named as a producer has its credit offered"
+title = "dư âm - Obito"
+uploader = "Prod. H2T"
+artists = ["Prod. H2T, Obito"]
+base_title = "dư âm"
+main = ["Obito"]
+featured = []
+version = ""
+on = ["artist_from_title:Obito"]
+off = ["credit_producer:Prod. H2T"]
+artist_field = ["dư âm", "Obito"]
+feat_in_title = ["dư âm", "Obito"]
+all_in_title = ["dư âm (Obito)", "Obito"]
+
+[[case.toggle]]
+off = ["artist_from_title:Obito"]
+artist_field = ["dư âm - Obito", "Obito"]
+feat_in_title = ["dư âm - Obito", "Obito"]
+all_in_title = ["dư âm - Obito (Obito)", "Obito"]
+
+[[case]]
+checks = "a listed artist after the last dash is main, and a producer's remix before it is the version (T-033 real title)"
+title = "dư âm (Prod. H2T pluggnb rmx) - Obito"
+uploader = "Prod. H2T"
+artists = ["Prod. H2T, Obito"]
+base_title = "dư âm"
+main = ["Obito"]
+featured = []
+version = " (Prod. H2T pluggnb rmx)"
+on = ["artist_from_title:Obito"]
+off = ["credit_producer:Prod. H2T"]
+artist_field = ["dư âm (Prod. H2T pluggnb rmx)", "Obito"]
+feat_in_title = ["dư âm (Prod. H2T pluggnb rmx)", "Obito"]
+all_in_title = ["dư âm (Obito) (Prod. H2T pluggnb rmx)", "Obito"]
+
+[[case]]
+checks = "an uploader who made the version is an artist, so the dash split is only offered (T-033 real title)"
+title = "obvious - oklou (tikkoii edit) ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧"
+uploader = "tikkoii"
+artists = ["☆꧁ＫＯＩ꧂☆"]
+base_title = "obvious - oklou (tikkoii edit) ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧"
+main = ["☆꧁ＫＯＩ꧂☆"]
+featured = []
+version = ""
+on = []
+off = ["artist_from_title:obvious"]
+artist_field = ["obvious - oklou (tikkoii edit) ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧", "☆꧁ＫＯＩ꧂☆"]
+feat_in_title = ["obvious - oklou (tikkoii edit) ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧", "☆꧁ＫＯＩ꧂☆"]
+all_in_title = ["obvious - oklou (tikkoii edit) ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧ (☆꧁ＫＯＩ꧂☆)", "☆꧁ＫＯＩ꧂☆"]
+
+[[case]]
+checks = "the start of a title that names an artist keeps the end, though the end names one too"
+title = "Kaia - Lou V"
+uploader = "Kaia"
+artists = ["Kaia, Lou V"]
+base_title = "Lou V"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["strip_redundant_artist:Kaia"]
+artist_field = ["Lou V", "Kaia, Lou V"]
+feat_in_title = ["Lou V (feat. Lou V)", "Kaia"]
+all_in_title = ["Lou V (Kaia, Lou V)", "Kaia"]
+
+[[case]]
+checks = "a listed name the title marks as producer isn't featured, and its credit is offered"
+title = "Song prod zayok"
+uploader = "gunk"
+artists = ["gunk, zayok"]
+base_title = "Song"
+main = ["gunk"]
+featured = []
+version = ""
+on = ["remove_producer:prod zayok"]
+off = ["credit_producer:zayok"]
+artist_field = ["Song", "gunk"]
+feat_in_title = ["Song", "gunk"]
+all_in_title = ["Song (gunk)", "gunk"]
+
+[[case.toggle]]
+on = ["credit_producer:zayok"]
+artist_field = ["Song", "gunk, zayok"]
+feat_in_title = ["Song (feat. zayok)", "gunk"]
+all_in_title = ["Song (gunk, zayok)", "gunk"]
+
+[[case.toggle]]
+off = ["remove_producer:prod zayok"]
+artist_field = ["Song prod zayok", "gunk"]
+feat_in_title = ["Song prod zayok", "gunk"]
+all_in_title = ["Song prod zayok (gunk)", "gunk"]
+
+[[case]]
+checks = "a listed name the description marks as producer isn't featured, and its credit is offered"
+title = "gg fuckin ez  ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧"
+uploader = "gunk"
+artists = ["gunk, zayok, edyn "]
+description = "for the homies\nprod. zayok"
+base_title = "gg fuckin ez ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧"
+main = ["gunk"]
+featured = ["edyn"]
+version = ""
+on = []
+off = ["credit_producer:zayok"]
+artist_field = ["gg fuckin ez ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧", "gunk, edyn"]
+feat_in_title = ["gg fuckin ez ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧ (feat. edyn)", "gunk"]
+all_in_title = ["gg fuckin ez ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧ (gunk, edyn)", "gunk"]
+
+[[case.toggle]]
+on = ["credit_producer:zayok"]
+artist_field = ["gg fuckin ez ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧", "gunk, zayok, edyn"]
+feat_in_title = ["gg fuckin ez ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧ (feat. zayok, edyn)", "gunk"]
+all_in_title = ["gg fuckin ez ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧ (gunk, zayok, edyn)", "gunk"]
+
+[[case]]
+checks = "listed producers in a bracket credit aren't featured, and the uploader among them stays main (T-033 real title)"
+title = "misery . . . (prod. pupsies & elujjin/goetia)"
+uploader = "pupsies"
+artists = ["pupsies, elujjin/goetia"]
+base_title = "misery . . ."
+main = ["pupsies"]
+featured = []
+version = ""
+on = ["remove_producer:(prod. pupsies & elujjin/goetia)"]
+off = ["credit_producer:elujjin/goetia"]
+artist_field = ["misery . . .", "pupsies"]
+feat_in_title = ["misery . . .", "pupsies"]
+all_in_title = ["misery . . . (pupsies)", "pupsies"]
+
+[[case]]
+checks = "a listed name the title features and marks as producer stays featured"
+title = "Song (feat. zayok) (prod. zayok)"
+uploader = "gunk"
+artists = ["gunk, zayok"]
+base_title = "Song"
+main = ["gunk"]
+featured = ["zayok"]
+version = ""
+on = ["extract_feature:(feat. zayok)", "remove_producer:(prod. zayok)"]
+artist_field = ["Song", "gunk, zayok"]
+feat_in_title = ["Song (feat. zayok)", "gunk"]
+all_in_title = ["Song (gunk, zayok)", "gunk"]
+
+[[case]]
+checks = "a symbols-only artist that is the uploader leaves the title"
+title = "✝✝✝ - This Is a Trick"
+uploader = "✝✝✝"
+base_title = "This Is a Trick"
+main = ["✝✝✝"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:✝✝✝"]
+artist_field = ["This Is a Trick", "✝✝✝"]
+feat_in_title = ["This Is a Trick", "✝✝✝"]
+all_in_title = ["This Is a Trick (✝✝✝)", "✝✝✝"]
+
+[[case]]
+checks = "a symbols-only artist that is a listed name is taken from the title"
+title = "✝✝✝ - This Is a Trick"
+uploader = "Some Label Records"
+artists = ["✝✝✝"]
+base_title = "This Is a Trick"
+main = ["✝✝✝"]
+featured = []
+version = ""
+on = ["artist_from_title:✝✝✝"]
+artist_field = ["This Is a Trick", "✝✝✝"]
+feat_in_title = ["This Is a Trick", "✝✝✝"]
+all_in_title = ["This Is a Trick (✝✝✝)", "✝✝✝"]
+
+[[case]]
+checks = "a symbols-only part that names nobody stays in the title"
+title = "✝✝✝ - This Is a Trick"
+uploader = "Some Label Records"
+base_title = "✝✝✝ - This Is a Trick"
+main = ["Some Label Records"]
+featured = []
+version = ""
+on = []
+artist_field = ["✝✝✝ - This Is a Trick", "Some Label Records"]
+feat_in_title = ["✝✝✝ - This Is a Trick", "Some Label Records"]
+all_in_title = ["✝✝✝ - This Is a Trick (Some Label Records)", "Some Label Records"]
+
+[[case]]
+checks = "a channel's own event after a pipe, with a label word in it, credits the artist (T-061 real title)"
+title = "Laidlaw | Boiler Room London: Beeyou Records"
+uploader = "Boiler Room"
+base_title = "Boiler Room London: Beeyou Records"
+main = ["Laidlaw"]
+featured = []
+version = ""
+on = ["artist_from_title:Laidlaw"]
+artist_field = ["Boiler Room London: Beeyou Records", "Laidlaw"]
+feat_in_title = ["Boiler Room London: Beeyou Records", "Laidlaw"]
+all_in_title = ["Boiler Room London: Beeyou Records (Laidlaw)", "Laidlaw"]
+
+[[case]]
+checks = "a channel's own event after a pipe credits the artist on YouTube too (T-061 real title)"
+kind = "youtube"
+title = "Laidlaw | Boiler Room London: Beeyou Records"
+uploader = "Boiler Room"
+base_title = "Boiler Room London: Beeyou Records"
+main = ["Laidlaw"]
+featured = []
+version = ""
+on = ["artist_from_title:Laidlaw"]
+artist_field = ["Boiler Room London: Beeyou Records", "Laidlaw"]
+feat_in_title = ["Boiler Room London: Beeyou Records", "Laidlaw"]
+all_in_title = ["Boiler Room London: Beeyou Records (Laidlaw)", "Laidlaw"]
+
+[[case]]
+checks = "a version next to a pipe artist goes with the set's title (T-061 real title)"
+title = "AEREA (live) | Boiler Room: Maastricht"
+uploader = "Boiler Room"
+base_title = "Boiler Room: Maastricht"
+main = ["AEREA"]
+featured = []
+version = " (live)"
+on = ["artist_from_title:AEREA"]
+artist_field = ["Boiler Room: Maastricht (live)", "AEREA"]
+feat_in_title = ["Boiler Room: Maastricht (live)", "AEREA"]
+all_in_title = ["Boiler Room: Maastricht (AEREA) (live)", "AEREA"]
+
+[[case.toggle]]
+off = ["artist_from_title:AEREA"]
+artist_field = ["AEREA (live) | Boiler Room: Maastricht", "Boiler Room"]
+feat_in_title = ["AEREA (live) | Boiler Room: Maastricht", "Boiler Room"]
+all_in_title = ["AEREA (live) | Boiler Room: Maastricht (Boiler Room)", "Boiler Room"]
+
+[[case]]
+checks = "a version next to a pipe artist goes with the set's title on YouTube too (T-061 real title)"
+kind = "youtube"
+title = "AEREA (live) | Boiler Room: Maastricht"
+uploader = "Boiler Room"
+base_title = "Boiler Room: Maastricht"
+main = ["AEREA"]
+featured = []
+version = " (live)"
+on = ["artist_from_title:AEREA"]
+artist_field = ["Boiler Room: Maastricht (live)", "AEREA"]
+feat_in_title = ["Boiler Room: Maastricht (live)", "AEREA"]
+all_in_title = ["Boiler Room: Maastricht (AEREA) (live)", "AEREA"]
+
+[[case]]
+checks = "a version next to a dash artist goes with the title"
+title = "Kaia (VIP Mix) - Midnight Drive"
+uploader = "Some Label Records"
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = " (VIP Mix)"
+on = ["artist_from_title:Kaia"]
+artist_field = ["Midnight Drive (VIP Mix)", "Kaia"]
+feat_in_title = ["Midnight Drive (VIP Mix)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia) (VIP Mix)", "Kaia"]
+
+[[case]]
+checks = "a version in the middle of a credit is the version, and the names around it are featured"
+title = "Song (feat. Lou V (VIP Mix) & Mara)"
+uploader = "Kaia"
+base_title = "Song"
+main = ["Kaia"]
+featured = ["Lou V", "Mara"]
+version = " (VIP Mix)"
+on = ["extract_feature:(feat. Lou V (VIP Mix) & Mara)"]
+artist_field = ["Song (VIP Mix)", "Kaia, Lou V, Mara"]
+feat_in_title = ["Song (feat. Lou V, Mara) (VIP Mix)", "Kaia"]
+all_in_title = ["Song (Kaia, Lou V, Mara) (VIP Mix)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Lou V (VIP Mix) & Mara)"]
+artist_field = ["Song (feat. Lou V (VIP Mix) & Mara)", "Kaia"]
+feat_in_title = ["Song (feat. Lou V (VIP Mix) & Mara)", "Kaia"]
+all_in_title = ["Song (feat. Lou V (VIP Mix) & Mara) (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a file with no title tag takes its title and artist from its file name"
+kind = "file"
+path = "Music/Kaia - Midnight Drive.mp3"
+title = ""
+uploader = ""
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["artist_from_title:Kaia"]
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+all_off = "Kaia - Midnight Drive"
+
+[[case.toggle]]
+off = ["artist_from_title:Kaia"]
+artist_field = ["Kaia - Midnight Drive", ""]
+feat_in_title = ["Kaia - Midnight Drive", ""]
+all_in_title = ["Kaia - Midnight Drive", ""]
+
+[[case]]
+checks = "a tagless file's name loses its track number, and its artist tag is the artist"
+kind = "file"
+path = "Music/03 - Kaia - Midnight Drive (feat. Lou V).mp3"
+title = ""
+uploader = "Kaia"
+artists = ["Kaia"]
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["strip_redundant_artist:Kaia", "extract_feature:(feat. Lou V)"]
+artist_field = ["Midnight Drive", "Kaia, Lou V"]
+feat_in_title = ["Midnight Drive (feat. Lou V)", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia, Lou V)", "Kaia"]
+all_off = "Kaia - Midnight Drive (feat. Lou V)"
+
+[[case]]
+checks = "a file with a title tag keeps it, whatever its file name says"
+kind = "file"
+path = "Music/Lou V - Other Song.mp3"
+title = "Midnight Drive"
+uploader = "Kaia"
+artists = ["Kaia"]
+base_title = "Midnight Drive"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["Midnight Drive", "Kaia"]
+feat_in_title = ["Midnight Drive", "Kaia"]
+all_in_title = ["Midnight Drive (Kaia)", "Kaia"]
+
+[[case]]
+checks = "an emoji after the uploader's name at the end stays, without the dash before the name"
+title = "Song - Kaia 🔥"
+uploader = "Kaia"
+base_title = "Song 🔥"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia"]
+off = ["remove_emoji:🔥"]
+artist_field = ["Song 🔥", "Kaia"]
+feat_in_title = ["Song 🔥", "Kaia"]
+all_in_title = ["Song 🔥 (Kaia)", "Kaia"]
+
+[[case.toggle]]
+off = ["strip_redundant_artist:Kaia"]
+artist_field = ["Song - Kaia 🔥", "Kaia"]
+feat_in_title = ["Song - Kaia 🔥", "Kaia"]
+all_in_title = ["Song - Kaia 🔥 (Kaia)", "Kaia"]
+
+[[case]]
+checks = "an emoji after the channel's name at the end stays on YouTube, without the dash before the name"
+kind = "youtube"
+title = "Song - Kaia 🔥"
+uploader = "Kaia"
+base_title = "Song 🔥"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia"]
+off = ["remove_emoji:🔥"]
+artist_field = ["Song 🔥", "Kaia"]
+feat_in_title = ["Song 🔥", "Kaia"]
+all_in_title = ["Song 🔥 (Kaia)", "Kaia"]
+
+[[case]]
+checks = "promo kept by the settings after the uploader's name at the end doesn't follow a bare dash"
+title = "Song - Kaia [FREE DL]"
+uploader = "Kaia"
+settings = { remove_promo_text = false }
+base_title = "Song [FREE DL]"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia"]
+off = ["remove_promo:[FREE DL]"]
+artist_field = ["Song [FREE DL]", "Kaia"]
+feat_in_title = ["Song [FREE DL]", "Kaia"]
+all_in_title = ["Song [FREE DL] (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a producer credit kept by the settings after the uploader's name at the end doesn't follow a bare dash"
+title = "Song - Kaia (prod. Hazy)"
+uploader = "Kaia"
+settings = { remove_producer_credits = false }
+base_title = "Song (prod. Hazy)"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia"]
+off = ["remove_producer:(prod. Hazy)"]
+artist_field = ["Song (prod. Hazy)", "Kaia"]
+feat_in_title = ["Song (prod. Hazy)", "Kaia"]
+all_in_title = ["Song (prod. Hazy) (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a feature switched off after the uploader's name at the end doesn't follow a bare dash"
+title = "Song - Kaia (feat. Lou V)"
+uploader = "Kaia"
+base_title = "Song"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = ""
+on = ["strip_redundant_artist:Kaia", "extract_feature:(feat. Lou V)"]
+artist_field = ["Song", "Kaia, Lou V"]
+feat_in_title = ["Song (feat. Lou V)", "Kaia"]
+all_in_title = ["Song (Kaia, Lou V)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Lou V)"]
+artist_field = ["Song (feat. Lou V)", "Kaia"]
+feat_in_title = ["Song (feat. Lou V)", "Kaia"]
+all_in_title = ["Song (feat. Lou V) (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a pipe segment switched off after the uploader's name at the end doesn't follow a bare dash"
+title = "Song - Kaia | FREE DL"
+uploader = "Kaia"
+base_title = "Song"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["strip_redundant_artist:Kaia", "remove_promo:| FREE DL"]
+artist_field = ["Song", "Kaia"]
+feat_in_title = ["Song", "Kaia"]
+all_in_title = ["Song (Kaia)", "Kaia"]
+
+[[case.toggle]]
+off = ["remove_promo:| FREE DL"]
+artist_field = ["Song | FREE DL", "Kaia"]
+feat_in_title = ["Song | FREE DL", "Kaia"]
+all_in_title = ["Song | FREE DL (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a feature switched off after a listed artist at the end doesn't follow a bare dash"
+title = "Song - Lou V (feat. Mara)"
+uploader = "Kaia"
+artists = ["Kaia, Lou V, Mara"]
+base_title = "Song"
+main = ["Lou V"]
+featured = ["Kaia", "Mara"]
+version = ""
+on = ["artist_from_title:Lou V", "extract_feature:(feat. Mara)"]
+artist_field = ["Song", "Lou V, Kaia, Mara"]
+feat_in_title = ["Song (feat. Kaia, Mara)", "Lou V"]
+all_in_title = ["Song (Lou V, Kaia, Mara)", "Lou V"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Mara)"]
+artist_field = ["Song (feat. Mara)", "Lou V, Kaia"]
+feat_in_title = ["Song (feat. Mara) (feat. Kaia)", "Lou V"]
+all_in_title = ["Song (feat. Mara) (Lou V, Kaia)", "Lou V"]
+
+[[case]]
+checks = "a version moved from next to the artist comes before the version at the end, with a space"
+title = "Kaia (VIP Mix) - Song (Extended Mix)"
+uploader = "Some Label Records"
+base_title = "Song"
+main = ["Kaia"]
+featured = []
+version = " (VIP Mix) (Extended Mix)"
+on = ["artist_from_title:Kaia"]
+artist_field = ["Song (VIP Mix) (Extended Mix)", "Kaia"]
+feat_in_title = ["Song (VIP Mix) (Extended Mix)", "Kaia"]
+all_in_title = ["Song (Kaia) (VIP Mix) (Extended Mix)", "Kaia"]
+
+[[case]]
+checks = "a version moved from next to the artist comes before a dash version at the end, with a space"
+title = "Kaia (live) - Song - Remix"
+uploader = "Some Label Records"
+base_title = "Song"
+main = ["Kaia"]
+featured = []
+version = " (live) - Remix"
+on = ["artist_from_title:Kaia"]
+artist_field = ["Song (live) - Remix", "Kaia"]
+feat_in_title = ["Song (live) - Remix", "Kaia"]
+all_in_title = ["Song (Kaia) (live) - Remix", "Kaia"]
+
+[[case]]
+checks = "a version moved out of a credit comes before the version at the end, with a space"
+title = "Song (feat. Lou V (VIP Mix) & Mara) (Extended Mix)"
+uploader = "Kaia"
+base_title = "Song"
+main = ["Kaia"]
+featured = ["Lou V", "Mara"]
+version = " (VIP Mix) (Extended Mix)"
+on = ["extract_feature:(feat. Lou V (VIP Mix) & Mara)"]
+artist_field = ["Song (VIP Mix) (Extended Mix)", "Kaia, Lou V, Mara"]
+feat_in_title = ["Song (feat. Lou V, Mara) (VIP Mix) (Extended Mix)", "Kaia"]
+all_in_title = ["Song (Kaia, Lou V, Mara) (VIP Mix) (Extended Mix)", "Kaia"]
+
+[[case]]
+checks = "a feature switched off in the artist part goes back without the version moved from beside it"
+title = "Kaia (VIP Mix) (feat. Lou V) - Song"
+uploader = "Some Label Records"
+base_title = "Song"
+main = ["Kaia"]
+featured = ["Lou V"]
+version = " (VIP Mix)"
+on = ["artist_from_title:Kaia", "extract_feature:(feat. Lou V)"]
+artist_field = ["Song (VIP Mix)", "Kaia, Lou V"]
+feat_in_title = ["Song (feat. Lou V) (VIP Mix)", "Kaia"]
+all_in_title = ["Song (Kaia, Lou V) (VIP Mix)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Lou V)"]
+artist_field = ["Song (VIP Mix)", "Kaia (feat. Lou V)"]
+feat_in_title = ["Song (VIP Mix)", "Kaia (feat. Lou V)"]
+all_in_title = ["Song (Kaia (feat. Lou V)) (VIP Mix)", "Kaia (feat. Lou V)"]
+
+[[case]]
+checks = "a feature switched off in the artist part goes back with the version inside it"
+title = "Kaia (feat. Lou V (VIP Mix) & Mara) - Song"
+uploader = "Some Label Records"
+base_title = "Song"
+main = ["Kaia"]
+featured = ["Lou V", "Mara"]
+version = " (VIP Mix)"
+on = ["artist_from_title:Kaia", "extract_feature:(feat. Lou V (VIP Mix) & Mara)"]
+artist_field = ["Song (VIP Mix)", "Kaia, Lou V, Mara"]
+feat_in_title = ["Song (feat. Lou V, Mara) (VIP Mix)", "Kaia"]
+all_in_title = ["Song (Kaia, Lou V, Mara) (VIP Mix)", "Kaia"]
+
+[[case.toggle]]
+off = ["extract_feature:(feat. Lou V (VIP Mix) & Mara)"]
+artist_field = ["Song", "Kaia (feat. Lou V (VIP Mix) & Mara)"]
+feat_in_title = ["Song", "Kaia (feat. Lou V (VIP Mix) & Mara)"]
+all_in_title = ["Song (Kaia (feat. Lou V (VIP Mix) & Mara))", "Kaia (feat. Lou V (VIP Mix) & Mara)"]
+
+[[case]]
+checks = "a known channel's own remix still makes it a channel, so the artist split starts on"
+title = "Kaia - Song (Monstercat Remix)"
+uploader = "Monstercat"
+base_title = "Song"
+main = ["Kaia"]
+featured = []
+version = " (Monstercat Remix)"
+on = ["artist_from_title:Kaia"]
+artist_field = ["Song (Monstercat Remix)", "Kaia"]
+feat_in_title = ["Song (Monstercat Remix)", "Kaia"]
+all_in_title = ["Song (Kaia) (Monstercat Remix)", "Kaia"]
+
+[[case]]
+checks = "a label's own remix still makes it a label, so the artist split starts on"
+title = "Kaia - Song (Kaia Records Remix)"
+uploader = "Kaia Records"
+base_title = "Song"
+main = ["Kaia"]
+featured = []
+version = " (Kaia Records Remix)"
+on = ["artist_from_title:Kaia"]
+artist_field = ["Song (Kaia Records Remix)", "Kaia"]
+feat_in_title = ["Song (Kaia Records Remix)", "Kaia"]
+all_in_title = ["Song (Kaia) (Kaia Records Remix)", "Kaia"]
+
+[[case]]
+checks = "a listed producer the title takes as its artist is main"
+title = "zayok - Song prod zayok"
+uploader = "gunk"
+artists = ["gunk, zayok"]
+base_title = "Song"
+main = ["zayok"]
+featured = ["gunk"]
+version = ""
+on = ["artist_from_title:zayok", "remove_producer:prod zayok"]
+artist_field = ["Song", "zayok, gunk"]
+feat_in_title = ["Song (feat. gunk)", "zayok"]
+all_in_title = ["Song (zayok, gunk)", "zayok"]
+
+[[case]]
+checks = "one listed artist the title names first is main over the uploader, who is featured"
+title = "Obito - Song"
+uploader = "Kaia"
+artists = ["Kaia, Obito"]
+base_title = "Song"
+main = ["Obito"]
+featured = ["Kaia"]
+version = ""
+on = ["artist_from_title:Obito"]
+artist_field = ["Song", "Obito, Kaia"]
+feat_in_title = ["Song (feat. Kaia)", "Obito"]
+all_in_title = ["Song (Obito, Kaia)", "Obito"]
+
+[[case]]
+checks = "one listed artist the title names last is main over the uploader, who is featured"
+title = "Song - Obito"
+uploader = "Kaia"
+artists = ["Kaia, Obito"]
+base_title = "Song"
+main = ["Obito"]
+featured = ["Kaia"]
+version = ""
+on = ["artist_from_title:Obito"]
+artist_field = ["Song", "Obito, Kaia"]
+feat_in_title = ["Song (feat. Kaia)", "Obito"]
+all_in_title = ["Song (Obito, Kaia)", "Obito"]
+
+[[case]]
+checks = "an uploader the title marks as producer, beside a listed artist it names, has its credit offered"
+title = "Obito - Song (prod. Kaia)"
+uploader = "Kaia"
+artists = ["Kaia, Obito"]
+base_title = "Song"
+main = ["Obito"]
+featured = []
+version = ""
+on = ["artist_from_title:Obito", "remove_producer:(prod. Kaia)"]
+off = ["credit_producer:Kaia"]
+artist_field = ["Song", "Obito"]
+feat_in_title = ["Song", "Obito"]
+all_in_title = ["Song (Obito)", "Obito"]
+
+[[case.toggle]]
+on = ["credit_producer:Kaia"]
+artist_field = ["Song", "Obito, Kaia"]
+feat_in_title = ["Song (feat. Kaia)", "Obito"]
+all_in_title = ["Song (Obito, Kaia)", "Obito"]
+
+[[case]]
+checks = "an uploader named as a producer isn't main beside another listed artist, and its credit is offered"
+title = "dư âm"
+uploader = "Prod. H2T"
+artists = ["Prod. H2T, Obito"]
+base_title = "dư âm"
+main = ["Obito"]
+featured = []
+version = ""
+on = []
+off = ["credit_producer:Prod. H2T"]
+artist_field = ["dư âm", "Obito"]
+feat_in_title = ["dư âm", "Obito"]
+all_in_title = ["dư âm (Obito)", "Obito"]
+
+[[case.toggle]]
+on = ["credit_producer:Prod. H2T"]
+artist_field = ["dư âm", "Obito, Prod. H2T"]
+feat_in_title = ["dư âm (feat. Prod. H2T)", "Obito"]
+all_in_title = ["dư âm (Obito, Prod. H2T)", "Obito"]
+
+[[case]]
+checks = "an uploader named as a producer is main when nobody else is credited"
+title = "dư âm"
+uploader = "Prod. H2T"
+base_title = "dư âm"
+main = ["Prod. H2T"]
+featured = []
+version = ""
+on = []
+artist_field = ["dư âm", "Prod. H2T"]
+feat_in_title = ["dư âm", "Prod. H2T"]
+all_in_title = ["dư âm (Prod. H2T)", "Prod. H2T"]
+
+[[case]]
+checks = "a producer bracket with a remix word is the version, kept as typed"
+title = "Song (prod. Hazy flip)"
+uploader = "Kaia"
+base_title = "Song"
+main = ["Kaia"]
+featured = []
+version = " (prod. Hazy flip)"
+on = []
+artist_field = ["Song (prod. Hazy flip)", "Kaia"]
+feat_in_title = ["Song (prod. Hazy flip)", "Kaia"]
+all_in_title = ["Song (Kaia) (prod. Hazy flip)", "Kaia"]
+
+[[case]]
+checks = "a title that is only a credit with a version inside stays whole"
+title = "(feat. Lou V (VIP Mix) & Mara)"
+uploader = "Kaia"
+base_title = "(feat. Lou V (VIP Mix) & Mara)"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+artist_field = ["(feat. Lou V (VIP Mix) & Mara)", "Kaia"]
+feat_in_title = ["(feat. Lou V (VIP Mix) & Mara)", "Kaia"]
+all_in_title = ["(feat. Lou V (VIP Mix) & Mara) (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a listed name that is never split leads when the title names it first"
+title = "Above & Beyond - Song"
+uploader = "Kaia"
+artists = ["Kaia, Above & Beyond"]
+base_title = "Song"
+main = ["Above & Beyond"]
+featured = ["Kaia"]
+version = ""
+on = ["artist_from_title:Above & Beyond"]
+artist_field = ["Song", "Above & Beyond, Kaia"]
+feat_in_title = ["Song (feat. Kaia)", "Above & Beyond"]
+all_in_title = ["Song (Above & Beyond, Kaia)", "Above & Beyond"]
+
+[[case]]
+checks = "a listed name that is never split leads when the title names it last"
+title = "Song - Above & Beyond"
+uploader = "Kaia"
+artists = ["Kaia, Above & Beyond"]
+base_title = "Song"
+main = ["Above & Beyond"]
+featured = ["Kaia"]
+version = ""
+on = ["artist_from_title:Above & Beyond"]
+artist_field = ["Song", "Above & Beyond, Kaia"]
+feat_in_title = ["Song (feat. Kaia)", "Above & Beyond"]
+all_in_title = ["Song (Above & Beyond, Kaia)", "Above & Beyond"]
+
+[[case]]
+checks = "a listed name with a comma that is never split leads when the title names it"
+title = "Tyler, The Creator - Song"
+uploader = "Kaia"
+artists = ["Kaia, Tyler, The Creator"]
+base_title = "Song"
+main = ["Tyler, The Creator"]
+featured = ["Kaia"]
+version = ""
+on = ["artist_from_title:Tyler, The Creator"]
+artist_field = ["Song", "Tyler, The Creator, Kaia"]
+feat_in_title = ["Song (feat. Kaia)", "Tyler, The Creator"]
+all_in_title = ["Song (Tyler, The Creator, Kaia)", "Tyler, The Creator"]
+
+[[case]]
+checks = "a title credit joining a listed name to another is split around it, so nobody is credited twice"
+title = "Obito & Lou V - Song"
+uploader = "Kaia"
+artists = ["Kaia, Obito"]
+base_title = "Song"
+main = ["Obito", "Lou V"]
+featured = ["Kaia"]
+version = ""
+on = ["artist_from_title:Obito & Lou V"]
+artist_field = ["Song", "Obito, Lou V, Kaia"]
+feat_in_title = ["Song (feat. Kaia)", "Obito, Lou V"]
+all_in_title = ["Song (Obito, Lou V, Kaia)", "Obito, Lou V"]
+
+[[case.toggle]]
+off = ["artist_from_title:Obito & Lou V"]
+artist_field = ["Obito & Lou V - Song", "Kaia, Obito"]
+feat_in_title = ["Obito & Lou V - Song (feat. Obito)", "Kaia"]
+all_in_title = ["Obito & Lou V - Song (Kaia, Obito)", "Kaia"]
+
+[[case]]
+checks = "a title credit joining a listed name with x is split around it too"
+title = "Obito x Lou V - Song"
+uploader = "Some Label Records"
+artists = ["Kaia, Obito"]
+base_title = "Song"
+main = ["Obito", "Lou V"]
+featured = ["Kaia"]
+version = ""
+on = ["artist_from_title:Obito x Lou V"]
+artist_field = ["Song", "Obito, Lou V, Kaia"]
+feat_in_title = ["Song (feat. Kaia)", "Obito, Lou V"]
+all_in_title = ["Song (Obito, Lou V, Kaia)", "Obito, Lou V"]
+
+[[case]]
+checks = "a version before an end name switched off stays in place in every style"
+title = "Song (VIP Mix) - Obito"
+uploader = "Kaia"
+artists = ["Kaia, Obito"]
+base_title = "Song"
+main = ["Obito"]
+featured = ["Kaia"]
+version = " (VIP Mix)"
+on = ["artist_from_title:Obito"]
+artist_field = ["Song (VIP Mix)", "Obito, Kaia"]
+feat_in_title = ["Song (feat. Kaia) (VIP Mix)", "Obito"]
+all_in_title = ["Song (Obito, Kaia) (VIP Mix)", "Obito"]
+
+[[case.toggle]]
+off = ["artist_from_title:Obito"]
+artist_field = ["Song (VIP Mix) - Obito", "Kaia, Obito"]
+feat_in_title = ["Song (VIP Mix) - Obito (feat. Obito)", "Kaia"]
+all_in_title = ["Song (VIP Mix) - Obito (Kaia, Obito)", "Kaia"]
+
+[[case]]
+checks = "a version before the channel's name switched off stays in place in every style on YouTube"
+kind = "youtube"
+title = "Numb (Live in Munich) - Linkin Park"
+uploader = "Linkin Park"
+base_title = "Numb"
+main = ["Linkin Park"]
+featured = []
+version = " (Live in Munich)"
+on = ["strip_redundant_artist:Linkin Park"]
+artist_field = ["Numb (Live in Munich)", "Linkin Park"]
+feat_in_title = ["Numb (Live in Munich)", "Linkin Park"]
+all_in_title = ["Numb (Linkin Park) (Live in Munich)", "Linkin Park"]
+
+[[case.toggle]]
+off = ["strip_redundant_artist:Linkin Park"]
+artist_field = ["Numb (Live in Munich) - Linkin Park", "Linkin Park"]
+feat_in_title = ["Numb (Live in Munich) - Linkin Park", "Linkin Park"]
+all_in_title = ["Numb (Live in Munich) - Linkin Park (Linkin Park)", "Linkin Park"]
+
+[[case]]
+checks = "a title that is only a credit and removed promo stays whole"
+title = "(feat. Lou V (VIP Mix) & Mara) [FREE DL]"
+uploader = "Kaia"
+base_title = "(feat. Lou V (VIP Mix) & Mara)"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:[FREE DL]"]
+artist_field = ["(feat. Lou V (VIP Mix) & Mara)", "Kaia"]
+feat_in_title = ["(feat. Lou V (VIP Mix) & Mara)", "Kaia"]
+all_in_title = ["(feat. Lou V (VIP Mix) & Mara) (Kaia)", "Kaia"]
+
+[[case]]
+checks = "a title that is only a credit and a removed video label stays whole on YouTube"
+kind = "youtube"
+title = "(feat. Lou V (VIP Mix) & Mara) (Official Video)"
+uploader = "Kaia"
+base_title = "(feat. Lou V (VIP Mix) & Mara)"
+main = ["Kaia"]
+featured = []
+version = ""
+on = ["remove_promo:(Official Video)"]
+artist_field = ["(feat. Lou V (VIP Mix) & Mara)", "Kaia"]
+feat_in_title = ["(feat. Lou V (VIP Mix) & Mara)", "Kaia"]
+all_in_title = ["(feat. Lou V (VIP Mix) & Mara) (Kaia)", "Kaia"]

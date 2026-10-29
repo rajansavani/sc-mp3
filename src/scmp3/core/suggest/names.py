@@ -16,6 +16,13 @@ _OPENERS = "([{\u3010\uff08\uff3b"
 _CLOSERS = ")]}\u3011\uff09\uff3d"
 # The selectors that ask for a symbol as text or as emoji, which don't change which symbol it is.
 _STYLE_SELECTORS = "\ufe0e\ufe0f"
+# Small capitals, a to z without x, which some publisher names are written in. They have no
+# compatibility form, while full-width and bold letters do, so NFKD reads those as plain ones.
+_SMALL_CAPITALS = str.maketrans(
+    "\u1d00\u0299\u1d04\u1d05\u1d07\ua730\u0262\u029c\u026a\u1d0a\u1d0b\u029f"
+    "\u1d0d\u0274\u1d0f\u1d18\ua7af\u0280\ua731\u1d1b\u1d1c\u1d20\u1d21\u028f\u1d22",
+    "abcdefghijklmnopqrstuvwyz",
+)
 # What a source puts where it lost a letter it couldn't encode, as in "Michael Bubl?".
 _STAND_INS = "?\ufffd"
 # A bracketed group with no brackets inside, held whole while featured names are split.
@@ -47,8 +54,9 @@ def channel_key(name: str) -> str:
 
 
 def accent_key(name: str) -> str:
-    """A name compared ignoring case, spacing and accents, so "Bublé" matches "Buble"."""
-    decomposed = unicodedata.normalize("NFKD", name.casefold())
+    """A name compared ignoring case, spacing, accents and letter styles such as small capitals,
+    so "Bublé" matches "Buble"."""
+    decomposed = unicodedata.normalize("NFKD", name.casefold().translate(_SMALL_CAPITALS))
     return "".join(
         char
         for char in decomposed
