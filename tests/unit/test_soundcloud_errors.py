@@ -210,6 +210,22 @@ def test_the_detail_masks_secret_share_links() -> None:
     assert error.detail == f"Unsupported URL: https://soundcloud.com/artist/track/s-{MASK}"
 
 
+# yt-dlp's messages when it needs ffmpeg and can't find it, from its downloaders and fixups.
+@pytest.mark.parametrize(
+    "message",
+    [
+        "ERROR: m3u8 download detected but ffmpeg could not be found. Please install",
+        "ERROR: Postprocessing: ffmpeg not found. Please install or provide the path using "
+        "--ffmpeg-location",
+        "ERROR: ffmpeg is not installed",
+    ],
+)
+def test_yt_dlp_missing_ffmpeg_is_ffmpeg_missing_not_an_outdated_engine(message: str) -> None:
+    error = ytdlp_errors.to_scmp_error(DownloadError(message))
+    assert error.kind is ErrorKind.convert_failed
+    assert error.reason == "ffmpeg_missing"
+
+
 def test_a_scmp_error_passes_through_unchanged() -> None:
     error = ScmpError(ErrorKind.preview_only, "a preview")
     assert ytdlp_errors.to_scmp_error(error) is error

@@ -60,6 +60,15 @@
   color: var(--text-2);
 }
 
+/* An error's text keeps its line breaks and can be selected, so a command in it can be copied. */
+.error-text,
+.error-detail {
+  white-space: pre-line;
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: text;
+}
+
 .error-box-actions {
   display: flex;
   flex-wrap: wrap;

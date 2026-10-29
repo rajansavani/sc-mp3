@@ -46,8 +46,10 @@ class RetryTasks(SetTasks):
         kind = job.error.kind if job.error else None
         self._cancel_auto_retry(record)
         job.error = None
-        if kind == ErrorKind.convert_failed and record.staged is not None:
-            # The staged audio may be what failed, so it's downloaded again.
+        audio_failed = record.error_reason != "ffmpeg_missing"
+        if kind == ErrorKind.convert_failed and audio_failed and record.staged is not None:
+            # The staged audio may be what failed, so it's downloaded again. A missing ffmpeg says
+            # nothing about the audio, so after installing it the audio is kept.
             record.stale_audio = record.staged.path
             record.staged = None
             job.staged_audio = None

@@ -86,7 +86,7 @@ export function ErrorBanner({ job, settings, onSave }) {
     <div class="banner" data-tone=${tone}>
       <span class="banner-message">
         <${Icon} name=${icon} size=${20} className="tone-icon" />
-        <span>${detail ? `${headline} ${detail}` : headline}</span>
+        <span class="error-text">${detail ? `${headline} ${detail}` : headline}</span>
       </span>
       <span class="banner-actions">
         <${ActionButtons} job=${job} onSave=${onSave} small=${true} primaryLast=${true} />

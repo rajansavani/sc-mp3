@@ -58,6 +58,10 @@ MESSAGE_CASES: tuple[MessageCase, ...] = (
     MessageCase("no longer available", ErrorKind.unavailable, "removed"),
     MessageCase("recording is not available", ErrorKind.unavailable, "removed"),
     MessageCase("this video has been removed", ErrorKind.unavailable, "removed"),
+    # yt-dlp's own words when a download or fixup needs the ffmpeg it can't find.
+    MessageCase("ffmpeg could not be found", ErrorKind.convert_failed, "ffmpeg_missing"),
+    MessageCase("ffmpeg is not installed", ErrorKind.convert_failed, "ffmpeg_missing"),
+    MessageCase("ffmpeg not found", ErrorKind.convert_failed, "ffmpeg_missing"),
 )
 # Typographic apostrophes, as in YouTube's "you're" written with U+2019, count as straight ones.
 _APOSTROPHES = str.maketrans({"\u2019": "'", "\u2018": "'"})

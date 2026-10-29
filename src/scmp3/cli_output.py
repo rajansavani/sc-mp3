@@ -1,5 +1,6 @@
 """What the command line prints, and the exit codes its commands return."""
 
+import sys
 from collections.abc import Sequence
 from datetime import datetime
 
@@ -33,9 +34,29 @@ PLAYLIST_NOTE = (
     "its playlists again."
 )
 TITLE_NEEDS_ONE_LINK = "--title only works with one link, since every track would get it."
-FFMPEG_MISSING = (
-    "ffmpeg wasn't found. Install it and put it on your PATH, or set SCMP3_FFMPEG to its full path."
-)
+# How each Linux distro installs ffmpeg, since sc-mp3 ships its own only on Windows and macOS.
+FFMPEG_INSTALLS: dict[str, str] = {
+    "Ubuntu and Debian": "sudo apt install ffmpeg",
+    "Fedora": "sudo dnf install ffmpeg-free",
+    "Arch": "sudo pacman -S ffmpeg",
+}
+
+
+def ffmpeg_missing(platform: str = sys.platform) -> str:
+    """What to do when ffmpeg can't be found: install it on Linux, or reinstall sc-mp3."""
+    if not platform.startswith("linux"):
+        return (
+            "sc-mp3 can't find its copy of ffmpeg. Reinstall sc-mp3, or set SCMP3_FFMPEG to the "
+            "full path to ffmpeg."
+        )
+    commands = "\n".join(f"  {distro}: {command}" for distro, command in FFMPEG_INSTALLS.items())
+    return (
+        f"ffmpeg isn't installed. Install it, then run the command again.\n{commands}\n"
+        "Or set SCMP3_FFMPEG to the full path to ffmpeg."
+    )
+
+
+FFMPEG_MISSING = ffmpeg_missing()
 NO_LOG = "The log file can't be written, so this run isn't logged ({detail})."
 INPUT_ENDED = "The input ended before you answered, so nothing more was saved."
 STOPPED = "Stopped. The track in progress wasn't saved."
@@ -150,6 +171,7 @@ REASON_MESSAGES: dict[ErrorReason, str] = {
         "sc-mp3 couldn't write the new tags into this file, so it's unchanged. "
         "It may be damaged. The log has the details: {log}"
     ),
+    "ffmpeg_missing": FFMPEG_MISSING,
 }
 
 

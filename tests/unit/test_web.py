@@ -235,17 +235,23 @@ def test_the_csp_allows_the_import_map_by_its_hash() -> None:
     assert import_map_text
     digest = hashlib.sha256(import_map_text.group(1).encode("utf-8")).digest()
     expected = "'sha256-" + base64.b64encode(digest).decode("ascii") + "'"
-    assert content_security_policy()["script-src"] == ["'self'", expected]
+    assert content_security_policy()["script-src"] == ["'self'", "'unsafe-eval'", expected]
 
 
-def test_the_csp_allows_nothing_unsafe() -> None:
+def test_the_csp_blocks_inline_scripts_and_allows_nothing_else_unsafe() -> None:
     policy = content_security_policy()
     assert policy["default-src"] == ["'self'"]
     assert policy["object-src"] == ["'none'"]
     assert policy["base-uri"] == ["'none'"]
     values = [value for values in policy.values() for value in values]
     assert "'unsafe-inline'" not in values
-    assert "'unsafe-eval'" not in values
+    assert "'unsafe-hashes'" not in values
+    assert values.count("'unsafe-eval'") == 1
+
+
+def test_the_csp_lets_pywebview_eval_its_scripts() -> None:
+    # Without it the UI never loads on Linux or macOS, whose webviews block pywebview's eval.
+    assert "'unsafe-eval'" in content_security_policy()["script-src"]
 
 
 def test_the_import_map_is_the_only_inline_code() -> None:

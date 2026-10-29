@@ -10,6 +10,9 @@ ALREADY_OPEN = "sc-mp3 is already open."
 # Asked when the window is closed with tracks in the queue that haven't been saved, and
 # queue.json couldn't be written, so closing removes them.
 UNSAVED_TITLE = "sc-mp3"
+# The answers on macOS, whose alerts have no built-in Yes and No buttons.
+YES = "Yes"
+NO = "No"
 
 
 def unsaved(count: int) -> str:

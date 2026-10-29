@@ -98,7 +98,11 @@ def ffmpeg_exe() -> Path:
     found = shutil.which("ffmpeg")
     if found:
         return Path(found)
-    raise ScmpError(ErrorKind.convert_failed, "ffmpeg not found")
+    raise ScmpError(
+        ErrorKind.convert_failed,
+        "ffmpeg isn't set in SCMP3_FFMPEG, next to the app or on PATH",
+        reason="ffmpeg_missing",
+    )
 
 
 def _ffmpeg_candidates() -> list[Path]:

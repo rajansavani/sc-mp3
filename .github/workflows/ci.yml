@@ -41,3 +41,72 @@ jobs:
       - run: uv run ruff check
       - run: uv run ruff format --check
       - run: uv run pytest
+
+  linux-install:
+    name: Install on Linux with the Qt extra
+    runs-on: ubuntu-24.04
+    # A hung apt-get or download would otherwise run for GitHub's default of 6 hours.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Later steps run code from PyPI, which has no use for the token.
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version: "0.8.22"
+
+      # Every library Qt's window needs that a bare Ubuntu 24.04 lacks, and xvfb for a display.
+      - name: Install Qt's system libraries
+        run: >-
+          sudo apt-get update && sudo apt-get install -y xvfb libegl1 libnss3 libxcb-cursor0
+          libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0
+          libxcb-xkb1 libxkbcommon-x11-0 libxcomposite1 libxdamage1 libxfixes3 libxtst6
+          libasound2t64 libdbus-1-3 libfontconfig1 libglib2.0-0t64
+
+      # The README's command, with this checkout in place of GitHub's copy. Ubuntu's own Python is
+      # 3.12, so uv has to be told to use 3.13.
+      - name: Install sc-mp3 with the Qt extra
+        run: |
+          uv tool install --python 3.13 "sc-mp3[qt] @ file://${{ github.workspace }}"
+          uv tool dir --bin >> "$GITHUB_PATH"
+
+      - run: scmp3 --version
+
+      # evaluate_js runs through eval, so this also fails if the page's CSP blocks pywebview.
+      # window.scmp3 is set by the UI's own scripts, as page_loading checks in the app.
+      - name: Open the app's page with Qt under xvfb
+        run: |
+          timeout 300 xvfb-run -a "$(uv tool dir)/sc-mp3/bin/python" - <<'EOF'
+          import time
+          from pathlib import Path
+
+          import scmp3
+          import webview
+
+          page = Path(scmp3.__file__).parent / "web" / "index.html"
+          # text_select as the app sets it, since pywebview's own inline style breaks the CSP.
+          window = webview.create_window("sc-mp3 check", str(page), text_select=True)
+          seen = {}
+
+
+          def check(window):
+              try:
+                  seen["title"] = window.evaluate_js("document.title")
+                  # The UI's scripts can still be loading when pywebview says the page loaded.
+                  deadline = time.monotonic() + 10
+                  while time.monotonic() < deadline:
+                      seen["scmp3"] = window.evaluate_js("typeof window.scmp3")
+                      if seen["scmp3"] == "object":
+                          break
+                      time.sleep(0.25)
+              finally:
+                  window.destroy()
+
+
+          webview.start(check, window, gui="qt", http_server=True)
+          print("renderer:", webview.renderer, "seen:", seen)
+          assert webview.renderer == "qtwebengine"
+          assert seen == {"title": "sc-mp3", "scmp3": "object"}
+          EOF

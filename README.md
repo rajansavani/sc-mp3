@@ -20,6 +20,86 @@ If sc-mp3 says it needs WebView2, select Yes to open Microsoft's download page, 
 
 To update, quit sc-mp3, download the new zip, extract it, and replace the old `sc-mp3` folder with the new one. Your songs, settings and queue stay, since sc-mp3 keeps them outside that folder.
 
+## Install on Linux
+
+On Linux you install sc-mp3 from GitHub with [uv](https://docs.astral.sh/uv/), and it uses your distro's ffmpeg. These steps were checked on Ubuntu 24.04, Fedora 44 and Arch Linux.
+
+1. Install ffmpeg, git, curl and the libraries Qt needs. A desktop install has most of them already.
+
+   Ubuntu:
+
+   ```
+   sudo apt install ffmpeg git curl libegl1 libnss3 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-xkb1 libxkbcommon-x11-0
+   ```
+
+   Fedora:
+
+   ```
+   sudo dnf install ffmpeg-free git curl xcb-util-cursor xcb-util-wm xcb-util-image xcb-util-keysyms xcb-util-renderutil libxkbcommon-x11 nss mesa-libEGL
+   ```
+
+   Arch:
+
+   ```
+   sudo pacman -S --needed ffmpeg git curl xcb-util-cursor xcb-util-wm xcb-util-image xcb-util-keysyms xcb-util-renderutil libxkbcommon-x11 libxcomposite libxdamage libxtst nss libglvnd
+   ```
+
+2. Install uv, then open a new terminal so it's on your PATH:
+
+   ```
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+3. Install sc-mp3:
+
+   ```
+   uv tool install --python 3.13 "sc-mp3[qt] @ git+https://github.com/rajansavani/sc-mp3"
+   ```
+
+   sc-mp3 needs Python 3.13. If your system has another version, uv downloads 3.13 for sc-mp3 alone. With Qt, sc-mp3 takes about 780 MB.
+
+4. Run `scmp3` to open the window. `scmp3 --help` lists the commands you can run in a terminal instead.
+
+If your shell says `scmp3` isn't found, run `uv tool update-shell` and open a new terminal.
+
+To update, run `uv tool upgrade sc-mp3`. To remove sc-mp3, run `uv tool uninstall sc-mp3`. Your songs and settings stay.
+
+If ffmpeg is missing, sc-mp3 says so before it downloads a track, with the command to install it:
+
+- Ubuntu and Debian: `sudo apt install ffmpeg`
+- Fedora: `sudo dnf install ffmpeg-free`
+- Arch: `sudo pacman -S ffmpeg`
+
+### GTK instead of Qt
+
+sc-mp3 can use your desktop's GTK and WebKitGTK in place of Qt, which takes about 240 MB instead of 780 MB. uv builds PyGObject for it, so in place of step 1 you need these packages.
+
+Ubuntu:
+
+```
+sudo apt install ffmpeg git curl gir1.2-webkit2-4.1 libgirepository1.0-dev libcairo2-dev pkg-config gcc
+```
+
+Fedora:
+
+```
+sudo dnf install ffmpeg-free git curl webkit2gtk4.1 gobject-introspection-devel cairo-gobject-devel cairo-devel pkgconf-pkg-config gcc
+```
+
+Arch:
+
+```
+sudo pacman -S --needed ffmpeg git curl webkit2gtk-4.1 gobject-introspection cairo pkgconf gcc
+```
+
+Then install uv as in step 2, and install sc-mp3 without the Qt extra:
+
+```
+uv tool install --python 3.13 "sc-mp3 @ git+https://github.com/rajansavani/sc-mp3" --with "pywebview[gtk]"
+```
+
+With GTK, files dropped on the window aren't added yet. Select Open audio files while the queue is empty, or run `scmp3 retag` with the files.
+
 ## First run
 
 Setup has four steps:

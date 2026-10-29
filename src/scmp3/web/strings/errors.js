@@ -1,5 +1,15 @@
 // Text for a job that stopped with an error: each kind's queue status, headline and detail,
 // and the buttons its banner offers. main.js takes these in, as strings.main.errors and so on.
+
+// Linux installs ffmpeg from the distro, since sc-mp3 ships its own only on Windows and macOS.
+// Each command has a line to itself with nothing after it, so it can be copied as it is.
+const INSTALL_FFMPEG = [
+  "Install it, then retry.",
+  "Ubuntu and Debian: sudo apt install ffmpeg",
+  "Fedora: sudo dnf install ffmpeg-free",
+  "Arch: sudo pacman -S ffmpeg",
+].join("\n");
+
 export default {
   // Each error kind: the short queue status, the headline and the detail. Some take the source's
   // name, the library folder or the date of the earlier save.
@@ -91,6 +101,14 @@ export default {
           status: "Not MP3 or M4A audio",
           headline: () => "This file isn't MP3 or M4A audio that sc-mp3 can read.",
           detail: () => "It may be damaged, or have the wrong extension.",
+        },
+        ffmpeg_missing: {
+          status: "ffmpeg not found",
+          headline: ({ os }) =>
+            os === "linux"
+              ? "sc-mp3 needs ffmpeg to convert the audio, and it isn't installed."
+              : "sc-mp3 can't find its copy of ffmpeg, which it needs to convert the audio.",
+          detail: ({ os }) => (os === "linux" ? INSTALL_FFMPEG : "Reinstall sc-mp3, then retry."),
         },
         tag_write_failed: {
           status: "Couldn't write the tags",

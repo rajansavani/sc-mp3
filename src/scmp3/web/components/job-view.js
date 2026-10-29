@@ -2,6 +2,7 @@
 // set's progress over its tracks. Jobs carry the keys TECH_SPEC §15 lists for the UI: tags,
 // filename, format, cover_url and cover_size, and a set carries its tracks' jobs in `children`.
 import { strings } from "../strings/index.js";
+import { currentOs } from "./FirstRun.js";
 import { baseName, folderLabel } from "./paths.js";
 
 const text = strings.main;
@@ -52,6 +53,7 @@ export const ERROR_KINDS = {
     variants: {
       unreadable_file: { actions: ["remove"] },
       tag_write_failed: { actions: ["retry", "remove"] },
+      ffmpeg_missing: { tone: "warn", actions: ["retry", "remove"] },
     },
   },
   disk: {
@@ -269,6 +271,8 @@ export function errorText(job, settings) {
     folder: folderLabel(settings?.library_dir ?? ""),
     savedOn: job.duplicate ? savedOn(job.duplicate.saved_at) : null,
     retryAt: clockTime(job.error?.retry_at),
+    // Where ffmpeg comes from: the distro on Linux, the app itself elsewhere.
+    os: currentOs(),
   };
   return { headline: entry.headline(context), detail: entry.detail?.(context) ?? null };
 }

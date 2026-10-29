@@ -94,3 +94,24 @@ def test_every_reason_has_a_message() -> None:
 def test_messages_that_need_the_log_name_it() -> None:
     message = cli_output.error_message(ScmpError(ErrorKind.internal), Settings())
     assert str(paths.log_dir() / LOG_FILE) in message
+
+
+def test_missing_ffmpeg_on_linux_lists_each_distros_install_command() -> None:
+    message = cli_output.ffmpeg_missing("linux")
+    assert message.startswith("ffmpeg isn't installed. Install it, then run the command again.")
+    assert "  Ubuntu and Debian: sudo apt install ffmpeg" in message
+    assert "  Fedora: sudo dnf install ffmpeg-free" in message
+    assert "  Arch: sudo pacman -S ffmpeg" in message
+    assert "SCMP3_FFMPEG" in message
+
+
+@pytest.mark.parametrize("platform", ["win32", "darwin"])
+def test_missing_ffmpeg_where_the_app_ships_it_says_to_reinstall(platform: str) -> None:
+    message = cli_output.ffmpeg_missing(platform)
+    assert message.startswith("sc-mp3 can't find its copy of ffmpeg. Reinstall sc-mp3")
+    assert "apt" not in message
+
+
+def test_a_job_without_ffmpeg_gets_the_missing_ffmpeg_message() -> None:
+    error = ScmpError(ErrorKind.convert_failed, "not found", reason="ffmpeg_missing")
+    assert cli_output.error_message(error, Settings()) == cli_output.FFMPEG_MISSING

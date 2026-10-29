@@ -154,11 +154,13 @@ def test_ffmpeg_on_path_is_the_last_resort(
     assert paths.ffmpeg_exe() == on_path
 
 
-def test_missing_ffmpeg_is_a_convert_failed_error(no_ffmpeg: Path) -> None:
+def test_missing_ffmpeg_is_a_convert_failed_error_that_says_why(no_ffmpeg: Path) -> None:
     with pytest.raises(ScmpError) as error_info:
         paths.ffmpeg_exe()
     assert error_info.value.kind is ErrorKind.convert_failed
-    assert error_info.value.detail == "ffmpeg not found"
+    # The reason gets its own advice, instead of convert_failed's "the download may be damaged".
+    assert error_info.value.reason == "ffmpeg_missing"
+    assert "SCMP3_FFMPEG" in str(error_info.value.detail)
 
 
 def test_platform_tag_names_this_machine() -> None:

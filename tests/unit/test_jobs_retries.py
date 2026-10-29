@@ -190,6 +190,21 @@ def test_retry_after_a_failed_conversion_downloads_again_then_saves(jobs: Harnes
     assert jobs.steps.steps_for(job_id).count("fetch") == 2
 
 
+def test_retry_after_installing_ffmpeg_keeps_the_audio_it_has(jobs: Harness) -> None:
+    missing = ScmpError(ErrorKind.convert_failed, "not found", reason="ffmpeg_missing")
+    jobs.steps.finalize_errors.append(missing)
+    job_id = jobs.add_and_resolve()
+    jobs.manager.save([job_id])
+    jobs.pools.run_all()
+    staged = jobs.job(job_id)["staged_audio"]
+    jobs.manager.retry(job_id)
+    # A missing ffmpeg says nothing about the audio, so it isn't downloaded again.
+    assert jobs.job(job_id)["staged_audio"] == staged
+    jobs.pools.run_all()
+    assert jobs.job(job_id)["state"] == "saved"
+    assert jobs.steps.steps_for(job_id).count("fetch") == 1
+
+
 def test_a_new_download_after_a_failed_conversion_keeps_its_own_file(jobs: Harness) -> None:
     jobs.steps.finalize_errors.append(ScmpError(ErrorKind.convert_failed))
     job_id = jobs.add_and_resolve()

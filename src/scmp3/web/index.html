@@ -4,8 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- Only the app's own files run. The hash allows the import map below, the one inline script.
+     unsafe-eval is there because pywebview's evaluate_js and bridge run through eval, which Qt,
+     WebKitGTK and WKWebView enforce, though WebView2 doesn't.
      frame-ancestors is left out, because browsers ignore it in a meta tag and log an error. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-B4UuEjW28Kca+wJC+FujYZJaWaC9jVXJDOVw3NIv+Qg='; img-src 'self' data: https:; object-src 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'sha256-B4UuEjW28Kca+wJC+FujYZJaWaC9jVXJDOVw3NIv+Qg='; img-src 'self' data: https:; object-src 'none'; base-uri 'none'">
 <title>sc-mp3</title>
 <!-- An empty icon, so the browser doesn't ask the server for a favicon.ico that isn't there. -->
 <link rel="icon" href="data:,">

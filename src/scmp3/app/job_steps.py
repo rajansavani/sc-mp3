@@ -4,7 +4,7 @@ import threading
 from collections.abc import Mapping, Sequence
 from typing import Protocol
 
-from scmp3.core import pipeline
+from scmp3.core import paths, pipeline
 from scmp3.core.download import ProgressCallback
 from scmp3.core.inputs import ParsedInput
 from scmp3.core.library import AskFn
@@ -133,6 +133,8 @@ class PipelineSteps:
     def fetch(
         self, prepared: Prepared, *, on_progress: ProgressCallback, cancel: threading.Event
     ) -> Staged:
+        # Checked first, so a missing ffmpeg fails before the whole track downloads for nothing.
+        paths.ffmpeg_exe()
         return pipeline.fetch(prepared, on_progress=on_progress, cancel=cancel)
 
     def finalize(

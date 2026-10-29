@@ -34,6 +34,8 @@ ErrorReason = Literal[
     "file_changed",
     # mutagen couldn't write the new tags into the copy of a file being re-tagged.
     "tag_write_failed",
+    # ffmpeg isn't installed on Linux, or isn't next to the app where the app ships it.
+    "ffmpeg_missing",
 ]
 
 
