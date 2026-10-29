@@ -1,0 +1,189 @@
+name: Engine bump
+
+on:
+  schedule:
+    # Every day at 06:41 UTC. Off the hour, since GitHub delays runs queued on the hour.
+    - cron: "41 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Two runs at once would both try to open the same pull request.
+concurrency:
+  group: engine-bump
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Look for a newer yt-dlp
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # To find the pull requests earlier runs opened.
+      pull-requests: read
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      branch: ${{ steps.bump.outputs.branch }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # This job doesn't push, so the token doesn't need to stay in .git/config.
+          persist-credentials: false
+
+      # setup-uv only publishes exact version tags.
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          # Match the dev machine's uv, since setup-uv would otherwise pick the newest one that fits required-version.
+          version: "0.8.22"
+
+      - name: Upgrade yt-dlp in the lock file
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          locked_yt_dlp() {
+            python3 -c 'import tomllib; lock = tomllib.load(open("uv.lock", "rb")); print(next(p["version"] for p in lock["package"] if p["name"] == "yt-dlp"))'
+          }
+          before=$(locked_yt_dlp)
+          # Only yt-dlp, and whatever its new version requires, may change.
+          uv lock --upgrade-package yt-dlp
+          after=$(locked_yt_dlp)
+          if [ "$after" = "$before" ]; then
+            echo "yt-dlp $before is the newest stable release, so there's nothing to update." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          branch="engine-bump/yt-dlp-$after"
+          # A closed pull request for this version means it was turned down, so it isn't opened again.
+          # Only this repo's own branches count, since a fork can open a pull request from a branch of the same name.
+          earlier=$(gh pr list --head "$branch" --state all --json number,isCrossRepository --jq '[.[] | select(.isCrossRepository | not)][0].number // empty')
+          if [ -n "$earlier" ]; then
+            echo "yt-dlp $after already has pull request #$earlier." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "yt-dlp $after is out. The lock file has $before." >> "$GITHUB_STEP_SUMMARY"
+          echo "version=$after" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v7
+        if: steps.bump.outputs.version
+        with:
+          name: uv-lock
+          path: uv.lock
+          if-no-files-found: error
+
+  test:
+    name: Test on ${{ matrix.os }}
+    needs: check
+    if: needs.check.outputs.version
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      # Let every platform finish, so one failure doesn't hide another.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: uv-lock
+          path: ${{ runner.temp }}/bump
+
+      - name: Use the upgraded lock file
+        shell: bash
+        run: cp "$RUNNER_TEMP/bump/uv.lock" uv.lock
+
+      # setup-uv only publishes exact version tags.
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          # Match the dev machine's uv, since setup-uv would otherwise pick the newest one that fits required-version.
+          version: "0.8.22"
+
+      - name: Install ffmpeg (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install ffmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ffmpeg -y --no-progress
+
+      - name: Install ffmpeg (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ffmpeg
+
+      - run: uv sync --locked
+      - run: uv run ruff check
+      - run: uv run ruff format --check
+      - run: uv run pytest
+
+  pull-request:
+    name: Open the pull request
+    needs: [check, test]
+    # Only from main, so a manual run on another branch stops once the tests pass.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # This job pushes the branch, so checkout keeps the token.
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: uv-lock
+          path: ${{ runner.temp }}/bump
+
+      - name: Commit the lock file and open the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+          BRANCH: ${{ needs.check.outputs.branch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          cp "$RUNNER_TEMP/bump/uv.lock" uv.lock
+          git show HEAD:uv.lock > "$RUNNER_TEMP/before.lock"
+          changes=$(python3 - "$RUNNER_TEMP/before.lock" uv.lock <<'EOF'
+          import sys
+          import tomllib
+
+          def versions(path):
+              found = {}
+              with open(path, "rb") as file:
+                  for package in tomllib.load(file)["package"]:
+                      found.setdefault(package["name"], set()).add(package.get("version", "?"))
+              return {name: ", ".join(sorted(numbers)) for name, numbers in found.items()}
+
+          before, after = (versions(path) for path in sys.argv[1:])
+          for name in sorted(before.keys() | after.keys()):
+              if before.get(name) != after.get(name):
+                  print(f"- {name}: {before.get(name, 'none')} to {after.get(name, 'none')}")
+          EOF
+          )
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # yt-dlp's tags pad the month and day, as in 2026.08.19, and the lock file doesn't.
+          tag=$(echo "$VERSION" | awk -F. '{ printf "%s.%02d.%02d", $1, $2, $3; for (i = 4; i <= NF; i++) printf ".%s", $i }')
+          git switch -c "$BRANCH"
+          git add uv.lock
+          git commit -m "Update yt-dlp to $VERSION"
+          # The branch can be left over from a run whose pull request didn't open, so it's replaced.
+          git push --force origin "$BRANCH"
+          body="Updates yt-dlp to $VERSION in uv.lock. Changed packages:
+
+          ${changes}
+
+          ruff and pytest passed on Ubuntu, Windows and macOS in ${RUN_URL}. Pull requests opened by GitHub Actions don't start the CI workflow, so that run is this pull request's check.
+
+          yt-dlp's release notes: https://github.com/yt-dlp/yt-dlp/releases/tag/${tag}
+
+          After you merge, run the Canary workflow to check the new version against live SoundCloud and YouTube links.
+
+          Merging doesn't tag or release a build. You do that yourself."
+          gh pr create --base main --head "$BRANCH" --title "Update yt-dlp to $VERSION" --body "$body"
