@@ -78,8 +78,19 @@ def engine_version() -> str:
     return load_yt_dlp().version.__version__
 
 
+def _is_refusal(message: str) -> bool:
+    # Imported here, since ytdlp_errors builds on this module.
+    from scmp3.core.sources.ytdlp_errors import is_refusal
+
+    return is_refusal(message)
+
+
 class YtDlpLogger:
-    """Passes yt-dlp's messages to Python logging, so the redaction filter sees them."""
+    """Passes yt-dlp's messages to Python logging, so the redaction filter sees them.
+
+    Refusals sc-mp3 explains itself, such as a DRM-protected or private track, go to INFO, so
+    the log's warnings and errors are real problems.
+    """
 
     def __init__(self, logger: logging.Logger | None = None) -> None:
         self._logger = logger or logging.getLogger(YTDLP_LOGGER)
@@ -93,10 +104,16 @@ class YtDlpLogger:
         if message.startswith(QUIET_WARNINGS):
             self._logger.debug(message)
             return
+        if _is_refusal(message):
+            self._logger.info(message)
+            return
         self._logger.warning(message)
 
     def error(self, message: str) -> None:
         """Log an error. yt-dlp also raises it, so callers still see it as an exception."""
+        if _is_refusal(message):
+            self._logger.info(message)
+            return
         self._logger.error(message)
 
 

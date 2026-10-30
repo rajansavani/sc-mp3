@@ -1,5 +1,6 @@
-/* The controls every screen shares: buttons, fields, the segmented control, switches, banners,
-   inline notes and the dialog frame. Any UI ticket may add to this file. */
+/* The controls every screen shares: buttons, fields, the segmented control, switches, progress
+   bars and key caps. Banners and notes are in banners.css, the dialog frame in dialogs.css. Any UI
+   ticket may add to these files. */
 
 /* Buttons */
 
@@ -91,7 +92,7 @@
   min-width: 0;
   height: var(--height-control);
   padding: 0 14px;
-  border: 1px solid var(--line-4);
+  border: 1px solid var(--line-field);
   border-radius: var(--radius-control);
   background: var(--surface-2);
   font-size: 14px;
@@ -141,9 +142,11 @@ textarea.text-field {
   font-weight: 600;
 }
 
+/* The ring shows which segment is on at 3:1, since the fill alone is too close to the track. */
 .segment[aria-pressed="true"],
 .segment[aria-checked="true"] {
   background: var(--line-3);
+  box-shadow: inset 0 0 0 1px var(--line-field);
   color: var(--text-1);
 }
 
@@ -156,7 +159,7 @@ textarea.text-field {
   width: 48px;
   height: 28px;
   padding: 3px;
-  border: 1px solid var(--line-4);
+  border: 1px solid var(--line-field);
   border-radius: var(--radius-chip);
   background: var(--surface-4);
 }
@@ -178,99 +181,7 @@ textarea.text-field {
   background: var(--on-accent);
 }
 
-/* Tones: each sets the colors its banner, note and buttons use. */
-
-[data-tone="warn"] {
-  --tone-surface: var(--warn-surface);
-  --tone-line: var(--warn-line);
-  --tone-icon: var(--warn);
-}
-
-[data-tone="danger"] {
-  --tone-surface: var(--danger-surface);
-  --tone-line: var(--danger-line);
-  --tone-icon: var(--danger);
-}
-
-[data-tone="ok"] {
-  --tone-surface: var(--ok-surface);
-  --tone-line: var(--ok-line);
-  --tone-icon: var(--ok);
-}
-
-[data-tone="neutral"] {
-  --tone-surface: var(--dialog-bg);
-  --tone-line: var(--line-3);
-  --tone-icon: var(--text-2);
-}
-
-/* Banners: a message with its icon, and the next steps on the right. */
-
-.banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px 16px;
-  padding: var(--pad-banner);
-  border: 1px solid var(--tone-line);
-  border-radius: var(--radius-card);
-  background: var(--tone-surface);
-}
-
-.banner-message {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  min-width: 0;
-}
-
-.banner-message > span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.banner-title {
-  font-weight: 600;
-}
-
-.banner-path {
-  overflow-wrap: anywhere;
-  color: var(--text-2);
-  font-family: var(--font-mono);
-  font-size: var(--text-small);
-}
-
-.tone-icon {
-  flex: 0 0 auto;
-  margin-top: 2px;
-  color: var(--tone-icon);
-}
-
-.banner-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.banner .control-button:not(.is-primary) {
-  border-color: var(--tone-line);
-  background: transparent;
-}
-
-/* A short warning under the cover. */
-.note {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--tone-line);
-  border-radius: var(--radius-cover);
-  background: var(--tone-surface);
-  font-size: var(--text-small);
-}
+/* Progress bars and key caps */
 
 .progress-track {
   display: block;
@@ -293,66 +204,4 @@ kbd.key {
   background: color-mix(in srgb, var(--on-accent) 14%, transparent);
   font-size: 11px;
   font-weight: 500;
-}
-
-/* The dialog frame, from T-020: the shell's dialog layer and the editor's own dialogs. */
-
-.dialog {
-  width: min(560px, calc(100vw - 48px));
-  max-height: calc(100vh - 48px);
-  padding: var(--pad-dialog);
-  border: 1px solid var(--line-3);
-  border-radius: var(--radius-dialog);
-  background: var(--dialog-bg);
-  box-shadow: var(--shadow-dialog);
-  color: var(--text-1);
-}
-
-.dialog.is-wide {
-  width: min(680px, calc(100vw - 48px));
-}
-
-.dialog::backdrop {
-  background: var(--scrim);
-}
-
-.dialog-body {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.dialog-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.dialog-title {
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.dialog-head .control-button {
-  margin: -8px -12px 0 0;
-  border-color: transparent;
-  background: transparent;
-}
-
-.dialog-text {
-  color: var(--text-2);
-}
-
-.dialog-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-/* Actions placed straight in the frame, as the shell's placeholders do, sit apart from the rest. */
-.dialog > .dialog-actions {
-  margin-top: var(--gap-sections);
 }

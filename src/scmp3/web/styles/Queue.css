@@ -96,7 +96,7 @@
 }
 
 .queue-item[aria-current="true"] {
-  border-color: var(--line-4);
+  border-color: var(--line-field);
   background: var(--surface-selected);
 }
 

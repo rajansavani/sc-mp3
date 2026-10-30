@@ -40,6 +40,19 @@
   overflow-y: auto;
 }
 
+.app-starting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.app-starting-text {
+  color: var(--text-2);
+  font-size: var(--text-body);
+  font-weight: 400;
+}
+
 /* Shown in a slot until its ticket builds the real component. */
 .placeholder {
   display: flex;

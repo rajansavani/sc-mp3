@@ -13,7 +13,7 @@ import {
   stopDownload,
 } from "./queue-sim.js";
 import { cleanedArtists, needsMainArtist, pastedNames } from "./names.js";
-import { forTheUi } from "./review.js";
+import { asksAboutPlaylists, confirmRename, forTheUi } from "./review.js";
 import { horizon, PALETTES } from "./sample-art.js";
 import { makeJob, SAMPLE_HISTORY } from "./sample-queue.js";
 import { albumMode, albumSettled, canNeverSave } from "./sets.js";
@@ -83,10 +83,20 @@ export function snapshotPart() {
   return { jobs: jobs.map(forTheUi) };
 }
 
+// A file whose re-tag is saved or skipped comes in again in place of its finished item, as in
+// the bridge.
+function clearFinishedRetag(input) {
+  const done = jobs.find((job) => {
+    return job.kind === "retag" && job.input === input && ["saved", "skipped"].includes(job.state);
+  });
+  if (done) remove(done.id);
+}
+
 export function add_inputs(text_or_paths) {
   const added = [];
   const rejected = [];
   for (const input of splitInputs(text_or_paths)) {
+    clearFinishedRetag(input);
     const rejection = rejectionOf(input);
     if (rejection) {
       rejected.push({ input, ...rejection });
@@ -177,13 +187,27 @@ function tracksOf(job) {
   return job.kind === "set" ? job.children : [job];
 }
 
-export function save(job_ids) {
+export function dismiss_cover_problem(job_id) {
+  const job = findJob(job_id);
+  if (!job) return { error: "unknown_job" };
+  job.cover_problem = null;
+  publish(job);
+  return {};
+}
+
+export function save(job_ids, rename_confirmed = false) {
   let held = false;
+  let asked = false;
   for (const job of job_ids.flatMap((jobId) => tracksOf(findJob(jobId) ?? { children: [] }))) {
     if (canSave(job) && needsMainArtist(job)) {
       held = true;
       continue;
     }
+    if (canSave(job) && !rename_confirmed && asksAboutPlaylists(job)) {
+      asked = true;
+      continue;
+    }
+    if (canSave(job)) confirmRename(job);
     if (job.included && (job.state === "queued" || job.state === "resolving")) {
       job.saves_once_in = true;
       publish(job);
@@ -197,6 +221,7 @@ export function save(job_ids) {
     startSaving(job);
     publish(job);
   }
+  if (asked) return { error: "renames_song" };
   return held ? { error: "no_main_artist" } : {};
 }
 
@@ -211,9 +236,14 @@ export function skip(job_id) {
   });
 }
 
-export function retry(job_id) {
-  return editJob(job_id, (job) => {
-    for (const track of job.source?.playlist ? job.children : [job]) {
+// A failed re-tag whose Retry would rename the song asks first, as the bridge does.
+export function retry(job_id, rename_confirmed = false) {
+  const job = findJob(job_id);
+  const retag = job?.kind === "retag" && job.state === "error" && job.suggestion;
+  if (retag && !rename_confirmed && asksAboutPlaylists(job)) return { error: "renames_song" };
+  if (retag) confirmRename(job);
+  return editJob(job_id, (found) => {
+    for (const track of found.source?.playlist ? found.children : [found]) {
       if (track.state === "error" && !canNeverSave(track)) retryJob(track);
     }
   });

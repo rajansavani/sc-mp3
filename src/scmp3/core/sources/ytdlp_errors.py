@@ -63,6 +63,11 @@ MESSAGE_CASES: tuple[MessageCase, ...] = (
     MessageCase("ffmpeg is not installed", ErrorKind.convert_failed, "ffmpeg_missing"),
     MessageCase("ffmpeg not found", ErrorKind.convert_failed, "ffmpeg_missing"),
 )
+# Kinds that mean the track itself can't be saved, which sc-mp3 explains in the UI. yt-dlp's own
+# ERROR and WARNING lines about them aren't problems with sc-mp3, so the log bridge lowers them.
+REFUSAL_KINDS = frozenset(
+    {ErrorKind.drm, ErrorKind.geo_blocked, ErrorKind.unavailable, ErrorKind.preview_only}
+)
 # Typographic apostrophes, as in YouTube's "you're" written with U+2019, count as straight ones.
 _APOSTROPHES = str.maketrans({"\u2019": "'", "\u2018": "'"})
 
@@ -105,6 +110,12 @@ def message_case(error: BaseException) -> MessageCase | None:
         if case is not None:
             return case
     return None
+
+
+def is_refusal(message: str) -> bool:
+    """Whether a yt-dlp message says the track can't be had, which sc-mp3 already explains."""
+    case = _message_case(message)
+    return case is not None and case.kind in REFUSAL_KINDS
 
 
 def error_kind(error: BaseException) -> ErrorKind:

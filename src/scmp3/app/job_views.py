@@ -148,8 +148,8 @@ def job_view(
 def retag_view(record: JobRecord, settings: Settings) -> dict[str, Any]:
     """A file to re-tag as the UI gets it. It keeps its name and audio, so there's no format.
 
-    `file_tags` holds the title, artist and album in the file now, which the UI compares with
-    the new ones before it asks about playlists.
+    `file_tags` holds the title, artist and album in the file now, which the editor shows under
+    a new title.
     """
     view = record.job.to_dict()
     tags = rendered_tags(record, settings)
@@ -197,6 +197,7 @@ def _add_cover_and_error(view: dict[str, Any], record: JobRecord) -> None:
     view["default_crop"] = cover.default_crop.to_dict() if cover.default_crop else None
     view["collision"] = {"path": str(record.collision)} if record.collision else None
     view["cover_missing"] = record.cover_error is not None
+    view["cover_unseen"] = cover.unseen
     view["cover_problem"] = record.cover_problem
     if view["error"] is not None:
         # The UI offers "Choose another folder" only for the library (TECH_SPEC §9).

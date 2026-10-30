@@ -82,6 +82,11 @@
   font-size: var(--text-small);
 }
 
+.field-hint {
+  color: var(--text-3);
+  font-size: var(--text-caption);
+}
+
 .field-input.is-title {
   height: var(--height-title-field);
   padding: 0 14px;

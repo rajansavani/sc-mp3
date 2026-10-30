@@ -106,7 +106,7 @@ def test_yt_dlp_messages_reach_python_logging_as_plain_text(
         ydl.to_screen("[soundcloud] 123: Downloading info JSON")
         ydl.report_warning("Provided authorization token is invalid. Continuing as guest")
         with pytest.raises(DownloadError):
-            ydl.report_error("[soundcloud] 123: This video is DRM protected")
+            ydl.report_error("[soundcloud] 123: Unable to download JSON metadata: HTTP Error 500")
     logged = [(r.levelno, r.getMessage()) for r in caplog.records if r.name == engine.YTDLP_LOGGER]
     assert (logging.DEBUG, "[soundcloud] 123: Downloading info JSON") in logged
     assert (
@@ -114,7 +114,8 @@ def test_yt_dlp_messages_reach_python_logging_as_plain_text(
         "Provided authorization token is invalid. Continuing as guest",
     ) in logged
     # No color codes, since "color" is "never".
-    assert (logging.ERROR, "ERROR: [soundcloud] 123: This video is DRM protected") in logged
+    error = "ERROR: [soundcloud] 123: Unable to download JSON metadata: HTTP Error 500"
+    assert (logging.ERROR, error) in logged
 
 
 def test_a_cache_write_that_lost_a_race_is_logged_at_debug_only(
@@ -148,6 +149,31 @@ def test_only_the_missing_ffprobe_warning_is_quiet(
         ydl.report_warning(warning)
     [record] = [r for r in caplog.records if r.name == engine.YTDLP_LOGGER]
     assert record.levelno == level
+
+
+@pytest.mark.parametrize(
+    ("message", "level"),
+    [
+        ("[soundcloud] 123: This video is DRM protected", logging.INFO),
+        ("[youtube] abc: Private video. Sign in if you've been granted access", logging.INFO),
+        ("[youtube] abc: Sign in to confirm your age", logging.INFO),
+        ("[youtube] abc: This video requires payment to watch", logging.INFO),
+        ("[soundcloud] 123: This video is not available from your location", logging.INFO),
+        ("[soundcloud] Unable to extract client id", logging.ERROR),
+        ("[youtube] abc: Sign in to confirm you're not a bot", logging.ERROR),
+        ("[generic] Unsupported URL: https://example.com", logging.ERROR),
+    ],
+    ids=["drm", "private", "age", "paid", "geo", "client id", "bot check", "unsupported"],
+)
+def test_errors_for_refusals_sc_mp3_explains_are_logged_at_info(
+    message: str, level: int, caplog: pytest.LogCaptureFixture
+) -> None:
+    logger = engine.YtDlpLogger()
+    with caplog.at_level(logging.DEBUG, logger=engine.YTDLP_LOGGER):
+        logger.error(f"ERROR: {message}")
+        logger.warning(message)
+    levels = [r.levelno for r in caplog.records if r.name == engine.YTDLP_LOGGER]
+    assert levels == [level, logging.WARNING if level == logging.ERROR else level]
 
 
 def test_parallel_yt_dlp_instances_writing_the_cache_warn_at_most_at_debug(

@@ -111,7 +111,7 @@ export function Settings() {
       <header class="settings-header">
         <div class="settings-brand">
           <${Logo} />
-          <span class="settings-brand-name">${text.title}</span>
+          <h1 class="settings-brand-name settings-title" tabindex="-1">${text.title}</h1>
         </div>
         <button type="button" class="control-button is-ghost" onClick=${closeView}>
           ${text.backToQueue}

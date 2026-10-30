@@ -58,10 +58,11 @@ function SavesAs({ job, settings }) {
   const tags = job.tags;
   if (!tags) return null;
   const folder = artistFolder(job, settings);
+  // The live region is new for each job, so moving through the queue doesn't read each one out.
   return html`
     <div class="artist-saves">
       <span class="artist-saves-label">${text.savesAs}</span>
-      <span class="artist-saves-lines" aria-live="polite">
+      <span key=${job.id} class="artist-saves-lines" aria-live="polite">
         <span class="artist-saves-title">${text.savedTitle(tags.title)}</span>
         <span>${tags.artist ? text.savedArtist(tags.artist) : text.noArtist}</span>
         ${folder && html`<span>${text.savedFolder(folder)}</span>`}

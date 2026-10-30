@@ -14,9 +14,14 @@ import { ActionBar, Cleanups, OutputStrip } from "./EditorSections.js";
 import { EmptyEditor } from "./EmptyEditor.js";
 import { useFieldDrafts } from "./field-drafts.js";
 import { dialogIsOpen, isEditable } from "./inputs.js";
-import { focusSelectedItem, moveToNextReview, removeJob } from "./job-actions.js";
+import {
+  focusSelectedItem,
+  moveToNextReview,
+  RENAMES_SONG,
+  removeJob,
+} from "./job-actions.js";
 import { linkText, sourceName } from "./job-view.js";
-import { PlaylistDialog, RetagBanner, renamesSong, usePlaylistQuestion } from "./RetagParts.js";
+import { PlaylistDialog, RetagBanner, usePlaylistQuestion } from "./RetagParts.js";
 
 const text = strings.main;
 
@@ -61,18 +66,22 @@ function useEnterToSave(onEnter) {
 }
 
 // Sends what's still being typed, then saves. A refused field gets focus instead.
-// `confirm` can ask first and resolve false to stay in review. `beforeSave` runs next, so a
-// question closed without an answer can come up again. `afterSave` moves focus on, since the
-// fields lock while saving.
+// `beforeSave` runs first, so a question closed without an answer can come up again. A re-tag
+// that renames the song isn't saved until `confirm` resolves true. `afterSave` moves focus on,
+// since the fields lock while saving.
 async function saveJob(job, drafts, { confirm, beforeSave, afterSave }) {
   if (!canSave(job)) return;
   if (!(await drafts.flush())) {
     document.getElementById(fieldId(drafts.firstRefused()))?.focus();
     return;
   }
-  if (!(await confirm())) return;
   beforeSave();
-  if (reportError(await api.save([job.id]))) return;
+  let answer = await api.save([job.id]);
+  if (answer?.error === RENAMES_SONG) {
+    if (!(await confirm())) return;
+    answer = await api.save([job.id], true);
+  }
+  if (reportError(answer)) return;
   afterSave(job);
 }
 
@@ -84,18 +93,6 @@ function useSave(job, drafts, { confirm, beforeSave }) {
     save: () => saveJob(job, drafts, { ...steps, afterSave: focusSelectedItem }),
     saveAndNext: () => saveJob(job, drafts, { ...steps, afterSave: moveToNextReview }),
   };
-}
-
-// A re-tag that gives the song a new title, artist or album asks about playlists first, unless
-// that was turned off.
-function usePlaylistCheck(job, settings, drafts) {
-  const question = usePlaylistQuestion();
-  const confirm = async () => {
-    if (settings?.retag_playlist_warning === false) return true;
-    if (!renamesSong(job, drafts.value)) return true;
-    return question.ask();
-  };
-  return { question, confirm };
 }
 
 // The question about a file with the same name, shown until it's answered or closed. Closing it
@@ -142,9 +139,16 @@ function FetchingView({ job }) {
   `;
 }
 
-function TopBanner({ job, settings, onSave }) {
+function TopBanner({ job, settings, onSave, confirmRename }) {
   if (job.state === "error") {
-    return html`<${ErrorBanner} job=${job} settings=${settings} onSave=${onSave} />`;
+    return html`
+      <${ErrorBanner}
+        job=${job}
+        settings=${settings}
+        onSave=${onSave}
+        confirmRename=${confirmRename}
+      />
+    `;
   }
   if (job.duplicate && job.state === "needs_review") {
     return html`<${DuplicateBanner} job=${job} onSave=${onSave} />`;
@@ -156,9 +160,10 @@ function TopBanner({ job, settings, onSave }) {
 function ReviewForm({ job, jobs, settings }) {
   const drafts = useFieldDrafts(job, renderedValue);
   const question = useCollisionQuestion(job);
-  const playlist = usePlaylistCheck(job, settings, drafts);
+  // Asked when Python says the save gives a re-tagged song a new title, artist or album.
+  const playlist = usePlaylistQuestion();
   const { save, saveAndNext } = useSave(job, drafts, {
-    confirm: playlist.confirm,
+    confirm: playlist.ask,
     beforeSave: question.reopen,
   });
   useEnterToSave(saveAndNext);
@@ -168,7 +173,12 @@ function ReviewForm({ job, jobs, settings }) {
   return html`
     <div class="track-editor">
       <${EditorHeader} job=${job} jobs=${jobs} />
-      <${TopBanner} job=${job} settings=${settings} onSave=${save} />
+      <${TopBanner}
+        job=${job}
+        settings=${settings}
+        onSave=${save}
+        confirmRename=${playlist.ask}
+      />
       <fieldset class="editor-lock" disabled=${!editable}>
         <div class="editor-columns">
           <${CoverPanel} job=${job} settings=${settings} editable=${editable} />
@@ -179,8 +189,7 @@ function ReviewForm({ job, jobs, settings }) {
       <${OutputStrip} job=${job} settings=${settings} />
       <${ActionBar} job=${job} onSave=${save} />
       ${question.open && html`<${CollisionDialog} job=${job} onClose=${question.close} />`}
-      ${playlist.question.open &&
-      html`<${PlaylistDialog} onClose=${playlist.question.close} />`}
+      ${playlist.open && html`<${PlaylistDialog} onClose=${playlist.close} />`}
     </div>
   `;
 }

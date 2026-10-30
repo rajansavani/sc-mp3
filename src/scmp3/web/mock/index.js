@@ -13,9 +13,16 @@ const AREAS = [jobs, files, settings, account, components];
 
 // Calls answer after a short wait, like the real bridge, so the UI never counts on instant replies.
 const LATENCY_MS = 30;
+// ?mock&slow_start holds the snapshot back, for trying what the window shows while it starts.
+const SLOW_START_MS = new URLSearchParams(window.location.search).has("slow_start") ? 3000 : 0;
 
 function snapshot() {
   return Object.assign({}, ...AREAS.map((area) => area.snapshotPart()));
+}
+
+async function slowSnapshot() {
+  await new Promise((resolve) => setTimeout(resolve, SLOW_START_MS));
+  return snapshot();
 }
 
 // A JSON round trip copies data both ways, the way pywebview's bridge does.
@@ -26,12 +33,12 @@ function copy(value) {
 function answering(call) {
   return async (...args) => {
     await new Promise((resolve) => setTimeout(resolve, LATENCY_MS));
-    return copy(call(...copy(args)));
+    return copy(await call(...copy(args)));
   };
 }
 
 function buildApi() {
-  const api = { snapshot: answering(snapshot) };
+  const api = { snapshot: SLOW_START_MS ? answering(slowSnapshot) : answering(snapshot) };
   for (const area of AREAS) {
     for (const [name, call] of Object.entries(area)) {
       if (name !== "snapshotPart") api[name] = answering(call);

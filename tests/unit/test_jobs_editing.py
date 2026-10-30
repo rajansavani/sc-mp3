@@ -297,6 +297,20 @@ def test_a_cover_problem_goes_once_a_new_cover_is_chosen(jobs: Harness) -> None:
     assert jobs.job(job_id)["artwork"]["kind"] == "url"
 
 
+def test_a_cover_problem_can_be_dismissed(jobs: Harness) -> None:
+    job_id = jobs.add_and_resolve()
+    jobs.manager.set_artwork(job_id, "url", "https://example.com/broken.jpg", None)
+    jobs.pools.run("misc")
+    assert jobs.manager.dismiss_cover_problem(job_id) == {}
+    assert jobs.job(job_id)["cover_problem"] is None
+    assert jobs.job(job_id)["artwork"]["kind"] == "source"
+    assert jobs.events.last_job(job_id)["cover_problem"] is None
+
+
+def test_dismissing_a_cover_problem_of_a_job_not_queued_says_so(jobs: Harness) -> None:
+    assert jobs.manager.dismiss_cover_problem("gone") == {"error": "unknown_job"}
+
+
 def test_a_cover_check_that_fails_unexpectedly_never_leaves_the_save_waiting(
     jobs: Harness, caplog: pytest.LogCaptureFixture
 ) -> None:

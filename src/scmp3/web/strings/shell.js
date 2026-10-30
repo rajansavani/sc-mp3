@@ -4,6 +4,8 @@ export default {
   back: "Back",
   dismiss: "Dismiss",
   notificationsLabel: "Notifications",
+  // Shown when the queue and settings take more than a moment to arrive.
+  starting: "Starting sc-mp3…",
   // The page shown when the window couldn't start.
   startFailedTitle: "sc-mp3's window couldn't start",
   startFailed:

@@ -37,6 +37,7 @@ CALLS: dict[type, set[str]] = {
         "toggle_change",
         "set_style",
         "set_artwork",
+        "dismiss_cover_problem",
         "save",
         "skip",
         "retry",

@@ -228,13 +228,24 @@ class JobsApi:
             job_id, kind, None if kind == "source" else value, box
         )
 
+    def dismiss_cover_problem(self, job_id: str) -> dict[str, Any]:
+        """Close the note that says why the last cover picked couldn't be used."""
+        if not is_id(job_id):
+            return refused("dismiss_cover_problem")
+        return self._context.jobs.dismiss_cover_problem(job_id)
+
     # Actions
 
-    def save(self, job_ids: list[str]) -> dict[str, Any]:
-        """Tag the jobs and move them into the library."""
+    def save(self, job_ids: list[str], rename_confirmed: bool = False) -> dict[str, Any]:
+        """Tag the jobs and move them into the library.
+
+        A re-tag that renames a song answers renames_song, and saves once `rename_confirmed`.
+        """
         if not isinstance(job_ids, list) or not all(is_id(job_id) for job_id in job_ids):
             return refused("save")
-        return self._context.jobs.save(job_ids)
+        if not isinstance(rename_confirmed, bool):
+            return refused("save")
+        return self._context.jobs.save(job_ids, rename_confirmed)
 
     def skip(self, job_id: str) -> dict[str, Any]:
         """Leave a job unsaved and delete its staged audio."""
@@ -242,11 +253,12 @@ class JobsApi:
             return refused("skip")
         return self._context.jobs.skip(job_id)
 
-    def retry(self, job_id: str) -> dict[str, Any]:
-        """Start a failed job again."""
-        if not is_id(job_id):
+    def retry(self, job_id: str, rename_confirmed: bool = False) -> dict[str, Any]:
+        """Start a failed job again. A re-tag that renames a song answers renames_song, as
+        save does, and retries once `rename_confirmed`."""
+        if not is_id(job_id) or not isinstance(rename_confirmed, bool):
             return refused("retry")
-        return self._context.jobs.retry(job_id)
+        return self._context.jobs.retry(job_id, rename_confirmed)
 
     def cancel(self, job_id: str) -> dict[str, Any]:
         """Stop a job's download, or put a save that waits for one back in review."""

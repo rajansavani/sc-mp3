@@ -8,7 +8,7 @@ from collections.abc import Callable, Collection
 from pathlib import Path
 from typing import Any
 
-from mutagen.mp4 import MP4, AtomDataType, MP4Cover, MP4FreeForm, MP4Tags
+from mutagen.mp4 import MP4, AtomDataType, Atoms, MP4Cover, MP4FreeForm, MP4Tags
 
 from scmp3.core.artwork import Cover
 from scmp3.core.models import Tags
@@ -37,6 +37,9 @@ _M4A_KEPT_ATOMS = ("----:com.apple.iTunes:iTunSMPB",)
 
 _YEAR = re.compile(r"\d{4}")
 
+# The genre atoms, as they're named in the file. mutagen reads a numeric `gnre` into `©gen`.
+_GENRE_ATOMS = (b"\xa9gen", b"gnre")
+
 
 def write_m4a(path: Path, tags: Tags, cover: Cover | None) -> None:
     """Replace the M4A's tags with the §10 atoms, keeping only its gapless playback info."""
@@ -62,11 +65,46 @@ def update_m4a(
             audio.add_tags()
         atoms = audio.tags
         assert atoms is not None
+        if "genre" not in fields:
+            _keep_genre_atoms(path, atoms)
         for name in fields:
             _UPDATES[name](atoms, tags)
         if replace_cover:
             _set_atom(atoms, "covr", _m4a_atoms(tags, cover).get("covr"))
         audio.save()
+
+
+def _keep_genre_atoms(path: Path, atoms: MP4Tags) -> None:
+    """Write the genre atoms back as they are, when the file has a numeric `gnre`.
+
+    mutagen folds `gnre` into `©gen` as it loads, so a save would merge two genres into one
+    atom. Atoms mutagen couldn't parse are written back from `_failed_atoms` unchanged, so the
+    raw ones go there.
+    """
+    raw = _raw_ilst_atoms(path, _GENRE_ATOMS)
+    if b"gnre" not in raw:
+        return
+    if "©gen" in atoms:
+        del atoms["©gen"]
+    for name, values in raw.items():
+        atoms._failed_atoms[name.decode("latin-1")] = values
+
+
+def _raw_ilst_atoms(path: Path, names: Collection[bytes]) -> dict[bytes, list[bytes]]:
+    """The data of the named atoms in the file's ilst, as mutagen reads them before parsing."""
+    found: dict[bytes, list[bytes]] = {}
+    with path.open("rb") as file:
+        try:
+            ilst = Atoms(file).path(b"moov", b"udta", b"meta", b"ilst")[-1]
+        except KeyError:
+            return found
+        for atom in ilst.children or []:
+            if atom.name not in names:
+                continue
+            ok, data = atom.read(file)
+            if ok:
+                found.setdefault(atom.name, []).append(data)
+    return found
 
 
 def _set_atom(atoms: MP4Tags, key: str, values: list[Any] | None) -> None:

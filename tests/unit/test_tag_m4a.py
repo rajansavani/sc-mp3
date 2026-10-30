@@ -228,3 +228,40 @@ def test_mutagens_bare_value_error_on_a_damaged_m4a_fails_to_convert(
     with pytest.raises(ScmpError) as caught:
         tagger.write(m4a, FULL_TAGS, None)
     assert caught.value.kind == ErrorKind.convert_failed
+
+
+def with_gnre_and_text_genre(m4a: Path) -> bytes:
+    """Give the file a text genre and a numeric `gnre` for "Rock", and return the gnre atom."""
+    audio = MP4(m4a)
+    audio.tags["©gen"] = ["Hip-hop"]
+    audio.tags["©grp"] = ["XX"]
+    audio.save()
+    # The two-byte grouping atom becomes a gnre atom for ID3v1 genre 17 plus 1, "Rock".
+    data = bytearray(m4a.read_bytes())
+    at = data.find(b"\xa9grp")
+    data[at : at + 4] = b"gnre"
+    data[at + 15] = 0
+    data[at + 20 : at + 22] = b"\x00\x12"
+    m4a.write_bytes(bytes(data))
+    return bytes(data[at - 4 : at + 22])
+
+
+def test_a_re_tag_that_leaves_the_genre_keeps_both_genre_atoms_as_they_were(m4a: Path) -> None:
+    gnre = with_gnre_and_text_genre(m4a)
+    retitled = dataclasses.replace(FULL_TAGS, title="New Title")
+    tagger.update(m4a, retitled, fields=["title"], cover=None, replace_cover=False)
+    children = ilst_children(m4a)
+    assert children.count(b"\xa9gen") == 1
+    assert children.count(b"gnre") == 1
+    assert gnre in m4a.read_bytes()
+    assert MP4(m4a).tags["©gen"] == ["Hip-hop", "Rock"]
+    assert MP4(m4a).tags["©nam"] == ["New Title"]
+
+
+def test_a_re_tag_that_changes_the_genre_replaces_both_genre_atoms(m4a: Path) -> None:
+    with_gnre_and_text_genre(m4a)
+    regenred = dataclasses.replace(FULL_TAGS, genre="House")
+    tagger.update(m4a, regenred, fields=["genre"], cover=None, replace_cover=False)
+    children = ilst_children(m4a)
+    assert b"gnre" not in children
+    assert MP4(m4a).tags["©gen"] == ["House"]

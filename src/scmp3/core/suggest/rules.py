@@ -108,7 +108,12 @@ def claim_inline_producers(draft: Draft, context: Context) -> None:
     """Step 3 outside brackets: "prod. Hazy" up to a dash, a bracket, a feature or the end."""
     words = context.words
     regex = pattern(rf"{words.producer}\s*:?\s*{names_pattern(words.feature)}")
-    for start, end, _names in draft.inline_matches(regex):
+    remix = pattern(rf"{words.producer_remix}\W*$")
+    for start, end, names in draft.inline_matches(regex):
+        # "Song prod. Kaia remix" is Kaia's remix, kept as the version as in brackets.
+        if remix.search(names):
+            draft.claim(VERSION, start, end)
+            continue
         draft.claim("remove_producer", start, end)
 
 

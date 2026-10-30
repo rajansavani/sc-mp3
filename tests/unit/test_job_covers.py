@@ -1,18 +1,21 @@
 """Tests for cover previews: checking images, their sizes, and the small previews the UI gets."""
 
 import base64
+import dataclasses
 import io
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
+from mutagen.id3 import ID3
 from PIL import Image
 
 from scmp3.app.job_covers import (
     COVER_PROBLEMS,
     NO_COVER,
     PREVIEW_PX,
+    YOUTUBE_PREVIEW_PX,
     CoverReader,
     CoverRequest,
     CoverView,
@@ -121,6 +124,25 @@ def test_the_sources_cover_is_the_first_size_that_works() -> None:
     assert web.sessions == 1
     # It comes back for the save, so it isn't downloaded twice.
     assert kept == KeptImage(original, "png")
+
+
+def test_a_youtube_cover_is_sent_as_a_preview_with_its_full_size() -> None:
+    thumbnail = "https://i.ytimg.com/vi/q3StatBloom/maxresdefault.jpg"
+    original = image(1280, 720, fmt="JPEG")
+    youtube = dataclasses.replace(source(thumbnail), kind="youtube")
+    view, kept = CoverReader(FakeWeb({thumbnail: original}).session).source(youtube)
+    assert view.url is not None and view.url.startswith("data:image/jpeg;base64,")
+    assert decoded(view.url).size == (YOUTUBE_PREVIEW_PX, 288)
+    assert view.size() == {"width": 1280, "height": 720}
+    assert kept == KeptImage(original, "jpeg")
+
+
+def test_a_cover_link_on_youtubes_image_host_is_sent_as_a_preview() -> None:
+    thumbnail = "https://i.ytimg.com/vi/q3StatBloom/hqdefault.jpg"
+    web = FakeWeb({thumbnail: image(480, 360, fmt="JPEG")})
+    view = CoverReader(web.session).link(thumbnail)
+    assert view.url is not None and view.url.startswith("data:image/jpeg;base64,")
+    assert view.size() == {"width": 480, "height": 360}
 
 
 def test_a_sources_cover_that_wont_load_is_still_shown_by_its_link() -> None:
@@ -252,6 +274,19 @@ def test_a_files_own_cover_is_read_from_the_file_as_a_preview(
     assert (view.width, view.height) == (640, 640)
     assert view.url is not None and view.url.startswith("data:image/jpeg;base64,")
     assert kept == KeptImage(cover.jpeg, "jpeg")
+
+
+def test_a_files_own_cover_that_cant_be_previewed_is_marked_unseen(
+    tiny_mp3: Path, tmp_path: Path
+) -> None:
+    path = tagged_copy(tiny_mp3, tmp_path / "old favorite.mp3", cover=make_cover(side=640))
+    tags = ID3(path)
+    tags.getall("APIC")[0].data = b"not an image"
+    tags.save(path)
+    file_source = SourceInfo(kind="file", id=str(path), url=str(path), title="", uploader="")
+    view, kept = CoverReader(FakeWeb({}).session).source(file_source)
+    assert view == CoverView(unseen=True)
+    assert kept is None
 
 
 def test_a_file_without_a_cover_has_none(tiny_mp3: Path, tmp_path: Path) -> None:

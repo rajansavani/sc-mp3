@@ -2,6 +2,8 @@
 import { html } from "htm/preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 
+import { api } from "../api.js";
+import { reportError } from "../store.js";
 import { strings } from "../strings/index.js";
 import { applyDroppedPath, applyImageFile, ReplaceCoverDialog, setCover } from "./CoverDialogs.js";
 import { CropDialog } from "./CropDialog.js";
@@ -102,6 +104,18 @@ function useCoverImage(url) {
   };
 }
 
+// A re-tagged file's own cover, not cropped, which the save leaves as it is.
+function keepsFileCover(job) {
+  return job.kind === "retag" && job.artwork?.kind === "source" && !job.artwork.crop;
+}
+
+// What the preview says when there's no image to show.
+function missingText(job, image) {
+  // Python couldn't read the file's cover for a preview, but the save leaves it as it is.
+  if (keepsFileCover(job) && (job.cover_unseen || image.failed)) return text.coverKeptUnseen;
+  return image.failed ? text.coverFailed : text.noCover;
+}
+
 function Preview({ job, image, editable }) {
   const drop = useImageDrop(job, editable);
   const crop = coverCrop(job);
@@ -127,7 +141,7 @@ function Preview({ job, image, editable }) {
         : html`
             <span class="cover-missing">
               <${Icon} name="image" size=${28} />
-              <span>${image.failed ? text.coverFailed : text.noCover}</span>
+              <span>${missingText(job, image)}</span>
             </span>
           `}
     </div>
@@ -135,13 +149,22 @@ function Preview({ job, image, editable }) {
 }
 
 // Why the last cover picked couldn't be used, as Python reports it with the job. Choosing another
-// cover clears it.
-function CoverProblem({ problem }) {
-  const message = text.coverProblems[problem] ?? text.coverProblems.internal;
+// cover clears it, and so does its close button.
+function CoverProblem({ job }) {
+  const message = text.coverProblems[job.cover_problem] ?? text.coverProblems.internal;
+  const dismiss = async () => reportError(await api.dismiss_cover_problem(job.id));
   return html`
     <div class="note" data-tone="danger" role="status">
       <${Icon} name="error" className="tone-icon" />
-      <span>${message}</span>
+      <span class="note-text">${message}</span>
+      <button
+        type="button"
+        class="note-dismiss"
+        aria-label=${strings.shell.dismiss}
+        onClick=${dismiss}
+      >
+        <${Icon} name="close" size=${16} />
+      </button>
     </div>
   `;
 }
@@ -150,7 +173,7 @@ function Notes({ job, side }) {
   const avatar = job.source?.artwork_is_avatar && job.artwork?.kind === "source";
   const small = side != null && side < SMALL_COVER_PX;
   return html`
-    ${job.cover_problem && html`<${CoverProblem} problem=${job.cover_problem} />`}
+    ${job.cover_problem && html`<${CoverProblem} job=${job} />`}
     ${small &&
     html`
       <div class="note" data-tone="warn">
@@ -178,8 +201,7 @@ function coverFrom(job) {
 // Where the cover comes from and the size it's embedded at. A re-tagged file's own cover, not
 // cropped, isn't processed at all.
 function caption(job, embedded) {
-  const untouched = job.kind === "retag" && job.artwork?.kind === "source" && !job.artwork.crop;
-  if (untouched && job.cover_url) return text.coverKept(coverFrom(job));
+  if (keepsFileCover(job) && job.cover_url) return text.coverKept(coverFrom(job));
   return text.coverCaption(coverFrom(job), embedded);
 }
 

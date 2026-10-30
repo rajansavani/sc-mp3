@@ -95,8 +95,21 @@ def claim_inline_features(draft: Draft, context: Context) -> None:
     for start, end, names_text in draft.inline_matches(regex):
         names = _feature_names(names_text, context)
         if names:
-            sure = not _may_be_a_measure(draft.text[:start], words)
+            measure = _may_be_a_measure(draft.text[:start], words)
+            sure = not measure and _looks_like_names(names_text, words)
             draft.claim("extract_feature", start, end, enabled=sure, names=tuple(names))
+
+
+def _looks_like_names(text: str, words: Wordlists) -> bool:
+    """Whether text after an unbracketed "ft" reads as names, so the feature is sure.
+
+    "ft nobody lmfao" and "ft me sigilkore song" are jokes, and "ft Lou V Sigilkore edit" ends in
+    a version that may hold part of the credit, so those are only offered.
+    """
+    key = name_key(text)
+    if any(key == word or key.startswith(f"{word} ") for word in words.joke_starts):
+        return False
+    return not pattern(rf"{words.made_by}\W*$").search(text)
 
 
 def _may_be_a_measure(before: str, words: Wordlists) -> bool:

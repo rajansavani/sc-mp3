@@ -43,10 +43,11 @@ export function makeJob(fields) {
     included: true,
     // The artist list set by hand, which the bridge keeps beside the job.
     artists: null,
-    // What T-022's bridge adds: a taken file name to ask about, a save without its cover, and
-    // why the last cover picked couldn't be used.
+    // What T-022's bridge adds: a taken file name to ask about, a save without its cover, a
+    // file's own cover that can't be previewed, and why the last cover picked couldn't be used.
     collision: null,
     cover_missing: false,
+    cover_unseen: false,
     cover_problem: null,
     ...fields,
   };

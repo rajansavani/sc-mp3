@@ -13,8 +13,11 @@
   --line-1: #2A2724; /* dividers, card borders */
   --line-2: #2F2C28; /* segmented control border, progress track */
   --line-3: #34302B; /* button borders, selected segment fill */
-  --line-4: #3A3631; /* input borders, selected queue item ring */
-  --line-dashed: #5A544C; /* chip border when a cleanup is off */
+  --line-4: #3A3631; /* quiet edges, such as an inline field on hover */
+  /* Edges that alone show where a field is, or which state a control is in, at 3:1 or more
+     against every surface they sit on (WCAG 1.4.11). Buttons are known by their labels. */
+  --line-field: #706A62; /* input borders, switches when off, selected queue item ring */
+  --line-dashed: #706A62; /* chip border when a cleanup is off */
 
   /* Text */
   --text-1: #F4F1EC;

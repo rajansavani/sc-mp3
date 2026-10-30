@@ -73,6 +73,9 @@ not_names = [
     "guitar",
     "band",
 ]
+# A joke after "ft" outside brackets starts with one of these, as in "ft me sigilkore song" or
+# "ft nobody lmfao", so the feature is only offered. Real names like "You Me At Six" stay credited.
+joke_starts = ["me", "myself", "nobody", "no one", "noone"]
 # A feature keyword right after one of these may mean feet or Fort, as in "Six Ft Under" or
 # "Midnight in Ft. Lauderdale", so the feature is only offered. A one- or two-digit number counts.
 uncertain_after = [
@@ -103,6 +106,7 @@ part_words = ["pt.", "pt", "part", "vol.", "vol", "volume"]
 # Never removed. Brackets with one of these, and " - VIP Mix" style endings, become the version.
 words = [
     "remix",
+    "rmx",
     "edit",
     "vip",
     "bootleg",
@@ -139,7 +143,7 @@ leads = ["live at", "live from", "live in"]
 # These don't protect a bracket that also has promo in it, as in "[Free Download - Full Version]".
 weak = ["version"]
 # A name right before one of these made the version, as tikkoii did in "(tikkoii edit)".
-made_by = ["remix", "edit", "vip", "bootleg", "flip", "rework", "refix", "mix", "dub"]
+made_by = ["remix", "rmx", "edit", "vip", "bootleg", "flip", "rework", "refix", "mix", "dub"]
 
 [labels]
 # Words in an uploader's name that mark a label or channel rather than an artist.

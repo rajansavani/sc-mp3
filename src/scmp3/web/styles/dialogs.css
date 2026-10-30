@@ -1,0 +1,61 @@
+/* The dialog frame, from T-020: the shell's dialog layer and the editor's own dialogs. */
+
+.dialog {
+  width: min(560px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  padding: var(--pad-dialog);
+  border: 1px solid var(--line-3);
+  border-radius: var(--radius-dialog);
+  background: var(--dialog-bg);
+  box-shadow: var(--shadow-dialog);
+  color: var(--text-1);
+}
+
+.dialog.is-wide {
+  width: min(680px, calc(100vw - 48px));
+}
+
+.dialog::backdrop {
+  background: var(--scrim);
+}
+
+.dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dialog-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.dialog-head .control-button {
+  margin: -8px -12px 0 0;
+  border-color: transparent;
+  background: transparent;
+}
+
+.dialog-text {
+  color: var(--text-2);
+}
+
+.dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Actions placed straight in the frame, as the shell's placeholders do, sit apart from the rest. */
+.dialog > .dialog-actions {
+  margin-top: var(--gap-sections);
+}

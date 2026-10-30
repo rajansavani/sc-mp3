@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { api, onEvent } from "./api.js";
 import { copyDiagnostics } from "./components/diagnostics.js";
 import { FirstRun } from "./components/FirstRun.js";
+import { keepFocus } from "./components/focus-keeper.js";
 import { Queue } from "./components/Queue.js";
 import { SetEditor } from "./components/SetEditor.js";
 import { Settings } from "./components/Settings.js";
@@ -41,6 +42,10 @@ const DIALOGS = {
 
 // The editor for each kind of job.
 const EDITORS = { track: TrackEditor, retag: TrackEditor, set: SetEditor };
+
+// How long the window waits for the queue and settings before it says it's still starting, so a
+// quick start shows nothing in between.
+const STARTING_NOTE_MS = 600;
 
 // Shortcuts for the whole window. Esc is left to the dialog, which closes itself on it.
 const SHORTCUTS = [
@@ -148,6 +153,23 @@ function DialogLayer({ name, props, children }) {
   `;
 }
 
+// What the window shows while it waits for the snapshot, after a moment.
+function Starting() {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setShown(true), STARTING_NOTE_MS);
+    return () => clearTimeout(timer);
+  }, []);
+  // A main landmark and a heading, like every other view, for screen readers that jump to them.
+  return html`
+    <main class="app-starting">
+      <div role="status">
+        ${shown && html`<h1 class="app-starting-text">${strings.shell.starting}</h1>`}
+      </div>
+    </main>
+  `;
+}
+
 function App() {
   const state = useStore();
   useYouTubeSupportPrompt(state.ready ? state.jobs : null);
@@ -156,7 +178,7 @@ function App() {
   const dialogOpen = Boolean(DIALOGS[state.dialog]);
   // Nothing renders before the snapshot, so first-run setup doesn't follow a flash of the queue.
   return html`
-    ${state.ready && html`<${CurrentView} state=${state} />`}
+    ${state.ready ? html`<${CurrentView} state=${state} />` : html`<${Starting} />`}
     <${DialogLayer} name=${state.dialog} props=${state.dialog_props}>
       ${dialogOpen && toasts}
     <//>
@@ -214,6 +236,7 @@ async function start() {
   }
   // Subscribe before asking for the snapshot, so no event in between is missed.
   onEvent(applyEvent);
+  keepFocus();
   const root = document.getElementById("app");
   render(html`<${App} />`, root);
   const snapshot = await firstSnapshot();

@@ -1,7 +1,7 @@
 // The mock's queue and how it moves: fetching info, downloads, saves, failures and retries, in
 // the order T-022's job manager runs them (TECH_SPEC §3 and §15).
 // A link ending in /error-<kind>, such as https://soundcloud.com/x/error-drm, fails with that
-// kind, while fetching info or while saving.
+// kind, while fetching info or while saving. So does a file named that way, as error-disk.mp3.
 import { forTheUi } from "./review.js";
 import { horizon, PALETTES, videoFrame } from "./sample-art.js";
 import { artistSamples } from "./sample-artists.js";
@@ -29,7 +29,7 @@ const STATIC_BLOOM_STEPS = 14;
 const AUTO_RETRY_MS = { offline: 30000, rate_limited: 60000 };
 
 const AUDIO_FILE = /\.(?:mp3|m4a)$/i;
-const ERROR_LINK = /\/error-([a-z_]+)$/;
+const ERROR_LINK = /[\\/]error-([a-z_]+)(?:\.(?:mp3|m4a))?$/i;
 // Errors that happen while saving, after the review. The others happen while fetching info.
 const SAVE_ERRORS = new Set(["disk", "convert_failed", "duplicate"]);
 

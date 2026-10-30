@@ -5,6 +5,7 @@ can't be used leaves the job's cover as it was, with a code the UI can show.
 """
 
 import logging
+from dataclasses import replace
 from pathlib import Path
 
 from scmp3.app.job_book import JobBook
@@ -16,6 +17,8 @@ from scmp3.app.job_covers import (
     checked_cover,
     cover_problem,
     keep_source_cover,
+    lacks_preview,
+    remade_preview,
 )
 from scmp3.app.job_record import JobRecord, Ticket
 from scmp3.core import download
@@ -38,6 +41,69 @@ class CoverTasks(JobBook):
         """Read the source's cover for its size, and keep it for the save."""
         ticket = self._new_ticket(record, "source_cover")
         self.misc_pool.submit(lambda: self._read_source_cover(record, ticket))
+
+    def restore_previews(self, record: JobRecord) -> None:
+        """Make again the cover previews queue.json leaves out, on workers."""
+        if lacks_preview(record.source_cover):
+            self.remake_source_preview(record)
+        if record.job.artwork.kind == "url" and lacks_preview(record.added_cover):
+            ticket = self._new_ticket(record, "cover")
+            self.misc_pool.submit(lambda: self._refetch_added_preview(record, ticket))
+
+    def _refetch_added_preview(self, record: JobRecord, ticket: Ticket) -> None:
+        """Fetch a cover added by link again for its preview. The save uses the link itself."""
+        with self.lock:
+            if not self._claim(record, "cover", ticket):
+                return
+            view, link = record.added_cover, record.job.artwork.value
+        fetched: CoverView | None = None
+        try:
+            if link is not None:
+                fetched = self._covers.link(link)
+        except ScmpError as error:
+            log.warning("Couldn't fetch the added cover again for its preview: %s", error)
+        except Exception:
+            log.exception("Fetching the added cover again failed unexpectedly")
+        with self.lock:
+            if not self._release(record, "cover", ticket):
+                return
+            if fetched is not None:
+                record.added_cover = replace(view, url=fetched.url)
+                self.publish(record)
+            self._cover_settled(record)
+
+    def remake_source_preview(self, record: JobRecord) -> None:
+        """Make the preview queue.json leaves out again, from the source's cover kept in staging.
+
+        Without that file, the source's cover is read again, as when the job resolved.
+        """
+        if record.source_cover_file is None:
+            self.start_source_cover(record)
+            return
+        ticket = self._new_ticket(record, "source_cover")
+        self.misc_pool.submit(lambda: self._remake_preview(record, ticket))
+
+    def _remake_preview(self, record: JobRecord, ticket: Ticket) -> None:
+        with self.lock:
+            if not self._claim(record, "source_cover", ticket):
+                return
+            view, kept, source = record.source_cover, record.source_cover_file, record.job.source
+        remade: CoverView | None = None
+        try:
+            if kept is not None:
+                remade = remade_preview(view, kept, source)
+        except Exception:
+            log.warning("Couldn't make the cover's preview again, so it's read again")
+            log.debug("Making the preview failed", exc_info=True)
+        with self.lock:
+            if not self._release(record, "source_cover", ticket):
+                return
+            if remade is None:
+                self.start_source_cover(record)
+                return
+            record.source_cover = remade
+            self.publish(record)
+            self._cover_settled(record)
 
     def _read_source_cover(self, record: JobRecord, ticket: Ticket) -> None:
         with self.lock:

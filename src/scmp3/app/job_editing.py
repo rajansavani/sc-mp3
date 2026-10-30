@@ -41,8 +41,9 @@ log = logging.getLogger(__name__)
 def tags_can_change(job: Job) -> bool:
     """Whether a job's tags can still change: in review, or after a failed save, to fix it.
 
-    A re-tag's failed save keeps the tags it was asked about, so Retry writes exactly those and
-    the question about Spotify playlists still holds.
+    A re-tag's failed save keeps the tags it was asked about, so Retry writes those. If a
+    settings change since renders another title, artist or album, Retry asks about Spotify
+    playlists again (job_renames.py).
     """
     if job.state == JobState.needs_review:
         return True
@@ -196,6 +197,18 @@ class JobEditing:
             record.tickets.pop("cover", None)
             record.job.artwork = choice
             self._edited(record)
+        return {}
+
+    def dismiss_cover_problem(self, job_id: str) -> Answer:
+        """Close the note that says why the last cover picked couldn't be used."""
+        with self._flow.lock:
+            record = self._flow.find(job_id)
+            if record is None:
+                return {"error": UNKNOWN_JOB}
+            if record.cover_problem is not None:
+                record.cover_problem = None
+                record.changed()
+                self._flow.publish(record)
         return {}
 
     def _editable(

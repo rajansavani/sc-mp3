@@ -10,7 +10,7 @@ from collections.abc import Callable, MutableMapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
-from scmp3.app import instance, webview_data
+from scmp3.app import instance, webview_data, window_memory, window_place
 from scmp3.app.bridge import Api
 from scmp3.app.closing import close_guard
 from scmp3.app.context import AppContext
@@ -26,6 +26,7 @@ from scmp3.app.page_loading import (
     start_page_server,
 )
 from scmp3.app.webview_data import EarlyDeleteFilter
+from scmp3.app.window_place import WindowPlace
 from scmp3.core.engine_start import EngineStart, log_start
 from scmp3.core.log import setup_logging
 
@@ -152,12 +153,15 @@ def open_window(
     on_ready: Callable[[Any], None] | None = None,
     on_closing: Callable[[], bool] | None = None,
     data_folder: Path | None = None,
+    place: WindowPlace | None = None,
 ) -> int:
     """Show the window until it's closed. Returns 1 when the UI couldn't be shown.
 
     That's when the renderer is MSHTML, when `page` has a #, or when the page failed to load twice.
     `on_ready` gets the window each time the UI has loaded, and `on_closing` can keep it open by
     returning False. `data_folder` is where WebView2 keeps its data, instead of the temp folder.
+    `place` is where the window opens, as window_fit fitted it to the monitors, or None for
+    the default size, placed by the toolkit.
     """
     # The app never loads files from disk into the window, so a dropped or linked file can't either.
     toolkit.settings["ALLOW_FILE_URLS"] = False
@@ -169,8 +173,7 @@ def open_window(
         WINDOW_TITLE,
         page,
         js_api=api,
-        width=WINDOW_SIZE[0],
-        height=WINDOW_SIZE[1],
+        **window_place.window_options(place, WINDOW_SIZE),
         min_size=MIN_WINDOW_SIZE,
         background_color=BACKGROUND,
         # base.css makes text unselectable itself, since pywebview's inline rule breaks the CSP.
@@ -241,6 +244,14 @@ def run_window(paths: Sequence[str] = (), engine_start: EngineStart | None = Non
         serve_without_name_lookup(webview.http)
         # webview.start() reuses the server that's already running.
         start_page_server(webview.http.start_global_server, page)
+    # On Windows only. It never raises, so the shutdown below always runs.
+    memory = window_memory.for_this_platform(WINDOW_SIZE, MIN_WINDOW_SIZE)
+
+    def on_created(window: Any) -> None:
+        context.desktop.attach(window)
+        if memory is not None:
+            memory.attach(window)
+
     try:
         api = Api(context)
         return open_window(
@@ -248,12 +259,15 @@ def run_window(paths: Sequence[str] = (), engine_start: EngineStart | None = Non
             api,
             context.events,
             page=page,
-            on_created=context.desktop.attach,
+            on_created=on_created,
             on_ready=drops.bind,
             on_closing=close_guard(context.jobs).closing,
             data_folder=webview_data.data_folder(),
+            place=memory.place if memory is not None else None,
         )
     finally:
+        if memory is not None:
+            memory.keep()
         context.updates.stop()
         context.jobs.shut_down()
         webview_data.remove_data_folder(webview_data.data_folder())

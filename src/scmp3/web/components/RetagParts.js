@@ -12,9 +12,6 @@ import { folderLabel } from "./paths.js";
 
 const text = strings.main;
 
-// Spotify's playlists know a local song by these tags, and its length.
-const IDENTITY_FIELDS = ["title", "artist", "album"];
-
 export function RetagBanner({ job }) {
   return html`
     <div class="banner retag-banner" data-tone="neutral" role="status">
@@ -28,14 +25,6 @@ export function RetagBanner({ job }) {
       </span>
     </div>
   `;
-}
-
-// Whether the values about to be saved give the file a new title, artist or album. `value` reads
-// a field as the editor shows it, typed text included.
-export function renamesSong(job, value) {
-  const now = job.file_tags;
-  if (job.kind !== "retag" || !now) return false;
-  return IDENTITY_FIELDS.some((field) => value(field) !== now[field]);
 }
 
 // The playlist question, as a promise: `ask()` resolves true to save, false to stay in review.

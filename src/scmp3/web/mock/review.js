@@ -210,3 +210,27 @@ function fileTags(source) {
   if (!source) return null;
   return { title: source.title, artist: source.uploader, album: source.album ?? "" };
 }
+
+// The title, artist and album each re-tag was confirmed for, by job id, as job_renames.py keeps.
+const confirmedIdentities = new Map();
+
+// The title, artist and album a re-tag would write, as one string, when they're new.
+function newIdentity(job) {
+  const { settings } = settingsPart();
+  if (job.kind !== "retag" || !settings.retag_playlist_warning || !job.source) return null;
+  const view = forTheUi(job);
+  if (!view.tags) return null;
+  const fields = ["title", "artist", "album"];
+  if (fields.every((field) => view.tags[field] === view.file_tags[field])) return null;
+  return JSON.stringify(fields.map((field) => view.tags[field]));
+}
+
+// Whether saving a re-tag needs the playlist question first, as job_renames.py decides.
+export function asksAboutPlaylists(job) {
+  const identity = newIdentity(job);
+  return identity !== null && identity !== confirmedIdentities.get(job.id);
+}
+
+export function confirmRename(job) {
+  confirmedIdentities.set(job.id, newIdentity(job));
+}

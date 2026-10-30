@@ -24,6 +24,7 @@ class RetryTasks(SetTasks):
         and its tracks' if it's a set."""
         self.add_record(record)
         for job_record in (record, *record.children):
+            self.restore_previews(job_record)
             self._resume(job_record)
 
     def _resume(self, record: JobRecord) -> None:

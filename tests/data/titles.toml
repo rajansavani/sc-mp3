@@ -5375,3 +5375,112 @@ on = ["remove_promo:(Official Video)"]
 artist_field = ["(feat. Lou V (VIP Mix) & Mara)", "Kaia"]
 feat_in_title = ["(feat. Lou V (VIP Mix) & Mara)", "Kaia"]
 all_in_title = ["(feat. Lou V (VIP Mix) & Mara) (Kaia)", "Kaia"]
+
+[[case]]
+checks = "an unbracketed feature of nobody is a joke, so it's only offered (T-037 real title S102)"
+title = "sigilkore thing ft nobody lmfao"
+uploader = "gunz_7"
+artists = ["zach"]
+base_title = "sigilkore thing ft nobody lmfao"
+main = ["zach"]
+featured = []
+version = ""
+on = []
+off = ["extract_feature:ft nobody lmfao"]
+artist_field = ["sigilkore thing ft nobody lmfao", "zach"]
+feat_in_title = ["sigilkore thing ft nobody lmfao", "zach"]
+all_in_title = ["sigilkore thing ft nobody lmfao (zach)", "zach"]
+
+[[case]]
+checks = "an unbracketed feature of me is a joke, so it's only offered (T-037 real title S103)"
+title = "hospital ft me sigilkore song"
+uploader = "wik archive 1"
+base_title = "hospital ft me sigilkore song"
+main = ["wik archive 1"]
+featured = []
+version = ""
+on = []
+off = ["extract_feature:ft me sigilkore song"]
+artist_field = ["hospital ft me sigilkore song", "wik archive 1"]
+feat_in_title = ["hospital ft me sigilkore song", "wik archive 1"]
+all_in_title = ["hospital ft me sigilkore song (wik archive 1)", "wik archive 1"]
+
+[[case]]
+checks = "an unbracketed feature that ends in a version word is only offered (T-037 real title S108)"
+title = "GHX$$TY FT BRXX:SXRXMVT Sigilkore edit"
+uploader = "w2s"
+base_title = "GHX$$TY FT BRXX:SXRXMVT Sigilkore edit"
+main = ["w2s"]
+featured = []
+version = ""
+on = []
+off = ["extract_feature:FT BRXX:SXRXMVT Sigilkore edit"]
+artist_field = ["GHX$$TY FT BRXX:SXRXMVT Sigilkore edit", "w2s"]
+feat_in_title = ["GHX$$TY FT BRXX:SXRXMVT Sigilkore edit", "w2s"]
+all_in_title = ["GHX$$TY FT BRXX:SXRXMVT Sigilkore edit (w2s)", "w2s"]
+
+[[case]]
+checks = "an unbracketed producer credit with a remix word is the version, kept as typed"
+title = "Song prod. Kaia remix"
+uploader = "Lou V"
+base_title = "Song"
+main = ["Lou V"]
+featured = []
+version = " prod. Kaia remix"
+on = []
+artist_field = ["Song prod. Kaia remix", "Lou V"]
+feat_in_title = ["Song prod. Kaia remix", "Lou V"]
+all_in_title = ["Song (Lou V) prod. Kaia remix", "Lou V"]
+
+[[case]]
+checks = "rmx in brackets is a version"
+title = "Song (Kaia rmx)"
+uploader = "Lou V"
+base_title = "Song"
+main = ["Lou V"]
+featured = []
+version = " (Kaia rmx)"
+on = []
+artist_field = ["Song (Kaia rmx)", "Lou V"]
+feat_in_title = ["Song (Kaia rmx)", "Lou V"]
+all_in_title = ["Song (Lou V) (Kaia rmx)", "Lou V"]
+
+[[case]]
+checks = "a real name after an unbracketed ft that starts with Love stays credited (T-074 review F8)"
+title = "Song ft Love Regenerator"
+uploader = "Calvin Harris"
+base_title = "Song"
+main = ["Calvin Harris"]
+featured = ["Love Regenerator"]
+version = ""
+on = ["extract_feature:ft Love Regenerator"]
+artist_field = ["Song", "Calvin Harris, Love Regenerator"]
+feat_in_title = ["Song (feat. Love Regenerator)", "Calvin Harris"]
+all_in_title = ["Song (Calvin Harris, Love Regenerator)", "Calvin Harris"]
+
+[[case]]
+checks = "a real name after an unbracketed ft that starts with You stays credited (T-074 review F8)"
+title = "Song ft You Me At Six"
+uploader = "Kaia"
+base_title = "Song"
+main = ["Kaia"]
+featured = ["You Me At Six"]
+version = ""
+on = ["extract_feature:ft You Me At Six"]
+artist_field = ["Song", "Kaia, You Me At Six"]
+feat_in_title = ["Song (feat. You Me At Six)", "Kaia"]
+all_in_title = ["Song (Kaia, You Me At Six)", "Kaia"]
+
+[[case]]
+checks = "an unbracketed feature of no one is a joke, so it's only offered"
+title = "Song ft no one lol"
+uploader = "Kaia"
+base_title = "Song ft no one lol"
+main = ["Kaia"]
+featured = []
+version = ""
+on = []
+off = ["extract_feature:ft no one lol"]
+artist_field = ["Song ft no one lol", "Kaia"]
+feat_in_title = ["Song ft no one lol", "Kaia"]
+all_in_title = ["Song ft no one lol (Kaia)", "Kaia"]

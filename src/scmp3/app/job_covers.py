@@ -9,7 +9,7 @@ import logging
 import uuid
 from collections.abc import Callable
 from contextlib import AbstractContextManager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +24,9 @@ from scmp3.core.sources import localfile
 
 # The longest side of the preview sent for an image added by hand, as in the UI's mock.
 PREVIEW_PX = 256
+# The longest side of the preview sent for a cover from YouTube, which fills the editor's cover
+# sharply on a screen scaled to 200%.
+YOUTUBE_PREVIEW_PX = 512
 PREVIEW_QUALITY = 85
 # What a pasted image, and the source's own cover, are saved as in the job's staging folder.
 PASTED_PREFIX = "cover-"
@@ -57,6 +60,8 @@ class CoverView:
     height: int | None = None
     # The square a cover without a crop box is cut to, when it isn't the centered square.
     default_crop: CropBox | None = None
+    # A file's own cover that can't be previewed. A re-tag's save keeps it as it is.
+    unseen: bool = False
 
     def size(self) -> dict[str, int] | None:
         """The size as the job dict sends it, or None when it isn't known."""
@@ -66,6 +71,28 @@ class CoverView:
 
 
 NO_COVER = CoverView()
+
+
+def without_preview(view: CoverView) -> CoverView:
+    """The view as queue.json keeps it. A data: preview, up to about 55 KB for YouTube, is left
+    out, and made again from the image kept in staging when the queue comes back."""
+    if view.url is not None and view.url.startswith("data:"):
+        return replace(view, url=None)
+    return view
+
+
+def lacks_preview(view: CoverView) -> bool:
+    """Whether queue.json left this view's preview out: it has a size but nothing to show."""
+    return view.url is None and view.size() is not None
+
+
+def remade_preview(view: CoverView, kept: Path, source: SourceInfo | None) -> CoverView:
+    """The view with its preview made again from the image kept in staging.
+
+    Raises OSError if the file can't be read, or an error from Pillow if it isn't an image.
+    """
+    side = YOUTUBE_PREVIEW_PX if source is not None and source.kind == "youtube" else PREVIEW_PX
+    return replace(view, url=preview_url(kept.read_bytes(), side))
 
 
 @dataclass(frozen=True)
@@ -93,6 +120,17 @@ def _view(url: str, facts: ImageFacts) -> CoverView:
     )
 
 
+def _linked_view(url: str, data: bytes, facts: ImageFacts) -> CoverView:
+    """What the UI shows for a checked image downloaded from `url`.
+
+    WebView2's tracking prevention logs a warning for each image the page loads from YouTube's
+    image host, so those go to the page as a preview, as files do.
+    """
+    if cover_sources.is_youtube_image(url):
+        return _view(preview_url(data, YOUTUBE_PREVIEW_PX), facts)
+    return _view(url, facts)
+
+
 def inspect(data: bytes) -> ImageFacts:
     """Check that the bytes are an image a cover can be made from. Raises ScmpError if not."""
     # The same processing a save does, so an image that passes here passes then too.
@@ -102,11 +140,11 @@ def inspect(data: bytes) -> ImageFacts:
     return ImageFacts(cover.source_width, cover.source_height, ext, cover.default_crop)
 
 
-def preview_url(data: bytes) -> str:
+def preview_url(data: bytes, side: int = PREVIEW_PX) -> str:
     """A small JPEG of the whole image as a data: URL, for the page to show and crop over."""
     with Image.open(io.BytesIO(data), formats=artwork.COVER_FORMATS) as opened:
         image = ImageOps.exif_transpose(opened)
-        image.thumbnail((PREVIEW_PX, PREVIEW_PX))
+        image.thumbnail((side, side))
         rgb = _on_white(image)
     out = io.BytesIO()
     rgb.save(out, "JPEG", quality=PREVIEW_QUALITY)
@@ -147,8 +185,7 @@ class CoverReader:
                 except ScmpError as error:
                     log.info("The cover at %s didn't work: %s", safe_url(url), error)
                     continue
-                view = _view(url, facts)
-                return view, KeptImage(data, facts.ext)
+                return _linked_view(url, data, facts), KeptImage(data, facts.ext)
         # The page can still try the plain link, but there's no size to crop from.
         return CoverView(url=source.artwork_url), None
 
@@ -181,14 +218,18 @@ def _embedded(source: SourceInfo) -> tuple[CoverView, KeptImage | None]:
     data = localfile.embedded_cover(Path(source.id))
     if data is None:
         return NO_COVER, None
-    facts = inspect(data)
+    try:
+        facts = inspect(data)
+    except ScmpError as error:
+        log.info("The file's own cover can't be previewed, and the save keeps it: %s", error)
+        return CoverView(unseen=True), None
     return _view(preview_url(data), facts), KeptImage(data, facts.ext)
 
 
 def _fetched(url: str, session: Any) -> CoverView:
     """The image at a link, checked, with its size."""
-    _, facts = _checked_image(url, session)
-    return _view(url, facts)
+    data, facts = _checked_image(url, session)
+    return _linked_view(url, data, facts)
 
 
 def _checked_image(url: str, session: Any) -> tuple[bytes, ImageFacts]:

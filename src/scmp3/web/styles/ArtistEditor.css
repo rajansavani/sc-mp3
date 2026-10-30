@@ -28,7 +28,7 @@
   gap: 6px;
   min-height: var(--height-artist-field);
   padding: 7px 12px 7px 7px;
-  border: 1px solid var(--line-4);
+  border: 1px solid var(--line-field);
   border-radius: var(--radius-control);
   background: var(--surface-2);
 }
@@ -130,7 +130,7 @@
   min-width: 0;
   height: 30px;
   padding: 0 10px;
-  border: 1px solid var(--line-4);
+  border: 1px solid var(--line-field);
   border-radius: var(--radius-chip);
   background: var(--surface-1);
   font-size: var(--text-small);

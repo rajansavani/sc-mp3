@@ -47,7 +47,19 @@ export async function removeJob(job) {
   focusSelectedItem();
 }
 
-export const retryJob = async (job) => reportError(await api.retry(job.id));
+// The answer to a save or Retry that gives a re-tagged song a new title, artist or album. Python
+// decides, from the tags it would write, and goes ahead once the question is answered.
+export const RENAMES_SONG = "renames_song";
+
+// `confirm` asks about Spotify playlists when Python says the Retry renames a re-tagged song.
+export async function retryJob(job, confirm = null) {
+  let answer = await api.retry(job.id);
+  if (answer?.error === RENAMES_SONG && confirm) {
+    if (!(await confirm())) return;
+    answer = await api.retry(job.id, true);
+  }
+  reportError(answer);
+}
 export const cancelJob = async (job) => reportError(await api.cancel(job.id));
 export const revealPath = async (path) => reportError(await api.reveal(path));
 export const openSpotify = async () => reportError(await api.open_spotify());
@@ -88,7 +100,7 @@ function reportRefusedFolder(result) {
 }
 
 // Picks a new library folder. Retry then saves the job there with the same choices.
-export async function chooseAnotherFolder(job) {
+export async function chooseAnotherFolder(job, confirm = null) {
   const picked = await api.pick_folder();
   if (reportError(picked) || !picked?.path) return;
   const updated = await api.update_settings({ library_dir: picked.path });
@@ -98,5 +110,5 @@ export async function chooseAnotherFolder(job) {
   }
   if (reportError(updated)) return;
   setSettings(updated.settings);
-  await retryJob(job);
+  await retryJob(job, confirm);
 }

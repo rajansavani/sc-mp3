@@ -22,6 +22,12 @@ from scmp3.app.job_editing import NOT_EDITABLE, UNKNOWN_JOB, JobEditing
 from scmp3.app.job_flow import JobFlow, PoolMaker
 from scmp3.app.job_lifecycle import QueueLifecycle
 from scmp3.app.job_record import JobRecord
+from scmp3.app.job_renames import (
+    RENAMES_SONG,
+    asks_about_playlists,
+    confirm_rename,
+    retry_asks_about_playlists,
+)
 from scmp3.app.job_set_calls import SetCalls
 from scmp3.app.job_settings import SettingsFollowing
 from scmp3.app.job_steps import PipelineSteps, Steps
@@ -123,12 +129,22 @@ class JobManager(JobEditing, SettingsFollowing, SetCalls, QueueLifecycle):
         for start in range(0, len(parsed_items), JOBS_PER_TURN):
             with self._flow.lock:
                 for parsed in parsed_items[start : start + JOBS_PER_TURN]:
+                    self._clear_finished_re_tag(parsed)
                     rejection = self._rejection(parsed)
                     if rejection is None:
                         added.append(self._flow.queue(parsed).id)
                     else:
                         rejected.append(rejection)
         return {"added": added, "rejected": rejected}
+
+    def _clear_finished_re_tag(self, parsed: ParsedInput) -> None:
+        # A file whose re-tag is saved or skipped can come in again for another edit, in place
+        # of its finished item.
+        queued = self._flow.queued_with_link(queue_key(parsed))
+        if queued is None or queued.job.kind != "retag":
+            return
+        if queued.job.state in FINISHED_STATES:
+            self._remove(queued)
 
     def _rejection(self, parsed: ParsedInput) -> dict[str, str] | None:
         # Core refuses sets for the command line, which saves only tracks.
@@ -143,14 +159,16 @@ class JobManager(JobEditing, SettingsFollowing, SetCalls, QueueLifecycle):
 
     # Actions
 
-    def save(self, job_ids: Iterable[str]) -> Answer:
+    def save(self, job_ids: Iterable[str], rename_confirmed: bool = False) -> Answer:
         """Save each job that's waiting for review, or that's a confirmed repeat of a saved one.
 
         A set saves each of its included tracks that's waiting for review. A track whose
-        artist list has featured artists and no main one stays, and the answer says so.
+        artist list has featured artists and no main one stays, and the answer says so. So does
+        a re-tag that renames the song, until `rename_confirmed` says the question was answered.
         """
         ids = list(job_ids)
         held = False
+        asked = False
         # A few at a time, as when adding, since Save all can name the whole queue.
         for start in range(0, len(ids), JOBS_PER_TURN):
             with self._flow.lock:
@@ -165,8 +183,15 @@ class JobManager(JobEditing, SettingsFollowing, SetCalls, QueueLifecycle):
                                 self._flow.publish(track)
                         elif needs_main_artist(track.artists, track.job.overrides):
                             held = True
+                        elif not rename_confirmed and asks_about_playlists(
+                            track, self._flow.settings
+                        ):
+                            asked = True
                         else:
+                            confirm_rename(track, self._flow.settings)
                             self._flow.start_saving(track)
+        if asked:
+            return {"error": RENAMES_SONG}
         return {"error": NO_MAIN_ARTIST} if held else {}
 
     def _can_save(self, record: JobRecord) -> bool:
@@ -203,16 +228,28 @@ class JobManager(JobEditing, SettingsFollowing, SetCalls, QueueLifecycle):
             record.job.state = JobState.saved
         self._flow.publish(record)
 
-    def retry(self, job_id: str) -> Answer:
+    def retry(self, job_id: str, rename_confirmed: bool = False) -> Answer:
         """Run a failed job's failed step again and carry on from there. A listed set retries
-        each of its tracks that failed."""
+        each of its tracks that failed.
+
+        A re-tag whose Retry would give the song a title, artist or album not confirmed yet,
+        as after a settings change, answers renames_song and retries once `rename_confirmed`.
+        """
         with self._flow.lock:
             record = self._flow.find(job_id)
             if record is None:
                 return {"error": UNKNOWN_JOB}
             if not may_retry(record):
                 return {"error": NOT_EDITABLE}
-            for track in self.tracks_to_retry(record):
+            tracks = self.tracks_to_retry(record)
+            settings = self._flow.settings
+            if not rename_confirmed and any(
+                retry_asks_about_playlists(track, settings) for track in tracks
+            ):
+                return {"error": RENAMES_SONG}
+            for track in tracks:
+                if retry_asks_about_playlists(track, settings):
+                    confirm_rename(track, settings)
                 self._flow.retry(track)
         return {}
 

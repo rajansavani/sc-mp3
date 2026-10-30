@@ -26,6 +26,7 @@ class Wordlists:
     feature: str
     feature_bracketed: str
     not_names: frozenset[str]  # casefolded
+    joke_starts: tuple[str, ...]  # casefolded
     uncertain_after: str
     part_words: str
     keep: str  # every keep word, for brackets
@@ -59,6 +60,7 @@ def load_wordlists() -> Wordlists:
         feature=alternation(features["keywords"]),
         feature_bracketed=alternation(features["bracket_keywords"]),
         not_names=frozenset(word.casefold() for word in features["not_names"]),
+        joke_starts=tuple(word.casefold() for word in features["joke_starts"]),
         uncertain_after=alternation(features["uncertain_after"]),
         part_words=alternation(features["part_words"]),
         keep=alternation([*keep["words"], *keep["bracket_only"]]),

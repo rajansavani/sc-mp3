@@ -58,8 +58,20 @@ jobs:
         timeout-minutes: 10
 
       # -rfEs lists the reason for each skip, such as YouTube's bot check, next to the failures.
-      - run: uv run --locked --extra deno pytest -m network -v -rfEs
+      # The JUnit report holds the same, for the closing comment.
+      - run: uv run --locked --extra deno pytest -m network -v -rfEs --junitxml="${{ runner.temp }}/network-${{ matrix.os }}.xml"
         timeout-minutes: 20
+
+      # An upload that fails mustn't fail the job, which would report the tests as failing.
+      # The closing comment says when it can't find the reports.
+      - uses: actions/upload-artifact@v7
+        if: always()
+        continue-on-error: true
+        timeout-minutes: 5
+        with:
+          name: network-results-${{ matrix.os }}
+          path: ${{ runner.temp }}/network-${{ matrix.os }}.xml
+          if-no-files-found: warn
 
   report:
     name: Open or update the canary issue
@@ -87,7 +99,7 @@ jobs:
 
           These tests save real SoundCloud and YouTube links, so a failure usually means a site changed and yt-dlp needs an update. The run's log names the failing tests. When yt-dlp publishes a fix, the Engine bump workflow opens a pull request for it within a day.
 
-          Later failures add a comment here. Close this issue once the canary passes again.
+          Later failures add a comment here. The next run that passes on main closes this issue.
           EOF
 
       # Only main posts the issue, so a test run on another branch shows the text here instead.
@@ -109,9 +121,89 @@ jobs:
         run: |
           # The label is how the next failure finds this issue, and --force lets it exist already.
           gh label create canary --color B60205 --description "The nightly network tests failed" --force
-          number=$(gh issue list --label canary --state open --json number --jq '.[0].number // empty')
+          # Only an issue this workflow opened counts, so a person's issue with the label is left alone.
+          number=$(gh issue list --label canary --state open --app github-actions --limit 100 --json number --jq '.[0].number // empty')
           if [ -n "$number" ]; then
             gh issue comment "$number" --body-file "$RUNNER_TEMP/comment.md"
             exit 0
           fi
           gh issue create --title "$TITLE" --label canary --body-file "$RUNNER_TEMP/body.md"
+
+  recovered:
+    name: Close the canary issue
+    needs: network-tests
+    if: success()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      # Reading this run's test reports needs actions; closing the issue needs issues.
+      actions: read
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      # A report that can't be downloaded doesn't keep the issue open; the comment says so.
+      - uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          pattern: network-results-*
+          path: ${{ runner.temp }}/results
+          merge-multiple: true
+
+      # A pass can come with skips, such as YouTube's bot check, so the comment names each one.
+      - name: Write the closing comment
+        run: |
+          today=$(date -u +%Y-%m-%d)
+          python3 - "$RUNNER_TEMP/results" "$today" "$RUN_URL" > "$RUNNER_TEMP/closing.md" <<'EOF'
+          import sys
+          from pathlib import Path
+          from xml.etree import ElementTree
+
+          results, today, run_url = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+          print(f"The network tests passed again on {today}: {run_url}. Closing this issue.")
+          reports = sorted(results.glob("network-*.xml"))
+          skipped = []
+          for report in reports:
+              system = report.stem.removeprefix("network-")
+              for case in ElementTree.parse(report).iter("testcase"):
+                  skip = case.find("skipped")
+                  if skip is None:
+                      continue
+                  test = f"{case.get('classname', '').split('.')[-1]}::{case.get('name')}"
+                  reason = skip.get("message") or "no reason given"
+                  skipped.append(f"- {test} on {system}: {reason}")
+          if not reports:
+              print()
+              print("The run's test reports weren't found, so this comment can't say which tests were skipped.")
+          elif skipped:
+              print()
+              print("These tests were skipped, so this run didn't check them. If this issue was about one of them, open it again.")
+              print()
+              print("\n".join(skipped))
+          EOF
+
+      # Only main closes the issue, since a pass on another branch says nothing about main.
+      - name: Show the comment instead of posting it
+        if: github.ref != 'refs/heads/main'
+        run: |
+          {
+            echo "This run isn't on main, so it closed nothing. On main it closes the open canary issue, if there is one, with this comment:"
+            echo
+            cat "$RUNNER_TEMP/closing.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Close the open canary issue
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # Only issues this workflow opened, so a person's issue with the label stays open.
+          numbers=$(gh issue list --label canary --state open --app github-actions --limit 100 --json number --jq '.[].number')
+          if [ -z "$numbers" ]; then
+            echo "No canary issue is open, so there's nothing to close." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          for number in $numbers; do
+            gh issue close "$number" --comment "$(cat "$RUNNER_TEMP/closing.md")"
+            echo "Closed #$number." >> "$GITHUB_STEP_SUMMARY"
+          done

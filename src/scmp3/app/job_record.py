@@ -68,6 +68,8 @@ class JobRecord:
     source_cover_file: Path | None = None  # the source's cover, kept so a save reuses it
     added_cover: CoverView = NO_COVER  # a link, file or pasted image chosen instead
     cover_problem: str | None = None  # why the last new cover couldn't be used, as a code
+    # The title, artist and album a re-tag was confirmed for, after the playlist question.
+    confirmed_identity: tuple[str, str, str] | None = None
     collision: Path | None = None  # the existing file the user is asked about
     # The user's answer, with the file it was about, so it never applies to another file.
     collision_answer: tuple[Path, CollisionChoice] | None = None

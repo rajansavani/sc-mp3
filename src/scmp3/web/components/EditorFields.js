@@ -29,10 +29,23 @@ export function fieldId(field) {
   return `field-${field}`;
 }
 
-export function Field({ name, drafts, size = "normal" }) {
+// The states in which the file still holds the title it was read with. Once saving starts, the
+// file gets the title above, so the hint goes.
+const FILE_UNCHANGED = new Set(["needs_review", "error"]);
+
+// A re-tag's title in the file now, under the new one while they differ.
+function fileTitleHint(job, drafts) {
+  if (!FILE_UNCHANGED.has(job.state)) return null;
+  const now = job.kind === "retag" ? job.file_tags?.title : null;
+  if (now == null || drafts.value("title") === now) return null;
+  return now ? text.inFileNow(now) : text.inFileNowEmpty;
+}
+
+export function Field({ name, drafts, size = "normal", hint = null }) {
   const label = text.fields[name];
   const id = fieldId(name);
   const reason = drafts.reason(name);
+  const described = [hint && `${id}-hint`, reason && `${id}-error`].filter(Boolean).join(" ");
   const resetText = size === "normal" ? text.reset : text.resetToSuggestion;
   // The grid's fields are narrower, so they keep the design's tighter padding.
   const inputClass =
@@ -60,11 +73,12 @@ export function Field({ name, drafts, size = "normal" }) {
         inputmode=${NUMERIC_FIELDS.has(name) ? "numeric" : undefined}
         value=${drafts.value(name)}
         aria-invalid=${reason ? "true" : undefined}
-        aria-describedby=${reason ? `${id}-error` : undefined}
+        aria-describedby=${described || undefined}
         onInput=${(event) => drafts.type(name, event.currentTarget.value)}
         onFocus=${() => drafts.focus(name)}
         onBlur=${() => drafts.blur(name)}
       />
+      ${hint && html`<span id=${`${id}-hint`} class="field-hint">${hint}</span>`}
       ${reason &&
       html`
         <span id=${`${id}-error`} class="field-error">
@@ -82,7 +96,7 @@ export function EditorFields({ job, drafts }) {
   });
   return html`
     <div class="editor-fields">
-      <${Field} name="title" drafts=${drafts} size="title" />
+      <${Field} name="title" drafts=${drafts} size="title" hint=${fileTitleHint(job, drafts)} />
       <${ArtistEditor} job=${job} drafts=${drafts} />
       <div class="field-grid">
         ${GRID_FIELDS.map((name) => html`<${Field} key=${name} name=${name} drafts=${drafts} />`)}

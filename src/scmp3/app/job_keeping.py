@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, get_args
 
 from scmp3.app.job_artists import ArtistList
-from scmp3.app.job_covers import CoverView
+from scmp3.app.job_covers import CoverView, without_preview
 from scmp3.app.job_record import JobRecord, Snapshot, Step
 from scmp3.app.job_steps import Steps
 from scmp3.app.set_tracks import set_state
@@ -77,12 +77,20 @@ def _entry(record: JobRecord, states: Mapping[JobState, JobState]) -> dict[str, 
         "error_where": record.error_where,
         "error_reason": record.error_reason,
         "download_cancelled": record.download_cancelled,
-        "source_cover": asdict(record.source_cover),
+        "source_cover": asdict(without_preview(record.source_cover)),
         "source_cover_file": _path_text(record.source_cover_file),
-        "added_cover": asdict(record.added_cover),
+        "added_cover": asdict(_kept_added_cover(record)),
         "cover_problem": record.cover_problem,
         "stale_audio": _path_text(record.stale_audio),
     }
+
+
+def _kept_added_cover(record: JobRecord) -> CoverView:
+    """A cover added by link loses its preview, which is fetched again on restore. A file's
+    small preview stays, since the file may be gone by then."""
+    if record.job.artwork.kind == "url":
+        return without_preview(record.added_cover)
+    return record.added_cover
 
 
 def restored_record(

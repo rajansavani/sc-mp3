@@ -186,4 +186,14 @@ jobs:
           After you merge, run the Canary workflow to check the new version against live SoundCloud and YouTube links.
 
           Merging doesn't tag or release a build. You do that yourself."
-          gh pr create --base main --head "$BRANCH" --title "Update yt-dlp to $VERSION" --body "$body"
+          url=$(gh pr create --base main --head "$BRANCH" --title "Update yt-dlp to $VERSION" --body "$body")
+          echo "Opened $url" >> "$GITHUB_STEP_SUMMARY"
+
+          # An older engine bump still open is out of date now, so it's closed in favor of this one.
+          # Only pull requests this workflow opened count: from this repo, by GitHub Actions, on a
+          # branch named for a version. The limit reaches past gh's default of 30.
+          older=$(gh pr list --state open --app github-actions --limit 200 --json number,headRefName,isCrossRepository --jq '.[] | select((.isCrossRepository | not) and (.headRefName | test("^engine-bump/yt-dlp-[0-9]")) and .headRefName != env.BRANCH) | .number')
+          for number in $older; do
+            gh pr close "$number" --delete-branch --comment "yt-dlp $VERSION is out, so $url replaces this pull request."
+            echo "Closed #$number, which $url replaces." >> "$GITHUB_STEP_SUMMARY"
+          done

@@ -16,23 +16,24 @@ import { folderLabel } from "./paths.js";
 
 const text = strings.main;
 
-// What each button in an error banner does. `onSave` is the editor's own save.
+// What each button in an error banner does. `onSave` is the editor's own save, and
+// `confirmRename` asks the playlist question for a re-tag.
 const ACTIONS = {
   remove: (job) => removeJob(job),
-  retry: (job) => retryJob(job),
-  retry_now: (job) => retryJob(job),
+  retry: (job, { confirmRename }) => retryJob(job, confirmRename),
+  retry_now: (job, { confirmRename }) => retryJob(job, confirmRename),
   update_engine: () => updateEngine(),
   sign_in_go_plus: () => openDialog("sign_in"),
   sign_in_again: () => openDialog("sign_in"),
-  choose_folder: (job) => chooseAnotherFolder(job),
+  choose_folder: (job, { confirmRename }) => chooseAnotherFolder(job, confirmRename),
   // Python reads a re-tag's changed file again on Retry, starting the review over.
   reload_file: (job) => retryJob(job),
   show_it: (job) => revealPath(job.duplicate?.saved_path),
-  save_again: (job, onSave) => onSave(),
+  save_again: (job, { onSave }) => onSave(),
   add_youtube_support: () => openDialog("youtube_support"),
 };
 
-function ActionButtons({ job, onSave, small, primaryLast }) {
+function ActionButtons({ job, handlers, small, primaryLast }) {
   const { actions, primary } = errorKind(job);
   const buttons = actions.map((action, index) => {
     const classes = ["control-button", small && "is-small", primary && index === 0 && "is-primary"];
@@ -41,7 +42,7 @@ function ActionButtons({ job, onSave, small, primaryLast }) {
         key=${action}
         type="button"
         class=${classes.filter(Boolean).join(" ")}
-        onClick=${() => ACTIONS[action](job, onSave)}
+        onClick=${() => ACTIONS[action](job, handlers)}
       >
         ${text.errorActions[action]}
       </button>
@@ -79,7 +80,7 @@ export function DuplicateBanner({ job, onSave }) {
 
 // An error that came up after the review started, shown above the fields.
 // The queue's live region announces the error, so the banner itself has no live role.
-export function ErrorBanner({ job, settings, onSave }) {
+export function ErrorBanner({ job, settings, onSave, confirmRename = null }) {
   const { tone, icon } = errorKind(job);
   const { headline, detail } = errorText(job, settings);
   return html`
@@ -89,7 +90,12 @@ export function ErrorBanner({ job, settings, onSave }) {
         <span class="error-text">${detail ? `${headline} ${detail}` : headline}</span>
       </span>
       <span class="banner-actions">
-        <${ActionButtons} job=${job} onSave=${onSave} small=${true} primaryLast=${true} />
+        <${ActionButtons}
+          job=${job}
+          handlers=${{ onSave, confirmRename }}
+          small=${true}
+          primaryLast=${true}
+        />
       </span>
     </div>
   `;
@@ -117,7 +123,12 @@ export function ErrorView({ job, settings, onSave }) {
         ${actions.length > 0 &&
         html`
           <span class="error-box-actions">
-            <${ActionButtons} job=${job} onSave=${onSave} small=${false} primaryLast=${false} />
+            <${ActionButtons}
+              job=${job}
+              handlers=${{ onSave, confirmRename: null }}
+              small=${false}
+              primaryLast=${false}
+            />
           </span>
         `}
       </div>

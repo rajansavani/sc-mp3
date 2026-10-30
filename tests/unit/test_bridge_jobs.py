@@ -125,8 +125,11 @@ BAD_CALLS: list[tuple[str, tuple[Any, ...]]] = [
     ("set_artwork", ("", {"kind": "source"})),
     ("save", ("job",)),
     ("save", ([1],)),
+    ("dismiss_cover_problem", (None,)),
+    ("save", (["job"], "yes")),
     ("skip", (None,)),
     ("retry", ("x" * 65,)),
+    ("retry", ("job", "yes")),
     ("cancel", (["job"],)),
     ("remove", ({},)),
     ("remove_jobs", ("job",)),
@@ -415,6 +418,7 @@ def test_every_call_returns_at_once_while_the_pipeline_is_slow(tmp_path: Path) -
     measure("set_style", lambda: api.set_style(first, "feat_in_title"))
     link = {"kind": "url", "value": "https://example.com/cover.jpg"}
     measure("set_artwork", lambda: api.set_artwork(first, link))
+    measure("dismiss_cover_problem", lambda: api.dismiss_cover_problem(first))
     measure("save", lambda: api.save([first, second]))
     measure("cancel", lambda: api.cancel(second))
     measure("history", lambda: api.history("drive", 10))
@@ -530,6 +534,7 @@ def test_every_call_stays_quick_with_a_full_queue(tmp_path: Path) -> None:
     measure("set_style", lambda: api.set_style(first, "feat_in_title"))
     link = {"kind": "url", "value": "https://example.com/cover.jpg"}
     measure("set_artwork", lambda: api.set_artwork(first, link))
+    measure("dismiss_cover_problem", lambda: api.dismiss_cover_problem(first))
     measure("history", lambda: api.history("drive", 10))
     assert measure("clipboard_link", api.clipboard_link) == {
         "link": "https://soundcloud.com/kaia/not-queued"

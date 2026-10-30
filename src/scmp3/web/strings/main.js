@@ -110,6 +110,9 @@ export default {
     track_no: "Track #",
     album_artist: "Album artist",
   },
+  // Under a re-tag's title, when the new title differs from the one in the file.
+  inFileNow: (title) => `In the file now: “${title}”`,
+  inFileNowEmpty: "The file has no title now.",
   resetToSuggestion: "Reset to suggestion",
   reset: "Reset",
   moreFields: "More fields",
@@ -209,6 +212,7 @@ export default {
   coverAlt: (title) => (title ? `Cover art for ${title}` : "Cover art"),
   noCover: "No cover art",
   coverFailed: "The cover couldn't be shown.",
+  coverKeptUnseen: "This cover can't be shown here, but it stays in the file.",
   replace: "Replace",
   crop: "Crop",
   coverFrom: {

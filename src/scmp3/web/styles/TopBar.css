@@ -43,7 +43,7 @@
   min-width: 0;
   height: var(--height-control);
   padding: 0 14px;
-  border: 1px solid var(--line-3);
+  border: 1px solid var(--line-field);
   border-radius: var(--radius-control);
   background: var(--surface-2);
   font-size: 14px;

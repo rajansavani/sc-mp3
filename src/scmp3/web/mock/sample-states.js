@@ -1,6 +1,7 @@
 // Extra sample jobs for ?mock&states: the warnings, a save waiting for its download, a taken file
-// name, a cover that couldn't be used, a save without its cover, and one job for each error kind,
-// so every banner can be seen without making anything fail.
+// name, a cover that couldn't be used, a save without its cover, a re-tag whose cover can't be
+// previewed, and one job for each error kind, so every banner can be seen without making
+// anything fail.
 import { artistFolder } from "./names.js";
 import {
   avatar,
@@ -144,6 +145,28 @@ function savedWithoutCover() {
   });
 }
 
+// A file to re-tag whose cover can't be previewed, which the save keeps as it is.
+function unseenFileCover() {
+  const path = "~/Music/old songs/tape-hiss.mp3";
+  return makeJob({
+    id: "sample-tape-hiss",
+    state: "needs_review",
+    kind: "retag",
+    input: path,
+    source: makeSource({
+      kind: "file",
+      id: path,
+      url: path,
+      title: "Tape Hiss",
+      uploader: "Ilo",
+      formats: [],
+      artwork_url: null,
+    }),
+    suggestion: makeSuggestion({ base_title: "Tape Hiss", main_artists: ["Ilo"] }),
+    cover_unseen: true,
+  });
+}
+
 // An older YouTube video without an HD thumbnail: its cover is cut from the picture between the
 // black bands.
 function letterboxedCover() {
@@ -216,6 +239,7 @@ export function sampleStates() {
     unusableCover(),
     savedWithoutCover(),
     letterboxedCover(),
+    unseenFileCover(),
     ...ERROR_SAMPLES.map(failed),
   ];
 }

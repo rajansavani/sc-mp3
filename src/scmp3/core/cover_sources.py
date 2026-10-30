@@ -116,9 +116,14 @@ def pick_largest(
 def cover_candidates(source: SourceInfo | PlaylistInfo) -> list[str]:
     """The cover URLs to try in order for a track or a set, by where its artwork is."""
     url = source.artwork_url
-    if url and _is_on_host(url, YOUTUBE_IMAGE_HOST):
+    if url and is_youtube_image(url):
         return youtube_candidates(url)
     return soundcloud_candidates(source)
+
+
+def is_youtube_image(url: str) -> bool:
+    """Whether the URL is on YouTube's image host, as its thumbnails are."""
+    return _is_on_host(url, YOUTUBE_IMAGE_HOST)
 
 
 def youtube_thumbnail(video_id: str, size: str = YOUTUBE_SIZES[0]) -> str:

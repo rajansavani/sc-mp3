@@ -4,7 +4,9 @@ Each test closes the job manager and starts a new one on the same settings and q
 way quitting and opening the app does.
 """
 
+import base64
 import importlib.util
+import io
 import json
 import os
 import sys
@@ -15,9 +17,11 @@ from types import ModuleType
 from typing import Any
 
 import pytest
+from PIL import Image
 
 from scmp3.app import queue_file
 from scmp3.app.job_artists import ArtistList
+from scmp3.app.job_covers import CoverView, KeptImage
 from scmp3.app.queue_file import QueueFile
 from scmp3.core import paths
 from scmp3.core.errors import ErrorKind, ScmpError
@@ -398,3 +402,78 @@ def test_temp_files_a_crash_left_next_to_queue_json_are_deleted(runs: Runs) -> N
     runs.first()
     assert not leftover.exists()
     assert other.exists()
+
+
+# Cover previews
+
+
+def with_large_previews(jobs: Harness) -> None:
+    """Source covers whose previews are as large as a YouTube one, kept as a real image."""
+    buffer = io.BytesIO()
+    Image.new("RGB", (1280, 720), "navy").save(buffer, "PNG")
+    image = buffer.getvalue()
+    preview = "data:image/jpeg;base64," + base64.b64encode(b"x" * 40_000).decode("ascii")
+
+    def source(_source: Any) -> tuple[CoverView, KeptImage]:
+        return CoverView(url=preview, width=1280, height=720), KeptImage(image, "png")
+
+    jobs.covers.source = source
+
+
+def test_queue_json_leaves_cover_previews_out_and_stays_small(runs: Runs) -> None:
+    jobs = runs.first()
+    with_large_previews(jobs)
+    for number in range(200):
+        jobs.add(f"https://soundcloud.com/kaia/song-{number}")
+    jobs.pools.run_all()
+    assert jobs.job(jobs.manager.views()[0]["id"])["cover_url"].startswith("data:")
+    runs.restart(jobs)
+    text = queue_file.default_path().read_text(encoding="utf-8")
+    assert "data:" not in text
+    # About 3 KB a job, where the previews alone would add 53 KB each.
+    assert len(text.encode("utf-8")) < 200 * 6_000
+
+
+def test_a_cover_preview_is_made_again_from_the_kept_image(runs: Runs) -> None:
+    jobs = runs.first()
+    with_large_previews(jobs)
+    job_id = jobs.add_and_resolve()
+    jobs.pools.run_all()
+    again = runs.restart(jobs)
+    again.pools.run("misc")
+    job = again.job(job_id)
+    assert job["cover_url"].startswith("data:image/jpeg;base64,")
+    assert job["cover_size"] == {"width": 1280, "height": 720}
+    assert again.covers.source_reads == 0
+
+
+def test_without_the_kept_image_the_cover_is_read_again(runs: Runs) -> None:
+    jobs = runs.first()
+    with_large_previews(jobs)
+    job_id = jobs.add_and_resolve()
+    jobs.pools.run_all()
+    jobs.manager.shut_down()
+    kept = [entry["source_cover_file"] for entry in kept_jobs() if entry["job"]["id"] == job_id]
+    Path(kept[0]).unlink()
+    again = runs.reopen(jobs)
+    again.pools.run("misc")
+    assert again.covers.source_reads == 1
+    assert again.job(job_id)["cover_url"] is not None
+
+
+def test_a_cover_added_by_link_leaves_its_preview_out_and_gets_it_back(runs: Runs) -> None:
+    jobs = runs.first()
+    preview = "data:image/jpeg;base64," + base64.b64encode(b"x" * 40_000).decode("ascii")
+    jobs.covers.link = lambda url: CoverView(url=preview, width=1280, height=720)
+    job_id = jobs.add_and_resolve()
+    link = "https://i.ytimg.com/vi/q3StatBloom/maxresdefault.jpg"
+    jobs.manager.set_artwork(job_id, "url", link, None)
+    jobs.pools.run_all()
+    assert jobs.job(job_id)["cover_url"] == preview
+    jobs.manager.shut_down()
+    assert "data:" not in queue_file.default_path().read_text(encoding="utf-8")
+    again = runs.reopen(jobs)
+    again.pools.run("misc")
+    job = again.job(job_id)
+    assert (job["artwork"]["kind"], job["cover_url"]) == ("url", link)
+    assert job["cover_size"] == {"width": 1280, "height": 720}
