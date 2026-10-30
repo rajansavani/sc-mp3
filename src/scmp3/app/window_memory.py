@@ -1,10 +1,11 @@
-"""Keeping the main window's size and place between runs, on Windows and Linux.
+"""Keeping the main window's size and place between runs.
 
-Windows reads its monitors through Win32 (win_monitors.py), and Linux through the Qt or GTK
-toolkit pywebview picked (toolkit_screens.py). On macOS, and on Windows with PYWEBVIEW_GUI=qt,
-the window opens as it always did and window.json is neither read nor written.
+Windows reads its monitors through Win32 (win_monitors.py), and Linux and macOS through the
+toolkit pywebview picked (toolkit_screens.py). On Windows with PYWEBVIEW_GUI=qt, the window
+opens as it always did and window.json is neither read nor written.
 """
 
+import logging
 import os
 import sys
 from collections.abc import Callable, Mapping
@@ -17,6 +18,8 @@ from scmp3.app.toolkit_screens import ToolkitScreens, read_toolkit_screens
 from scmp3.app.win_monitors import Monitors, read_monitors, steady
 from scmp3.app.window_place import WINFORMS, Backend, PlaceTracker, ScreenOrigin, WindowPlace
 
+log = logging.getLogger(__name__)
+
 
 def remembers_place(platform: str = sys.platform, environ: Mapping[str, str] = os.environ) -> bool:
     """Whether the window's place is kept: on Windows, in pywebview's WinForms window."""
@@ -25,8 +28,8 @@ def remembers_place(platform: str = sys.platform, environ: Mapping[str, str] = o
 
 
 def remembers_toolkit_place(platform: str = sys.platform) -> bool:
-    """Whether the window's place is kept through pywebview's toolkit: on Linux, with Qt or GTK."""
-    return platform.startswith("linux")
+    """Whether the window's place is kept through pywebview's toolkit: on Linux and macOS."""
+    return platform.startswith("linux") or platform == "darwin"
 
 
 class WindowMemory:
@@ -49,15 +52,21 @@ class WindowMemory:
         self._default = default
         self._minimum = minimum
         self._backend = backend
-        # The screen Qt and GTK place the window against, or None on Windows.
+        # The screen the toolkit places the window against, or None on Windows.
         self.origin = origin
         saved = window_place.load(path)
-        self.place: WindowPlace = window_fit.fit(
-            saved, self._displays, default, minimum, backend.frame
+        place = window_fit.fit(saved, self._displays, default, minimum, backend.frame)
+        # A window that can't open maximized opens at its normal place, and is tracked as such.
+        self.place: WindowPlace = (
+            place if backend.opens_maximized else replace(place, maximized=False)
         )
         self._tracker = PlaceTracker(
-            self.place, minimum, sizes_after_restore=backend.sizes_after_restore
+            self.place,
+            minimum,
+            sizes_after_restore=backend.sizes_after_restore,
+            settle_s=backend.maximize_settle_s,
         )
+        log.info("The window opens at %s, on the screens %s", self.place, self._displays)
 
     def attach(self, window: Any) -> None:
         """Follow the window's size, position and state."""
@@ -71,7 +80,9 @@ class WindowMemory:
         place = window_fit.to_keep(
             self._tracker.place(), self._displays, self._default, self._minimum, self._backend.frame
         )
-        window_place.save(self._path, self._steadied(place))
+        kept = self._steadied(place)
+        log.info("Keeping the window's place: %s", kept)
+        window_place.save(self._path, kept)
 
     def _steadied(self, place: WindowPlace) -> WindowPlace:
         """The place moved by a pixel or two, if need be, so it comes back the same next time."""
@@ -84,7 +95,7 @@ class WindowMemory:
 def for_toolkit(
     path: Path, found: ToolkitScreens, default: tuple[int, int], minimum: tuple[int, int]
 ) -> WindowMemory:
-    """The window's memory for Qt or GTK, whose units need no scale."""
+    """The window's memory for Qt, GTK or Cocoa, whose units need no scale."""
     return WindowMemory(
         path, Monitors(found.displays), default, minimum, backend=found.backend, origin=found.origin
     )

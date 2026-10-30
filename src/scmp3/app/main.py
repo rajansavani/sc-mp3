@@ -245,7 +245,7 @@ def run_window(paths: Sequence[str] = (), engine_start: EngineStart | None = Non
         serve_without_name_lookup(webview.http)
         # webview.start() reuses the server that's already running.
         start_page_server(webview.http.start_global_server, page)
-    # On Windows and Linux. It never raises, so the shutdown below always runs.
+    # On Windows, Linux and macOS. It never raises, so the shutdown below always runs.
     memory = window_memory.for_this_platform(WINDOW_SIZE, MIN_WINDOW_SIZE)
 
     def on_created(window: Any) -> None:

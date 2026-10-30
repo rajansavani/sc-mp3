@@ -1,9 +1,10 @@
-"""The screens on Linux, read through the toolkit pywebview picked, and how its window is placed.
+"""The screens, read through the toolkit pywebview picked, and how its window is placed.
 
 pywebview 6.2.1's Qt and GTK windows add a screen's origin to the x and y they're given, and
 report moves in desktop coordinates. Both take and report the client area's size, while x and
 y place the frame. GTK's moved event gives the client area's position, so there the frame's
 position is read from GTK itself. Screens and work areas come in the same desktop coordinates.
+macOS is in cocoa_screens.py.
 """
 
 import logging
@@ -11,11 +12,14 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from scmp3.app.cocoa_screens import cocoa_displays, watch_cocoa_moves
 from scmp3.app.window_fit import Area, Display
 from scmp3.app.window_place import Backend, ReportMove, ScreenOrigin
 
 # Room for the frame around the client area: side borders, and a title bar up to about 40 px.
 FRAME_ROOM = (8, 40)
+# How long before macOS says the window is in full screen its size may already be the full one.
+FULL_SCREEN_SETTLE_S = 1.5
 
 log = logging.getLogger(__name__)
 
@@ -114,6 +118,17 @@ BACKENDS: dict[str, tuple[ReadDisplays, Backend]] = {
         gtk_displays,
         Backend(frame=FRAME_ROOM, watch_moves=watch_gtk_moves, sizes_after_restore=False),
     ),
+    # Cocoa's size includes the title bar. Its "maximized" is full screen, which pywebview can't
+    # open in, and the switch to it animates for longer than a maximize.
+    "wkwebview": (
+        cocoa_displays,
+        Backend(
+            watch_moves=watch_cocoa_moves,
+            sizes_after_restore=False,
+            opens_maximized=False,
+            maximize_settle_s=FULL_SCREEN_SETTLE_S,
+        ),
+    ),
 }
 
 
@@ -126,7 +141,7 @@ def toolkit_screens(screens: Sequence[Any], renderer: str | None) -> ToolkitScre
     displays = read_displays(screens)
     if not displays:
         return None
-    # pywebview's Qt and GTK windows are placed against the first screen when given no other.
+    # The window is placed against the first screen. On macOS that's the menu bar's, at (0, 0).
     first = screens[0]
     return ToolkitScreens(displays, ScreenOrigin(first, int(first.x), int(first.y)), backend)
 

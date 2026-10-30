@@ -115,7 +115,7 @@ def test_the_window_is_placed_against_pywebviews_first_screen(
 
 
 def test_a_toolkit_without_a_backend_keeps_no_place() -> None:
-    assert toolkit_screens.toolkit_screens([screen(0, 0, 1440, 900)], "wkwebview") is None
+    assert toolkit_screens.toolkit_screens([screen(0, 0, 1440, 900)], "cef") is None
     assert toolkit_screens.toolkit_screens([screen(0, 0, 1440, 900)], None) is None
 
 

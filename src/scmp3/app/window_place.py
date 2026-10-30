@@ -49,6 +49,10 @@ class Backend:
     watch_moves: WatchMoves | None = None
     # Qt reports no size when a window is restored to the size it opened at.
     sizes_after_restore: bool = True
+    # Whether the window can open maximized. pywebview's Cocoa window only covers the screen.
+    opens_maximized: bool = True
+    # How long before the maximized event the size reported may already be the maximized one.
+    maximize_settle_s: float = MAXIMIZE_SETTLE_S
 
 
 # pywebview's WinForms window, as T-074 checked it live.
@@ -164,11 +168,13 @@ class PlaceTracker:
         clock: Callable[[], float] = time.monotonic,
         *,
         sizes_after_restore: bool = True,
+        settle_s: float = MAXIMIZE_SETTLE_S,
     ) -> None:
         self._start = start
         self._minimum = minimum
         self._clock = clock
         self._sizes_after_restore = sizes_after_restore
+        self._settle_s = settle_s
         self._lock = threading.Lock()
         self._reports: deque[_Report] = deque(maxlen=KEPT_REPORTS)
         self._maximized_at: float | None = clock() if start.maximized else None
@@ -215,7 +221,7 @@ class PlaceTracker:
                 self._minimized = False
                 return
             if not self._sizes_after_restore and self._maximized_at is not None:
-                self._forget_since(self._maximized_at - MAXIMIZE_SETTLE_S)
+                self._forget_since(self._maximized_at - self._settle_s)
             self._maximized_at = None
 
     def _forget_since(self, cutoff: float) -> None:
@@ -235,7 +241,7 @@ class PlaceTracker:
         with self._lock:
             cutoff = None
             if self._maximized_at is not None:
-                cutoff = self._maximized_at - MAXIMIZE_SETTLE_S
+                cutoff = self._maximized_at - self._settle_s
             normal = [report for report in self._reports if cutoff is None or report.at < cutoff]
             place = replace(self._start, maximized=self._maximized_at is not None)
         size = next((report.size for report in reversed(normal) if report.size), None)

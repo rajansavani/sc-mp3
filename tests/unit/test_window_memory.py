@@ -54,9 +54,9 @@ def test_only_windows_with_its_own_window_remembers_the_place(
 
 
 @pytest.mark.parametrize(
-    ("platform", "remembers"), [("linux", True), ("darwin", False), ("win32", False)]
+    ("platform", "remembers"), [("linux", True), ("darwin", True), ("win32", False)]
 )
-def test_only_linux_remembers_the_place_through_pywebviews_toolkit(
+def test_linux_and_macos_remember_the_place_through_pywebviews_toolkit(
     platform: str, remembers: bool
 ) -> None:
     assert remembers_toolkit_place(platform) is remembers
