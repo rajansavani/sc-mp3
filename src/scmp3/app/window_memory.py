@@ -63,7 +63,7 @@ class WindowMemory:
         self._tracker = PlaceTracker(
             self.place,
             minimum,
-            sizes_after_restore=backend.sizes_after_restore,
+            reports_after_restore=backend.reports_after_restore,
             settle_s=backend.maximize_settle_s,
         )
         log.info("The window opens at %s, on the screens %s", self.place, self._displays)

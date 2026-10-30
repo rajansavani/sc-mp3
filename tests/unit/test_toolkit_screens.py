@@ -127,7 +127,7 @@ def test_qt_and_gtk_leave_room_for_the_frame_and_forget_a_maximize_on_restore() 
     for renderer in ("qtwebengine", "gtkwebkit2"):
         backend = toolkit_screens.BACKENDS[renderer][1]
         assert backend.frame == toolkit_screens.FRAME_ROOM
-        assert backend.sizes_after_restore is False
+        assert backend.reports_after_restore is False
 
 
 def test_gtk_reports_the_frames_position_rather_than_the_client_areas() -> None:

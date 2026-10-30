@@ -113,10 +113,10 @@ def watch_gtk_moves(window: Any, report: ReportMove) -> None:
 # How each of pywebview's renderers reads the monitors and places its window. A toolkit not here
 # opens its window as it always did.
 BACKENDS: dict[str, tuple[ReadDisplays, Backend]] = {
-    "qtwebengine": (qt_displays, Backend(frame=FRAME_ROOM, sizes_after_restore=False)),
+    "qtwebengine": (qt_displays, Backend(frame=FRAME_ROOM, reports_after_restore=False)),
     "gtkwebkit2": (
         gtk_displays,
-        Backend(frame=FRAME_ROOM, watch_moves=watch_gtk_moves, sizes_after_restore=False),
+        Backend(frame=FRAME_ROOM, watch_moves=watch_gtk_moves, reports_after_restore=False),
     ),
     # Cocoa's size includes the title bar. Its "maximized" is full screen, which pywebview can't
     # open in, and the switch to it animates for longer than a maximize.
@@ -124,7 +124,7 @@ BACKENDS: dict[str, tuple[ReadDisplays, Backend]] = {
         cocoa_displays,
         Backend(
             watch_moves=watch_cocoa_moves,
-            sizes_after_restore=False,
+            reports_after_restore=False,
             opens_maximized=False,
             maximize_settle_s=FULL_SCREEN_SETTLE_S,
         ),

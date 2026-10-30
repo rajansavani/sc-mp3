@@ -47,8 +47,9 @@ class Backend:
     frame: tuple[int, int] = (0, 0)
     # How the frame's moves are followed, or None for pywebview's moved event.
     watch_moves: WatchMoves | None = None
-    # Qt reports no size when a window is restored to the size it opened at.
-    sizes_after_restore: bool = True
+    # Whether what's reported as a window is restored from maximized can be kept. Qt reports no
+    # size when it's the opening one, and a position with the maximized frame's margins.
+    reports_after_restore: bool = True
     # Whether the window can open maximized. pywebview's Cocoa window only covers the screen.
     opens_maximized: bool = True
     # How long before the maximized event the size reported may already be the maximized one.
@@ -167,17 +168,19 @@ class PlaceTracker:
         minimum: tuple[int, int],
         clock: Callable[[], float] = time.monotonic,
         *,
-        sizes_after_restore: bool = True,
+        reports_after_restore: bool = True,
         settle_s: float = MAXIMIZE_SETTLE_S,
     ) -> None:
         self._start = start
         self._minimum = minimum
         self._clock = clock
-        self._sizes_after_restore = sizes_after_restore
+        self._reports_after_restore = reports_after_restore
         self._settle_s = settle_s
         self._lock = threading.Lock()
         self._reports: deque[_Report] = deque(maxlen=KEPT_REPORTS)
         self._maximized_at: float | None = clock() if start.maximized else None
+        # Reports before this time are left out, as the window settles after a restore.
+        self._settled_at: float | None = None
         self._minimized = False
 
     def attach(self, window: Any, *, moves: bool = True) -> None:
@@ -220,8 +223,9 @@ class PlaceTracker:
             if self._minimized:
                 self._minimized = False
                 return
-            if not self._sizes_after_restore and self._maximized_at is not None:
+            if not self._reports_after_restore and self._maximized_at is not None:
                 self._forget_since(self._maximized_at - self._settle_s)
+                self._settled_at = self._clock() + self._settle_s
             self._maximized_at = None
 
     def _forget_since(self, cutoff: float) -> None:
@@ -233,6 +237,8 @@ class PlaceTracker:
     def _report(self, report: _Report) -> None:
         with self._lock:
             if self._minimized:
+                return
+            if self._settled_at is not None and report.at < self._settled_at:
                 return
             self._reports.append(report)
 

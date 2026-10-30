@@ -233,7 +233,7 @@ def test_a_restore_that_reports_no_size_goes_back_to_the_size_before_the_maximiz
 ) -> None:
     # Qt reports no size when the window goes back to the size it opened at (review F11).
     start = WindowPlace(width=1000, height=700, x=200, y=100)
-    places = PlaceTracker(start, MINIMUM, clock, sizes_after_restore=False)
+    places = PlaceTracker(start, MINIMUM, clock, reports_after_restore=False)
     clock.advance(5)
     places.maximized()
     places.resized(1400, 881)
@@ -246,7 +246,7 @@ def test_a_restore_that_reports_no_size_goes_back_to_the_size_before_the_maximiz
 def test_a_restore_keeps_what_came_before_the_maximize_and_after_the_restore(
     clock: Clock,
 ) -> None:
-    places = PlaceTracker(WindowPlace(1000, 700), MINIMUM, clock, sizes_after_restore=False)
+    places = PlaceTracker(WindowPlace(1000, 700), MINIMUM, clock, reports_after_restore=False)
     places.resized(1100, 720)
     places.moved(150, 120)
     clock.advance(5)
@@ -254,12 +254,28 @@ def test_a_restore_keeps_what_came_before_the_maximize_and_after_the_restore(
     places.resized(1400, 881)
     clock.advance(5)
     places.restored()
+    clock.advance(2)
     places.moved(160, 130)
     assert places.place() == WindowPlace(width=1100, height=720, x=160, y=130)
 
 
+def test_a_position_reported_as_the_window_is_restored_is_left_out(clock: Clock) -> None:
+    # Qt reports the restored window with the maximized frame's margins, a pixel off.
+    start = WindowPlace(width=1000, height=700, x=200, y=100)
+    places = PlaceTracker(start, MINIMUM, clock, reports_after_restore=False)
+    clock.advance(5)
+    places.maximized()
+    places.resized(1400, 881)
+    places.moved(0, 0)
+    clock.advance(3)
+    places.restored()
+    clock.advance(0.01)
+    places.moved(201, 101)
+    assert places.place() == start
+
+
 def test_restoring_from_minimized_keeps_what_was_reported_while_maximized(clock: Clock) -> None:
-    places = PlaceTracker(WindowPlace(1000, 700), MINIMUM, clock, sizes_after_restore=False)
+    places = PlaceTracker(WindowPlace(1000, 700), MINIMUM, clock, reports_after_restore=False)
     places.resized(1100, 720)
     clock.advance(5)
     places.maximized()
