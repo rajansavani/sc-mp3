@@ -108,3 +108,40 @@ def test_the_place_kept_at_close_is_never_off_every_screen() -> None:
 def test_with_no_screens_known_the_place_is_kept_as_it_is() -> None:
     place = WindowPlace(width=1100, height=720, x=9000, y=120)
     assert to_keep(place, [], DEFAULT, MINIMUM) == place
+
+
+# Qt and GTK report the client area's size, so the fit leaves room for an 8 x 40 px frame.
+FRAME = (8, 40)
+# A laptop on the right as the primary screen, with a monitor on its left (review F9).
+LEFT = Display(Area(0, 0, 1000, 800), Area(0, 0, 1000, 800))
+RIGHT = Display(Area(1000, 0, 1400, 900), Area(1000, 0, 1400, 900), primary=True)
+
+
+def test_a_window_larger_than_its_screen_leaves_room_for_its_frame() -> None:
+    # The client area alone filling the screen put the bottom 20 px under it (review F12).
+    place = WindowPlace(width=2400, height=1300, x=300, y=100)
+    assert fit(place, [LAPTOP], DEFAULT, MINIMUM, FRAME) == WindowPlace(1912, 1000, x=0, y=0)
+
+
+def test_a_window_at_the_bottom_edge_is_moved_up_by_its_frame() -> None:
+    place = WindowPlace(width=1100, height=720, x=150, y=320)
+    assert fit(place, [LAPTOP], DEFAULT, MINIMUM, FRAME) == WindowPlace(1100, 720, x=150, y=280)
+
+
+def test_a_window_that_fits_with_its_frame_stays_where_it_was() -> None:
+    place = WindowPlace(width=1100, height=720, x=150, y=280)
+    assert fit(place, [LAPTOP], DEFAULT, MINIMUM, FRAME) == place
+
+
+def test_the_default_place_is_centred_with_its_frame() -> None:
+    assert fit(None, [LAPTOP], DEFAULT, MINIMUM, FRAME) == WindowPlace(1280, 860, x=316, y=70)
+
+
+def test_a_place_on_a_monitor_left_of_the_primary_stays_there() -> None:
+    place = WindowPlace(width=980, height=700, x=10, y=50)
+    assert fit(place, [LEFT, RIGHT], DEFAULT, MINIMUM, FRAME) == place
+
+
+def test_with_the_primary_on_the_right_the_default_place_is_on_it() -> None:
+    expected = WindowPlace(1280, 860, x=1056, y=0)
+    assert fit(None, [LEFT, RIGHT], DEFAULT, MINIMUM, FRAME) == expected

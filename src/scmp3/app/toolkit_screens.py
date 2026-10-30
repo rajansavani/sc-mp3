@@ -37,12 +37,19 @@ def _rect_area(x: int, y: int, width: int, height: int) -> Area:
     return Area(int(x), int(y), int(width), int(height))
 
 
-def qt_displays(screens: Sequence[Any]) -> list[Display]:
-    """The monitors from Qt, whose screens pywebview hands over as QScreen objects."""
+def qt_primary_name() -> str | None:
+    """The name of Qt's primary screen."""
     from qtpy.QtGui import QGuiApplication
 
     primary = QGuiApplication.primaryScreen()
-    primary_name = primary.name() if primary is not None else None
+    return primary.name() if primary is not None else None
+
+
+def qt_displays(
+    screens: Sequence[Any], primary_name: Callable[[], str | None] = qt_primary_name
+) -> list[Display]:
+    """The monitors from Qt, whose screens pywebview hands over as QScreen objects."""
+    primary = primary_name()
     displays = []
     for screen in screens:
         whole, work = screen.frame.geometry(), screen.frame.availableGeometry()
@@ -50,21 +57,27 @@ def qt_displays(screens: Sequence[Any]) -> list[Display]:
             Display(
                 bounds=_rect_area(whole.x(), whole.y(), whole.width(), whole.height()),
                 work=_rect_area(work.x(), work.y(), work.width(), work.height()),
-                primary=screen.frame.name() == primary_name,
+                primary=screen.frame.name() == primary,
             )
         )
     return displays
 
 
-def gtk_displays(_screens: Sequence[Any]) -> list[Display]:
-    """The monitors from GDK, in the order pywebview lists them."""
+def gdk_monitors() -> list[Any]:
+    """GDK's monitors, in the order pywebview lists its screens."""
     # pywebview's GTK backend has already picked GDK 3.
     from gi.repository import Gdk
 
     display = Gdk.Display.get_default()
+    return [display.get_monitor(index) for index in range(display.get_n_monitors())]
+
+
+def gtk_displays(
+    _screens: Sequence[Any], monitors: Callable[[], list[Any]] = gdk_monitors
+) -> list[Display]:
+    """The monitors from GDK, since pywebview's GTK screens leave out the work areas."""
     displays = []
-    for index in range(display.get_n_monitors()):
-        monitor = display.get_monitor(index)
+    for monitor in monitors():
         whole, work = monitor.get_geometry(), monitor.get_workarea()
         displays.append(
             Display(
@@ -118,15 +131,22 @@ def toolkit_screens(screens: Sequence[Any], renderer: str | None) -> ToolkitScre
     return ToolkitScreens(displays, ScreenOrigin(first, int(first.x), int(first.y)), backend)
 
 
-def read_toolkit_screens() -> ToolkitScreens | None:
+def pywebview_screens() -> tuple[Sequence[Any], str | None]:
+    """pywebview's screens, and the renderer of the toolkit that reading them picked."""
+    # Imported here, since the app imports pywebview only once its logging is set up.
+    import webview
+
+    # webview.screens is a lazy proxy, and webview.renderer is set only once it has been read.
+    screens = list(webview.screens)
+    return screens, webview.renderer
+
+
+def read_toolkit_screens(
+    read: Callable[[], tuple[Sequence[Any], str | None]] = pywebview_screens,
+) -> ToolkitScreens | None:
     """The monitors from pywebview's toolkit, or None when they can't be read. It never raises."""
     try:
-        # Imported here, since the app imports pywebview only once its logging is set up.
-        import webview
-
-        # Reading the screens picks the toolkit, which sets webview.renderer.
-        screens = webview.screens
-        return toolkit_screens(screens, webview.renderer)
+        return toolkit_screens(*read())
     # A toolkit can fail in many ways, and the window still opens without its place.
     except Exception:
         log.warning("Couldn't read the screens, so the window opens at its default place")
