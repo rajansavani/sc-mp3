@@ -44,7 +44,7 @@ class Display:
 
 
 def primary(displays: Sequence[Display]) -> Display:
-    """The primary monitor, or on Windows the one at (0, 0), where the primary one starts."""
+    """The monitor the toolkit marks as primary, or else the one at (0, 0), or else the first."""
     marked = [display for display in displays if display.primary]
     at_origin = [display for display in displays if display.bounds.holds(0, 0)]
     return (marked or at_origin or list(displays))[0]
