@@ -33,6 +33,36 @@ POSITION_RANGE = (-100_000, 100_000)
 
 log = logging.getLogger(__name__)
 
+# Reports where a window's frame is, in desktop coordinates.
+ReportMove = Callable[[float, float], None]
+# Starts reporting a window's moves, for a toolkit whose moved event reports another point.
+WatchMoves = Callable[[Any, ReportMove], None]
+
+
+@dataclass(frozen=True)
+class Backend:
+    """How one of pywebview's window backends takes and reports a window's place."""
+
+    # The room a frame takes outside the size pywebview reports. Qt and GTK report the client area.
+    frame: tuple[int, int] = (0, 0)
+    # How the frame's moves are followed, or None for pywebview's moved event.
+    watch_moves: WatchMoves | None = None
+    # Qt reports no size when a window is restored to the size it opened at.
+    sizes_after_restore: bool = True
+
+
+# pywebview's WinForms window, as T-074 checked it live.
+WINFORMS = Backend()
+
+
+@dataclass(frozen=True)
+class ScreenOrigin:
+    """The pywebview screen a window's x and y are relative to, and its place on the desktop."""
+
+    screen: Any
+    x: int
+    y: int
+
 
 @dataclass(frozen=True)
 class WindowPlace:
@@ -94,8 +124,13 @@ def save(path: Path, place: WindowPlace) -> None:
         log.warning("Couldn't keep the window's size and position: %s", error)
 
 
-def window_options(place: WindowPlace | None, default: tuple[int, int]) -> dict[str, Any]:
-    """The create_window options that open the window at a place window_fit has checked."""
+def window_options(
+    place: WindowPlace | None, default: tuple[int, int], origin: ScreenOrigin | None = None
+) -> dict[str, Any]:
+    """The create_window options that open the window at a place window_fit has checked.
+
+    `origin` is the screen Qt and GTK add to x and y. WinForms takes them as they are.
+    """
     if place is None:
         return {"width": default[0], "height": default[1]}
     options: dict[str, Any] = {
@@ -103,8 +138,12 @@ def window_options(place: WindowPlace | None, default: tuple[int, int]) -> dict[
         "height": place.height,
         "maximized": place.maximized,
     }
-    if place.x is not None and place.y is not None:
+    if place.x is None or place.y is None:
+        return options
+    if origin is None:
         options.update(x=place.x, y=place.y)
+    else:
+        options.update(x=place.x - origin.x, y=place.y - origin.y, screen=origin.screen)
     return options
 
 
@@ -123,19 +162,24 @@ class PlaceTracker:
         start: WindowPlace,
         minimum: tuple[int, int],
         clock: Callable[[], float] = time.monotonic,
+        *,
+        sizes_after_restore: bool = True,
     ) -> None:
         self._start = start
         self._minimum = minimum
         self._clock = clock
+        self._sizes_after_restore = sizes_after_restore
         self._lock = threading.Lock()
         self._reports: deque[_Report] = deque(maxlen=KEPT_REPORTS)
         self._maximized_at: float | None = clock() if start.maximized else None
         self._minimized = False
 
-    def attach(self, window: Any) -> None:
-        """Listen to the window's size, position and state events."""
+    def attach(self, window: Any, *, moves: bool = True) -> None:
+        """Listen to the window's size, position and state events, and to its moves unless
+        something else reports them."""
         window.events.resized += self.resized
-        window.events.moved += self.moved
+        if moves:
+            window.events.moved += self.moved
         window.events.maximized += self.maximized
         window.events.minimized += self.minimized
         window.events.restored += self.restored
@@ -170,7 +214,15 @@ class PlaceTracker:
             if self._minimized:
                 self._minimized = False
                 return
+            if not self._sizes_after_restore and self._maximized_at is not None:
+                self._forget_since(self._maximized_at - MAXIMIZE_SETTLE_S)
             self._maximized_at = None
+
+    def _forget_since(self, cutoff: float) -> None:
+        # The window goes back to its place from before the maximize, which may not be reported.
+        kept = [report for report in self._reports if report.at < cutoff]
+        self._reports.clear()
+        self._reports.extend(kept)
 
     def _report(self, report: _Report) -> None:
         with self._lock:

@@ -2,7 +2,8 @@
 
 A saved place is used only when the window lies mostly inside one monitor's work area, the part
 the taskbar leaves free. It's then shrunk to fit that area and moved fully into it. Otherwise
-the window opens at the default size in the middle of the primary monitor.
+the window opens at the default size in the middle of the primary monitor. `frame` is the room
+the window's frame takes outside its size, on toolkits whose size is the client area's.
 """
 
 from collections.abc import Sequence
@@ -54,6 +55,7 @@ def fit(
     displays: Sequence[Display],
     default: tuple[int, int],
     minimum: tuple[int, int],
+    frame: tuple[int, int] = (0, 0),
 ) -> WindowPlace:
     """Where the window opens: its saved place fitted to a screen, or the default place.
 
@@ -63,11 +65,11 @@ def fit(
     if not displays:
         # With no screens to check against, a position could be off every one.
         return WindowPlace(*default, maximized=maximized)
-    area = _area_mostly_holding(place, displays, minimum)
+    area = _area_mostly_holding(place, displays, minimum, frame)
     if place is not None and area is not None:
-        return _moved_inside(place, area, minimum)
+        return _moved_inside(place, area, minimum, frame)
     work = primary(displays).work
-    return _centered(WindowPlace(*default, maximized=maximized), work, minimum)
+    return _centered(WindowPlace(*default, maximized=maximized), work, minimum, frame)
 
 
 def to_keep(
@@ -75,15 +77,19 @@ def to_keep(
     displays: Sequence[Display],
     default: tuple[int, int],
     minimum: tuple[int, int],
+    frame: tuple[int, int] = (0, 0),
 ) -> WindowPlace:
     """The place to save as the window closes, fitted the same way, so the file never holds a
     place off every screen. With no screens to check, it's kept as it is, to be checked next time.
     """
-    return fit(place, displays, default, minimum) if displays else place
+    return fit(place, displays, default, minimum, frame) if displays else place
 
 
 def _area_mostly_holding(
-    place: WindowPlace | None, displays: Sequence[Display], minimum: tuple[int, int]
+    place: WindowPlace | None,
+    displays: Sequence[Display],
+    minimum: tuple[int, int],
+    frame: tuple[int, int],
 ) -> Area | None:
     """The work area that holds the largest share of the window, once the window is shrunk to
     it, when that share is at least half."""
@@ -92,33 +98,46 @@ def _area_mostly_holding(
     best, best_share = None, 0.0
     for display in displays:
         work = display.work
-        width, height = _fitted_size(place, work, minimum)
+        width, height = _outer(_fitted_size(place, work, minimum, frame), frame)
         share = work.overlap(place.x, place.y, width, height) / (width * height)
         if share > best_share:
             best, best_share = work, share
     return best if best_share >= MOSTLY_INSIDE else None
 
 
-def _fitted_size(place: WindowPlace, area: Area, minimum: tuple[int, int]) -> tuple[int, int]:
-    """The size shrunk to the area, but never under the window's minimum."""
+def _fitted_size(
+    place: WindowPlace, area: Area, minimum: tuple[int, int], frame: tuple[int, int]
+) -> tuple[int, int]:
+    """The size shrunk to the area, frame included, but never under the window's minimum."""
     return (
-        max(minimum[0], min(place.width, area.width)),
-        max(minimum[1], min(place.height, area.height)),
+        max(minimum[0], min(place.width, area.width - frame[0])),
+        max(minimum[1], min(place.height, area.height - frame[1])),
     )
 
 
-def _moved_inside(place: WindowPlace, area: Area, minimum: tuple[int, int]) -> WindowPlace:
+def _outer(size: tuple[int, int], frame: tuple[int, int]) -> tuple[int, int]:
+    """The size with the frame around it."""
+    return size[0] + frame[0], size[1] + frame[1]
+
+
+def _moved_inside(
+    place: WindowPlace, area: Area, minimum: tuple[int, int], frame: tuple[int, int]
+) -> WindowPlace:
     """The place shrunk to the area and moved the least it takes to lie fully inside it."""
     assert place.x is not None and place.y is not None
-    width, height = _fitted_size(place, area, minimum)
+    width, height = _fitted_size(place, area, minimum, frame)
+    outer_width, outer_height = _outer((width, height), frame)
     # A window wider than the area starts at its left edge, so its title bar shows.
-    x = max(area.x, min(place.x, area.x + area.width - width))
-    y = max(area.y, min(place.y, area.y + area.height - height))
+    x = max(area.x, min(place.x, area.x + area.width - outer_width))
+    y = max(area.y, min(place.y, area.y + area.height - outer_height))
     return replace(place, width=width, height=height, x=x, y=y)
 
 
-def _centered(place: WindowPlace, area: Area, minimum: tuple[int, int]) -> WindowPlace:
-    width, height = _fitted_size(place, area, minimum)
-    x = area.x + max(0, (area.width - width) // 2)
-    y = area.y + max(0, (area.height - height) // 2)
+def _centered(
+    place: WindowPlace, area: Area, minimum: tuple[int, int], frame: tuple[int, int]
+) -> WindowPlace:
+    width, height = _fitted_size(place, area, minimum, frame)
+    outer_width, outer_height = _outer((width, height), frame)
+    x = area.x + max(0, (area.width - outer_width) // 2)
+    y = area.y + max(0, (area.height - outer_height) // 2)
     return replace(place, width=width, height=height, x=x, y=y)
