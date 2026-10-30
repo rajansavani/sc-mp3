@@ -25,6 +25,8 @@
   border: 2px dashed var(--accent);
   border-radius: var(--radius-cover);
   background: var(--chip-on-bg);
+  /* Otherwise the drag is over the overlay, then not, and the highlight flickers. */
+  pointer-events: none;
 }
 
 .cover-image {

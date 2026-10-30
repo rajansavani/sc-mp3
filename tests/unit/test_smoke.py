@@ -183,7 +183,8 @@ def test_an_unknown_word_typed_in_a_terminal_names_the_commands(
     app: FakeApp, capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert main(["gte", "https://soundcloud.com/a/b"]) == cli_output.EXIT_USAGE
-    assert capsys.readouterr().err == "Unknown command: gte. The commands are get and retag.\n"
+    expected = "Unknown command: gte. The commands are get, retag and app-menu.\n"
+    assert capsys.readouterr().err == expected
     assert app.opened_with == []
 
 
@@ -220,7 +221,7 @@ def test_help_lists_commands_from_the_cli_table(
     with pytest.raises(SystemExit) as exit_info:
         main(["--help"])
     assert exit_info.value.code == 0
-    assert "Commands: get, retag, madeup." in capsys.readouterr().out
+    assert "Commands: get, retag, app-menu, madeup." in capsys.readouterr().out
 
 
 def test_tiny_mp3_is_one_second_of_mp3(tiny_mp3: Path) -> None:

@@ -49,6 +49,18 @@ export async function applyImageFile(job, file) {
   await setCover(job, { kind: "data_url", value: image.value });
 }
 
+// Uses the file dropped just now as the cover, for a drop whose page event came without it, as
+// WebKitGTK sends them. Says whether there was one. A file drag always carries a uri-list.
+export async function applyDroppedPath(job, dataTransfer) {
+  if (![...dataTransfer.types].includes("text/uri-list")) return false;
+  const result = await api.take_dropped_paths();
+  if (reportError(result)) return false;
+  const [path] = result.paths ?? [];
+  if (!path) return false;
+  setCover(job, { kind: "file", value: path });
+  return true;
+}
+
 // A native modal dialog: it keeps focus inside, makes the page inert and closes on Esc.
 export function useModal(onClose) {
   const ref = useRef(null);
@@ -113,15 +125,18 @@ export function ReplaceCoverDialog({ job, onClose }) {
     setCover(job, { kind: "source" });
   }
 
-  // An image dropped anywhere on the dialog counts too.
+  // An image dropped anywhere on the dialog counts too. WebKit needs dragenter taken as well.
   const onDragOver = (event) => event.preventDefault();
-  const onDrop = (event) => {
+  const onDrop = async (event) => {
     event.preventDefault();
     event.stopPropagation();
     const [file] = event.dataTransfer.files;
-    if (!file) return;
-    onClose();
-    applyImageFile(job, file);
+    if (file) {
+      onClose();
+      applyImageFile(job, file);
+      return;
+    }
+    if (await applyDroppedPath(job, event.dataTransfer)) onClose();
   };
 
   return html`
@@ -130,6 +145,7 @@ export function ReplaceCoverDialog({ job, onClose }) {
       class="dialog"
       aria-labelledby="replace-cover-title"
       onCancel=${modal.onCancel}
+      onDragEnter=${onDragOver}
       onDragOver=${onDragOver}
       onDrop=${onDrop}
     >

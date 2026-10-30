@@ -53,6 +53,7 @@ CALLS: dict[type, set[str]] = {
         "pick_folder",
         "pick_audio_files",
         "pick_image",
+        "take_dropped_paths",
         "reveal",
         "open_spotify",
         "open_local_files_folder",

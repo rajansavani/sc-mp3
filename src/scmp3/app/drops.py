@@ -1,7 +1,8 @@
 """Audio files dropped on the window, whose full paths only a Python drop handler gets.
 
 pywebview 6.2.1 puts a dropped file's path only on the event a Python DOMEventHandler gets, never
-on the page's own File (TECH_SPEC §16), so the handler sits on the page's body.
+on the page's own File (TECH_SPEC §16), so the handler sits on the page's body. WebKitGTK sends
+that event with no files at all, so on GTK their paths come from the drag (drag_paths.py).
 """
 
 import logging
@@ -12,6 +13,7 @@ from urllib.parse import unquote
 
 SAME_NAME_DROP = "SAME_NAME_DROP"
 FULL_PATH = "pywebviewFullPath"
+URI_LIST = "text/uri-list"
 # WebView2 calls the second of two dropped files with the same name "song (1).mp3".
 RENAMED_TWIN = re.compile(r" \(\d+\)(?=\.[^.]*$|$)")
 
@@ -35,6 +37,14 @@ class EventSink(Protocol):
     def emit(self, event: Mapping[str, Any]) -> None: ...
 
 
+class DraggedFiles(Protocol):
+    """The files of the drag over the window, for webviews that give the page none."""
+
+    def watch(self, window: Any) -> None: ...
+
+    def take(self) -> list[str]: ...
+
+
 def take_pywebview_leftovers() -> list[DroppedPath]:
     """The paths pywebview kept without matching them to a file, which it never clears itself."""
     # pywebview keeps them in a private list, and offers no other way to reach them.
@@ -52,10 +62,12 @@ class FileDrops:
         self,
         jobs: InputQueue,
         events: EventSink,
+        dragged: DraggedFiles,
         leftover_paths: LeftoverPaths = take_pywebview_leftovers,
     ) -> None:
         self._jobs = jobs
         self._events = events
+        self._dragged = dragged
         self._leftover_paths = leftover_paths
 
     def bind(self, window: Any) -> None:
@@ -66,6 +78,7 @@ class FileDrops:
         try:
             # The body never re-renders, and the cover keeps image drops to itself.
             window.dom.body.on("drop", DOMEventHandler(self.dropped))
+            self._dragged.watch(window)
         except Exception:
             # The window works without it, apart from dropped files.
             log.exception("Dropped files can't be added, since the drop handler wasn't set up")
@@ -75,13 +88,17 @@ class FileDrops:
         try:
             # Taken for every drop, so no path from this drop is left for the next one.
             leftovers = self._leftover_paths()
-            self._add(_dropped_files(event), leftovers)
+            dragged = self._dragged.take()
+            files = _dropped_files(event)
+            if files:
+                self._add(files, leftovers)
+            elif _carries_uris(event):
+                # WebKitGTK sent the drop without its files, so the drag's own paths stand in.
+                self.add_paths(dragged)
         except Exception:
             log.exception("A drop on the window couldn't be handled")
 
     def _add(self, files: Sequence[Mapping[str, Any]], leftovers: list[DroppedPath]) -> None:
-        if not files:
-            return
         files = [_with_own_path(file, leftovers) for file in files]
         if _has_twins(files, leftovers):
             log.info("A drop held two files with the same name, so it was refused")
@@ -137,10 +154,21 @@ def _has_twins(files: Sequence[Mapping[str, Any]], leftovers: list[DroppedPath])
     return any(unquote(name) in originals for name, _path in leftovers)
 
 
+def _transfer(event: Mapping[str, Any]) -> Mapping[str, Any]:
+    """The drop's dataTransfer as pywebview serializes it, or an empty one."""
+    transfer = event.get("dataTransfer")
+    return transfer if isinstance(transfer, Mapping) else {}
+
+
 def _dropped_files(event: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
     """The files in a drop event as pywebview serializes it, or none."""
-    transfer = event.get("dataTransfer")
-    files = transfer.get("files") if isinstance(transfer, Mapping) else None
+    files = _transfer(event).get("files")
     if not isinstance(files, list):
         return []
     return [file for file in files if isinstance(file, Mapping)]
+
+
+def _carries_uris(event: Mapping[str, Any]) -> bool:
+    """Whether the drop carried a uri-list, as a file drag always does."""
+    types = _transfer(event).get("types")
+    return isinstance(types, list) and URI_LIST in types

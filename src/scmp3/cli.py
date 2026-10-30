@@ -1,7 +1,8 @@
 """Command-line interface: `scmp3 <command>`, with each command in the `COMMANDS` table.
 
-`cli_get` runs `scmp3 get` and `cli_retag` runs `scmp3 retag`. What the commands print is in
-`cli_output`, and the terminal review they share is in `cli_review`.
+`cli_get` runs `scmp3 get`, `cli_retag` runs `scmp3 retag` and `cli_menu` runs
+`scmp3 app-menu`. What the commands print is mostly in `cli_output`, and the terminal review
+they share is in `cli_review`.
 """
 
 import argparse
@@ -9,6 +10,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from scmp3.cli_get import add_get_arguments, run_get
+from scmp3.cli_menu import add_menu_arguments, run_menu
 from scmp3.cli_retag import add_retag_arguments, run_retag
 from scmp3.core.engine_start import EngineStart
 
@@ -33,6 +35,11 @@ COMMANDS: dict[str, Command] = {
         help="review and fix the tags on files you already have",
         add_arguments=add_retag_arguments,
         run=run_retag,
+    ),
+    "app-menu": Command(
+        help="add sc-mp3 to the Linux app menu, or remove it with --remove",
+        add_arguments=add_menu_arguments,
+        run=run_menu,
     ),
 }
 

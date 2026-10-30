@@ -16,6 +16,11 @@ export function pick_image() {
   return { path: "~/Pictures/cover.png" };
 }
 
+// A browser's drops carry their files, so none is ever left for the page to ask about.
+export function take_dropped_paths() {
+  return { paths: [] };
+}
+
 export function reveal(path) {
   console.info(`Mock API: this would show ${path} in the file manager.`);
   return {};

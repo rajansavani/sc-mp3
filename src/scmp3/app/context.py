@@ -8,6 +8,7 @@ from pathlib import Path
 from scmp3.app.clipboard import ClipboardReader, read_clipboard
 from scmp3.app.components_view import components_view
 from scmp3.app.desktop import Desktop
+from scmp3.app.drag_paths import DragPaths
 from scmp3.app.events import EventBus
 from scmp3.app.jobs import JobManager
 from scmp3.app.settings_watch import WatchedSettingsStore
@@ -61,6 +62,8 @@ class AppContext:
     components: Components = field(default_factory=Components)
     # File dialogs, the file manager and opening Spotify.
     desktop: Desktop = field(default_factory=Desktop)
+    # The files of a drag over the window, which WebKitGTK keeps from the page.
+    drag_paths: DragPaths = field(default_factory=DragPaths)
     # Reads the system clipboard, for the offer to add a copied link.
     clipboard: ClipboardReader = read_clipboard
     # Finds Spotify's local-files.bnk, or its folder, for the Spotify help.

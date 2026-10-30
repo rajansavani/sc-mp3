@@ -81,6 +81,8 @@ function keepLinksOutOfTheWindow(event) {
 // Listeners on the whole window, added before anything renders.
 const WINDOW_LISTENERS = {
   keydown: onKeyDown,
+  // WebKit decides on dragenter too, and WebKitGTK opens a dropped file the page didn't refuse.
+  dragenter: refuseStrayDrop,
   dragover: refuseStrayDrop,
   drop: refuseStrayDrop,
   click: keepLinksOutOfTheWindow,

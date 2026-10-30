@@ -233,7 +233,7 @@ def run_window(paths: Sequence[str] = (), engine_start: EngineStart | None = Non
     context.open_stores()
     context.jobs.start_up()
     context.updates.start()
-    drops = FileDrops(context.jobs, context.events)
+    drops = FileDrops(context.jobs, context.events, context.drag_paths)
     # What isn't added waits in the event bus, and the UI shows it once the page is up.
     drops.add_paths(paths)
     page = page_location(INDEX_PAGE, Path(get_app_root()))

@@ -80,9 +80,17 @@ On Linux you install sc-mp3 from GitHub with [uv](https://docs.astral.sh/uv/), a
 
 4. Run `scmp3` to open the window. `scmp3 --help` lists the commands you can run in a terminal instead.
 
+5. To open sc-mp3 from your app menu as well, run:
+
+   ```
+   scmp3 app-menu
+   ```
+
+   This adds `sc-mp3.desktop` to `~/.local/share/applications` and the icon to `~/.local/share/icons`.
+
 If your shell says `scmp3` isn't found, run `uv tool update-shell` and open a new terminal.
 
-To update, run `uv tool upgrade sc-mp3`. To remove sc-mp3, run `uv tool uninstall sc-mp3`. Your songs and settings stay.
+To update, run `uv tool upgrade sc-mp3`. To remove sc-mp3, run `scmp3 app-menu --remove` and then `uv tool uninstall sc-mp3`. Your songs and settings stay.
 
 If ffmpeg is missing, sc-mp3 says so before it downloads a track, with the command to install it:
 
@@ -117,8 +125,6 @@ Then install uv as in step 2, and install sc-mp3 without the Qt extra:
 ```
 uv tool install --python 3.13 "sc-mp3 @ git+https://github.com/rajansavani/sc-mp3" --with "pywebview[gtk]"
 ```
-
-With GTK, files dropped on the window aren't added yet. Select Open audio files while the queue is empty, or run `scmp3 retag` with the files.
 
 ## First run
 

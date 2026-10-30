@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 
 from scmp3.app import drops
+from scmp3.app.drag_paths import DragPaths
 from scmp3.app.drops import SAME_NAME_DROP, FileDrops
 
 SONG = r"C:\Music\old songs\Sunday Mornings.mp3"
@@ -42,13 +43,30 @@ def drop(*files: dict[str, Any]) -> dict[str, Any]:
     return {"type": "drop", "dataTransfer": {"files": list(files), "dropEffect": "none"}}
 
 
+def gtk_drop() -> dict[str, Any]:
+    """A drop of files as WebKitGTK sends it: a uri-list the page can't read, and no files."""
+    types = ["text/uri-list", "text/html"]
+    return {"type": "drop", "dataTransfer": {"files": [], "types": types, "dropEffect": "none"}}
+
+
 def dropped_file(path: str, name: str | None = None) -> dict[str, Any]:
     return {"name": name or path.rsplit("\\", 1)[-1], "size": 3, "pywebviewFullPath": path}
 
 
-def handler(jobs: Any, events: FakeEvents, leftovers: list[Any] | None = None) -> FileDrops:
+def not_gtk() -> DragPaths:
+    return DragPaths(renderer=lambda: None)
+
+
+def handler(
+    jobs: Any,
+    events: FakeEvents,
+    leftovers: list[Any] | None = None,
+    dragged: DragPaths | None = None,
+) -> FileDrops:
     """A drop handler that never touches pywebview's own list of dropped paths."""
-    return FileDrops(jobs, events, leftover_paths=lambda: list(leftovers or []))
+    return FileDrops(
+        jobs, events, dragged or not_gtk(), leftover_paths=lambda: list(leftovers or [])
+    )
 
 
 REFUSED_FOR_SAME_NAMES = {"type": "rejected", "rejected": [{"input": "", "reason": SAME_NAME_DROP}]}
@@ -170,8 +188,62 @@ def test_a_drop_without_files_does_nothing(jobs: FakeJobs, events: FakeEvents) -
     # A dropped link has no files, and the page adds it itself.
     handler(jobs, events).dropped(drop())
     handler(jobs, events).dropped({"type": "drop"})
+    handler(jobs, events).dropped(gtk_drop())
     assert jobs.added == []
     assert events.sent == []
+
+
+def gtk_drag(*uris: str, dropped: bool = True) -> DragPaths:
+    """The files of a drag over a GTK window, as WebKitGTK's uri-list gave them."""
+    dragged = DragPaths(renderer=lambda: "gtkwebkit2")
+    drag = object()
+    dragged.record(drag, uris)
+    if dropped:
+        dragged.drop(drag)
+    return dragged
+
+
+def test_a_gtk_drag_let_go_elsewhere_adds_nothing_at_a_later_drop(
+    jobs: FakeJobs, events: FakeEvents
+) -> None:
+    # GTK reported no drop for it, so a later drop's event can't take its files.
+    dragged = gtk_drag("file:///home/sam/song.mp3", dropped=False)
+    handler(jobs, events, dragged=dragged).dropped(gtk_drop())
+    assert jobs.added == []
+
+
+def test_a_gtk_drop_adds_the_drags_files_by_their_paths(jobs: FakeJobs, events: FakeEvents) -> None:
+    dragged = gtk_drag("file:///home/sam/my%20song.mp3", "file:///home/sam/b.m4a")
+    handler(jobs, events, dragged=dragged).dropped(gtk_drop())
+    assert jobs.added == ["/home/sam/my song.mp3\n/home/sam/b.m4a"]
+    assert dragged.take() == []
+
+
+def test_two_gtk_files_with_the_same_name_are_both_added(
+    jobs: FakeJobs, events: FakeEvents
+) -> None:
+    # The drag gives each file's own path, so neither can get the other's.
+    dragged = gtk_drag("file:///a/song.mp3", "file:///b/song.mp3")
+    handler(jobs, events, dragged=dragged).dropped(gtk_drop())
+    assert jobs.added == ["/a/song.mp3\n/b/song.mp3"]
+    assert events.sent == []
+
+
+def test_a_drop_without_a_uri_list_doesnt_take_an_old_drags_files(
+    jobs: FakeJobs, events: FakeEvents
+) -> None:
+    # A drag of text, after a drag of files that was never dropped.
+    dragged = gtk_drag("file:///home/sam/song.mp3")
+    text_drop = {"type": "drop", "dataTransfer": {"files": [], "types": ["text/plain"]}}
+    handler(jobs, events, dragged=dragged).dropped(text_drop)
+    assert jobs.added == []
+    assert dragged.take() == []
+
+
+def test_a_drop_with_files_adds_only_those(jobs: FakeJobs, events: FakeEvents) -> None:
+    dragged = gtk_drag("file:///home/sam/old.mp3")
+    handler(jobs, events, dragged=dragged).dropped(drop(dropped_file(SONG)))
+    assert jobs.added == [SONG]
 
 
 def test_files_pywebview_found_no_path_for_are_left_out(
@@ -208,12 +280,16 @@ def test_the_handler_is_bound_to_the_pages_body(jobs: FakeJobs, events: FakeEven
 
     class Window:
         dom = type("Dom", (), {"body": Body()})()
+        native = "the GTK window"
 
-    drop_handler = handler(jobs, events)
+    watched: list[Any] = []
+    dragged = DragPaths(renderer=lambda: "gtkwebkit2", watch_drags=lambda n, _: watched.append(n))
+    drop_handler = handler(jobs, events, dragged=dragged)
     drop_handler.bind(Window())
     [(event, callback)] = bound
     assert event == "drop"
     assert callback.callback == drop_handler.dropped
+    assert watched == ["the GTK window"]
 
 
 def test_a_handler_that_cant_be_bound_is_logged_and_the_window_goes_on(

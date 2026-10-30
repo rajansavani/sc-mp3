@@ -1,5 +1,5 @@
-"""Tests for the file bridge calls: the pickers, showing a file, and opening Spotify and its
-folder for local files."""
+"""Tests for the file bridge calls: the pickers, dropped files, showing a file, and opening
+Spotify and its folder for local files."""
 
 from collections.abc import Sequence
 from pathlib import Path
@@ -11,6 +11,7 @@ from scmp3.app import messages
 from scmp3.app.bridge import Api
 from scmp3.app.context import AppContext
 from scmp3.app.desktop import Desktop
+from scmp3.app.drag_paths import DragPaths
 from scmp3.app.events import EventBus
 from scmp3.core import paths
 from scmp3.core.history import History
@@ -70,7 +71,14 @@ def spotify_folder() -> SpotifyFolder:
 
 
 @pytest.fixture
-def api(desktop: Desktop, tmp_path: Path, spotify_folder: SpotifyFolder) -> Api:
+def drag_paths() -> DragPaths:
+    return DragPaths(renderer=lambda: "gtkwebkit2")
+
+
+@pytest.fixture
+def api(
+    desktop: Desktop, tmp_path: Path, spotify_folder: SpotifyFolder, drag_paths: DragPaths
+) -> Api:
     store = SettingsStore(paths.config_dir() / "settings.json")
     store.update({"library_dir": str(tmp_path / "library")})
     context = AppContext(
@@ -78,6 +86,7 @@ def api(desktop: Desktop, tmp_path: Path, spotify_folder: SpotifyFolder) -> Api:
         history=History(paths.data_dir() / "history.db"),
         events=EventBus(),
         desktop=desktop,
+        drag_paths=drag_paths,
         find_local_files=spotify_folder,
     )
     return Api(context)
@@ -117,6 +126,24 @@ def test_the_image_picker_takes_one_image(api: Api, desktop: Desktop) -> None:
     assert api.pick_image() == {"path": "C:\\cover.png"}
     assert window.asked[0]["allow_multiple"] is False
     assert window.asked[0]["file_types"] == (messages.IMAGE_FILES,)
+
+
+def test_a_drop_the_page_got_without_files_gets_them_once(api: Api, drag_paths: DragPaths) -> None:
+    # WebKitGTK's drop on the cover, whose file the drag gave Python.
+    drag = object()
+    drag_paths.record(drag, ["file:///home/sam/Pictures/cover%201.jpg"])
+    drag_paths.drop(drag)
+    assert api.take_dropped_paths() == {"paths": ["/home/sam/Pictures/cover 1.jpg"]}
+    assert api.take_dropped_paths() == {"paths": []}
+
+
+def test_a_drag_let_go_elsewhere_gives_a_later_drop_no_files(
+    api: Api, drag_paths: DragPaths
+) -> None:
+    # Review F1: a cover let go on the bare page, then plain text dropped on the Replace dialog.
+    drag_paths.record(object(), ["file:///home/sam/Pictures/cover.jpg"])
+    drag_paths.drop(object())
+    assert api.take_dropped_paths() == {"paths": []}
 
 
 def test_the_filters_are_ones_pywebview_accepts() -> None:

@@ -55,13 +55,16 @@ function carriesInputs(dataTransfer) {
 // Drop handlers for a zone that takes links and audio files, and whether something is over it.
 export function useInputDrop() {
   const [over, setOver] = useState(false);
+  const accept = (event) => {
+    if (!carriesInputs(event.dataTransfer)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setOver(true);
+  };
   const handlers = {
-    onDragOver: (event) => {
-      if (!carriesInputs(event.dataTransfer)) return;
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "copy";
-      setOver(true);
-    },
+    // WebKit refuses a drop whose last move entered a new element, unless dragenter took it too.
+    onDragEnter: accept,
+    onDragOver: accept,
     onDragLeave: (event) => {
       // Moving between the zone's own children fires dragleave too.
       if (!event.currentTarget.contains(event.relatedTarget)) setOver(false);

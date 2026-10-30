@@ -3,7 +3,7 @@ import { html } from "htm/preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 
 import { strings } from "../strings/index.js";
-import { applyImageFile, ReplaceCoverDialog, setCover } from "./CoverDialogs.js";
+import { applyDroppedPath, applyImageFile, ReplaceCoverDialog, setCover } from "./CoverDialogs.js";
 import { CropDialog } from "./CropDialog.js";
 import { Icon } from "./icons.js";
 import { coverCrop, coverSide, cropStyle, jobTitle, sourceKind } from "./job-view.js";
@@ -23,14 +23,17 @@ function droppedImageLink(dataTransfer) {
 // Drop handlers for the preview, which takes an image file or an image dragged from a browser.
 function useImageDrop(job, editable) {
   const [over, setOver] = useState(false);
+  const accept = (event) => {
+    const types = [...event.dataTransfer.types];
+    if (!editable || (!types.includes("Files") && !types.includes("text/uri-list"))) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setOver(true);
+  };
   const handlers = {
-    onDragOver: (event) => {
-      const types = [...event.dataTransfer.types];
-      if (!editable || (!types.includes("Files") && !types.includes("text/uri-list"))) return;
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "copy";
-      setOver(true);
-    },
+    // WebKit refuses a drop whose last move entered a new element, unless dragenter took it too.
+    onDragEnter: accept,
+    onDragOver: accept,
     onDragLeave: (event) => {
       // Moving onto the image inside fires dragleave too.
       if (!event.currentTarget.contains(event.relatedTarget)) setOver(false);
@@ -47,7 +50,11 @@ function useImageDrop(job, editable) {
         return;
       }
       const link = droppedImageLink(event.dataTransfer);
-      if (link) setCover(job, { kind: "url", value: link });
+      if (link) {
+        setCover(job, { kind: "url", value: link });
+        return;
+      }
+      applyDroppedPath(job, event.dataTransfer);
     },
   };
   return { over, handlers };

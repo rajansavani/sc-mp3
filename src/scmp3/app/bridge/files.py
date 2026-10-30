@@ -1,5 +1,5 @@
-"""Bridge calls that open file dialogs, show files in the file manager, and open Spotify and its
-folder for local files."""
+"""Bridge calls that open file dialogs, hand over dropped files, show files in the file manager,
+and open Spotify and its folder for local files."""
 
 import logging
 import os
@@ -51,6 +51,10 @@ class FilesApi:
         if paths is None:
             return {"error": INTERNAL}
         return {"path": paths[0] if paths else None}
+
+    def take_dropped_paths(self) -> dict[str, Any]:
+        """The files of a drop the page got without them, as WebKitGTK sends drops."""
+        return {"paths": self._context.drag_paths.take()}
 
     def _choose(
         self,
