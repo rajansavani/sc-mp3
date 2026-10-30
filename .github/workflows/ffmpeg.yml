@@ -1,0 +1,188 @@
+name: ffmpeg
+
+# Builds sc-mp3's own small LGPL ffmpeg with packaging/ffmpeg/build.sh, then checks each build on
+# the system it's for. The binaries and reports stay on the run's page as artifacts.
+on:
+  workflow_dispatch:
+  # A tag like ffmpeg-9.0.2-1 builds and checks the binaries too. Nothing here publishes them.
+  push:
+    tags: ["ffmpeg-*"]
+
+# Read only, so no run can create or change a release.
+permissions:
+  contents: read
+
+jobs:
+  sources:
+    name: Fetch and verify the sources
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Nothing here pushes, so the token doesn't need to stay in .git/config.
+          persist-credentials: false
+
+      - name: Download the tarballs and check their SHA-256
+        run: bash packaging/ffmpeg/build.sh fetch sources
+
+      - name: Check FFmpeg's release signature
+        run: bash packaging/ffmpeg/build.sh check-signature sources
+
+      # Every build uses these same files, which a release can attach as the source.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ffmpeg-sources
+          path: sources/
+          if-no-files-found: error
+
+  build:
+    name: Build for ${{ matrix.target }}
+    needs: sources
+    strategy:
+      # Let every build finish, so one failure doesn't hide another.
+      fail-fast: false
+      matrix:
+        include:
+          # Cross-compiled with MinGW-w64, which is quicker and simpler than MSYS2 on Windows.
+          - target: windows-x64
+            runner: ubuntu-24.04
+          - target: macos-arm64
+            runner: macos-latest
+          # The last Intel image, available until August 2027.
+          - target: macos-x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: ffmpeg-sources
+          path: sources
+
+      # LAME's configure stops without pkg-config. FFmpeg's x86 code needs nasm.
+      - name: Install the cross-compiler
+        if: matrix.target == 'windows-x64'
+        run: sudo apt-get update && sudo apt-get install -y mingw-w64 nasm pkg-config
+
+      - name: Install the build tools
+        if: runner.os == 'macOS'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+        run: brew install pkgconf ${{ matrix.target == 'macos-x64' && 'nasm' || '' }}
+
+      - name: Build
+        run: bash packaging/ffmpeg/build.sh build ${{ matrix.target }} sources "$RUNNER_TEMP/ffmpeg-build"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ffmpeg-${{ matrix.target }}
+          path: ${{ runner.temp }}/ffmpeg-build/dist/
+          if-no-files-found: error
+
+      # configure's log says why a library or component wasn't found.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: build-logs-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/ffmpeg-build/lame-*/config.log
+            ${{ runner.temp }}/ffmpeg-build/ffmpeg-*/ffbuild/config.log
+          if-no-files-found: warn
+
+  check:
+    name: Check on ${{ matrix.target }}
+    needs: build
+    # Check every build that finished, even when another one failed.
+    if: ${{ !cancelled() }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: windows-x64
+            runner: windows-2025
+            binary: ffmpeg.exe
+          - target: macos-arm64
+            runner: macos-latest
+            binary: ffmpeg
+          - target: macos-x64
+            runner: macos-15-intel
+            binary: ffmpeg
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # setup-uv only publishes exact version tags.
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          # Match the dev machine's uv, since setup-uv would otherwise pick the newest one that fits required-version.
+          version: "0.8.22"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: ffmpeg-${{ matrix.target }}
+          path: ${{ runner.temp }}/ours
+
+      - run: uv sync --locked
+
+      # The builds we ship now make the samples and the tests' own files, since ours can't.
+      - name: Fetch a full ffmpeg to make the samples with
+        run: |
+          uv run --locked python packaging/fetch_binaries.py --os "${TARGET%-*}" --arch "${TARGET#*-}"
+          uv run --locked python -c "import pathlib; print(pathlib.Path('packaging/bin/$TARGET').resolve())" >> "$GITHUB_PATH"
+
+      # Artifacts lose the execute bit.
+      - name: Show our build's version and the full ffmpeg's
+        run: |
+          chmod +x "$RUNNER_TEMP/ours/${{ matrix.binary }}"
+          "$RUNNER_TEMP/ours/${{ matrix.binary }}" -version
+          ffmpeg -version | sed -n 1p
+
+      # For the local HTTPS server the checks download from. MSYS_NO_PATHCONV stops Git Bash on
+      # Windows from turning /CN=localhost into a path.
+      - name: Make a self-signed certificate
+        env:
+          MSYS_NO_PATHCONV: "1"
+        run: >-
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=localhost
+          -keyout "$RUNNER_TEMP/key.pem" -out "$RUNNER_TEMP/cert.pem"
+
+      - name: Run the conversion and download checks
+        env:
+          SCMP3_FFMPEG: ${{ runner.temp }}/ours/${{ matrix.binary }}
+        run: >-
+          uv run --locked python packaging/ffmpeg/check_build.py --target "$TARGET"
+          --ffmpeg "$SCMP3_FFMPEG" --reference "packaging/bin/$TARGET/${{ matrix.binary }}"
+          --certificate "$RUNNER_TEMP/cert.pem" --private-key "$RUNNER_TEMP/key.pem"
+          --out "$RUNNER_TEMP/check"
+
+      - name: Add the report to the run's summary
+        if: always()
+        run: cat "$RUNNER_TEMP/check/report.md" >> "$GITHUB_STEP_SUMMARY" || true
+
+      # T-014's tests. The app finds our build through SCMP3_FFMPEG, and the tests make their
+      # source files with the full ffmpeg on PATH.
+      - name: Run the conversion tests with our build
+        if: always()
+        env:
+          SCMP3_FFMPEG: ${{ runner.temp }}/ours/${{ matrix.binary }}
+        run: uv run --locked pytest -rs tests/unit/test_convert.py tests/unit/test_download.py
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: check-${{ matrix.target }}
+          path: ${{ runner.temp }}/check/
+          if-no-files-found: warn
