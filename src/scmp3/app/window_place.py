@@ -3,7 +3,8 @@
 window_fit.py checks a place against the screens before the window opens. The window reports
 its size and position through pywebview's events, which arrive on their own threads in no fixed
 order. A maximize sends the full-screen size too, so the size kept is the last one reported well
-before the window was maximized.
+before the window was maximized. Where the toolkit can say where its window is as it closes,
+that beats the reports.
 """
 
 import json
@@ -43,6 +44,47 @@ class WindowPlace:
     x: int | None = None
     y: int | None = None
     maximized: bool = False
+
+
+# Reports where a window's frame is, in desktop coordinates.
+ReportMove = Callable[[float, float], None]
+# Starts reporting a window's moves, for a toolkit whose moved event reports another point.
+WatchMoves = Callable[[Any, ReportMove], None]
+# Reads a window's size and frame position from its toolkit, or None while it's maximized,
+# minimized or full screen.
+ReadPlace = Callable[[Any], WindowPlace | None]
+
+
+@dataclass(frozen=True)
+class Backend:
+    """How one of pywebview's window backends takes and reports a window's place."""
+
+    # The room a frame takes outside the size pywebview reports. Qt and GTK report the client area.
+    frame: tuple[int, int] = (0, 0)
+    # How the frame's moves are followed, or None for pywebview's moved event.
+    watch_moves: WatchMoves | None = None
+    # Whether what's reported as a window is restored from maximized can be kept. Qt reports no
+    # size when it's the opening one, and a position with the maximized frame's margins.
+    reports_after_restore: bool = True
+    # Whether the window can open maximized. pywebview's Cocoa window only covers the screen.
+    opens_maximized: bool = True
+    # How long before the maximized event the size reported may already be the maximized one.
+    maximize_settle_s: float = MAXIMIZE_SETTLE_S
+    # Reads the window's place from the toolkit as it closes, or None to keep what was reported.
+    read_at_close: ReadPlace | None = None
+
+
+# pywebview's WinForms window, as T-074 checked it live.
+WINFORMS = Backend()
+
+
+@dataclass(frozen=True)
+class ScreenOrigin:
+    """The pywebview screen a window's x and y are relative to, and its place on the desktop."""
+
+    screen: Any
+    x: int
+    y: int
 
 
 def default_path() -> Path:
@@ -94,8 +136,13 @@ def save(path: Path, place: WindowPlace) -> None:
         log.warning("Couldn't keep the window's size and position: %s", error)
 
 
-def window_options(place: WindowPlace | None, default: tuple[int, int]) -> dict[str, Any]:
-    """The create_window options that open the window at a place window_fit has checked."""
+def window_options(
+    place: WindowPlace | None, default: tuple[int, int], origin: ScreenOrigin | None = None
+) -> dict[str, Any]:
+    """The create_window options that open the window at a place window_fit has checked.
+
+    `origin` is the screen Qt and GTK add to x and y. WinForms takes them as they are.
+    """
     if place is None:
         return {"width": default[0], "height": default[1]}
     options: dict[str, Any] = {
@@ -103,8 +150,12 @@ def window_options(place: WindowPlace | None, default: tuple[int, int]) -> dict[
         "height": place.height,
         "maximized": place.maximized,
     }
-    if place.x is not None and place.y is not None:
+    if place.x is None or place.y is None:
+        return options
+    if origin is None:
         options.update(x=place.x, y=place.y)
+    else:
+        options.update(x=place.x - origin.x, y=place.y - origin.y, screen=origin.screen)
     return options
 
 
@@ -123,19 +174,30 @@ class PlaceTracker:
         start: WindowPlace,
         minimum: tuple[int, int],
         clock: Callable[[], float] = time.monotonic,
+        *,
+        reports_after_restore: bool = True,
+        settle_s: float = MAXIMIZE_SETTLE_S,
     ) -> None:
         self._start = start
         self._minimum = minimum
         self._clock = clock
+        self._reports_after_restore = reports_after_restore
+        self._settle_s = settle_s
         self._lock = threading.Lock()
         self._reports: deque[_Report] = deque(maxlen=KEPT_REPORTS)
         self._maximized_at: float | None = clock() if start.maximized else None
+        # Reports before this time are left out, as the window settles after a restore.
+        self._settled_at: float | None = None
         self._minimized = False
+        # The place the toolkit gave as the window closed, which beats every report.
+        self._at_close: WindowPlace | None = None
 
-    def attach(self, window: Any) -> None:
-        """Listen to the window's size, position and state events."""
+    def attach(self, window: Any, *, moves: bool = True) -> None:
+        """Listen to the window's size, position and state events, and to its moves unless
+        something else reports them."""
         window.events.resized += self.resized
-        window.events.moved += self.moved
+        if moves:
+            window.events.moved += self.moved
         window.events.maximized += self.maximized
         window.events.minimized += self.minimized
         window.events.restored += self.restored
@@ -170,20 +232,42 @@ class PlaceTracker:
             if self._minimized:
                 self._minimized = False
                 return
+            if not self._reports_after_restore and self._maximized_at is not None:
+                self._forget_since(self._maximized_at - self._settle_s)
+                self._settled_at = self._clock() + self._settle_s
             self._maximized_at = None
+
+    def closing(self, normal: WindowPlace | None) -> None:
+        """Take the place the toolkit gives as the window closes, or None to keep the reports.
+
+        Each close sets it again, since a close the user cancels leaves the window open.
+        """
+        with self._lock:
+            self._at_close = normal
+
+    def _forget_since(self, cutoff: float) -> None:
+        # The window goes back to its place from before the maximize, which may not be reported.
+        kept = [report for report in self._reports if report.at < cutoff]
+        self._reports.clear()
+        self._reports.extend(kept)
 
     def _report(self, report: _Report) -> None:
         with self._lock:
             if self._minimized:
+                return
+            if self._settled_at is not None and report.at < self._settled_at:
                 return
             self._reports.append(report)
 
     def place(self) -> WindowPlace:
         """The place to save: the last normal size and position, and whether it's maximized."""
         with self._lock:
+            # Event threads still running as the window closes can't undo what the toolkit said.
+            if self._at_close is not None:
+                return replace(self._at_close, maximized=False)
             cutoff = None
             if self._maximized_at is not None:
-                cutoff = self._maximized_at - MAXIMIZE_SETTLE_S
+                cutoff = self._maximized_at - self._settle_s
             normal = [report for report in self._reports if cutoff is None or report.at < cutoff]
             place = replace(self._start, maximized=self._maximized_at is not None)
         size = next((report.size for report in reversed(normal) if report.size), None)

@@ -10,7 +10,7 @@ from collections.abc import Callable, MutableMapping, Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
-from scmp3.app import instance, webview_data, window_memory, window_place
+from scmp3.app import instance, toolkit_screens, webview_data, window_memory, window_place
 from scmp3.app.bridge import Api
 from scmp3.app.closing import close_guard
 from scmp3.app.context import AppContext
@@ -26,7 +26,7 @@ from scmp3.app.page_loading import (
     start_page_server,
 )
 from scmp3.app.webview_data import EarlyDeleteFilter
-from scmp3.app.window_place import WindowPlace
+from scmp3.app.window_place import ScreenOrigin, WindowPlace
 from scmp3.core.engine_start import EngineStart, log_start
 from scmp3.core.log import setup_logging
 
@@ -154,6 +154,8 @@ def open_window(
     on_closing: Callable[[], bool] | None = None,
     data_folder: Path | None = None,
     place: WindowPlace | None = None,
+    origin: ScreenOrigin | None = None,
+    gui: str | None = None,
 ) -> int:
     """Show the window until it's closed. Returns 1 when the UI couldn't be shown.
 
@@ -161,7 +163,8 @@ def open_window(
     `on_ready` gets the window each time the UI has loaded, and `on_closing` can keep it open by
     returning False. `data_folder` is where WebView2 keeps its data, instead of the temp folder.
     `place` is where the window opens, as window_fit fitted it to the monitors, or None for
-    the default size, placed by the toolkit.
+    the default size, placed by the toolkit. `origin` is the screen Qt and GTK place it against.
+    `gui` is the toolkit pywebview already picked, or None to let it pick.
     """
     # The app never loads files from disk into the window, so a dropped or linked file can't either.
     toolkit.settings["ALLOW_FILE_URLS"] = False
@@ -173,7 +176,7 @@ def open_window(
         WINDOW_TITLE,
         page,
         js_api=api,
-        **window_place.window_options(place, WINDOW_SIZE),
+        **window_place.window_options(place, WINDOW_SIZE, origin),
         min_size=MIN_WINDOW_SIZE,
         background_color=BACKGROUND,
         # base.css makes text unselectable itself, since pywebview's inline rule breaks the CSP.
@@ -191,8 +194,9 @@ def open_window(
     window.events.closed += events.close
     window.events.closed += watch.window_closed
     storage = {"storage_path": str(data_folder)} if data_folder is not None else {}
+    picked = {"gui": gui} if gui is not None else {}
     try:
-        toolkit.start(http_server=True, private_mode=True, **storage)
+        toolkit.start(http_server=True, private_mode=True, **storage, **picked)
     finally:
         events.close()
 
@@ -244,8 +248,10 @@ def run_window(paths: Sequence[str] = (), engine_start: EngineStart | None = Non
         serve_without_name_lookup(webview.http)
         # webview.start() reuses the server that's already running.
         start_page_server(webview.http.start_global_server, page)
-    # On Windows only. It never raises, so the shutdown below always runs.
+    # On Windows, Linux and macOS. It never raises, so the shutdown below always runs.
     memory = window_memory.for_this_platform(WINDOW_SIZE, MIN_WINDOW_SIZE)
+    # On Linux and macOS, reading the screens has picked pywebview's toolkit. On Windows, nothing.
+    gui = toolkit_screens.picked_gui(webview.renderer)
 
     def on_created(window: Any) -> None:
         context.desktop.attach(window)
@@ -264,6 +270,8 @@ def run_window(paths: Sequence[str] = (), engine_start: EngineStart | None = Non
             on_closing=close_guard(context.jobs).closing,
             data_folder=webview_data.data_folder(),
             place=memory.place if memory is not None else None,
+            origin=memory.origin if memory is not None else None,
+            gui=gui,
         )
     finally:
         if memory is not None:

@@ -210,3 +210,142 @@ def test_the_main_window_opens_where_it_was(monkeypatch: pytest.MonkeyPatch) -> 
         main.open_window(Toolkit(), None, None, page="index.html", place=place)
     assert (created["width"], created["height"], created["x"], created["y"]) == (1400, 900, 40, 60)
     assert created["min_size"] == main.MIN_WINDOW_SIZE
+
+
+def test_on_qt_and_gtk_the_place_is_given_relative_to_the_screen_it_is_placed_against() -> None:
+    # Qt and GTK add the screen's origin to x and y, so a place on a monitor left of the
+    # primary one at (1000, 0) is given as negative (review F9).
+    first = object()
+    origin = window_place.ScreenOrigin(first, 1000, 0)
+    place = WindowPlace(width=1000, height=700, x=100, y=50)
+    options = window_place.window_options(place, DEFAULT, origin)
+    assert (options["x"], options["y"], options["screen"]) == (-900, 50, first)
+
+
+def test_without_a_position_no_screen_is_given() -> None:
+    origin = window_place.ScreenOrigin(object(), 1000, 0)
+    options = window_place.window_options(WindowPlace(1280, 860), DEFAULT, origin)
+    assert "screen" not in options and "x" not in options
+
+
+def test_a_restore_that_reports_no_size_goes_back_to_the_size_before_the_maximize(
+    clock: Clock,
+) -> None:
+    # Qt reports no size when the window goes back to the size it opened at (review F11).
+    start = WindowPlace(width=1000, height=700, x=200, y=100)
+    places = PlaceTracker(start, MINIMUM, clock, reports_after_restore=False)
+    clock.advance(5)
+    places.maximized()
+    places.resized(1400, 881)
+    places.moved(0, 0)
+    clock.advance(5)
+    places.restored()
+    assert places.place() == start
+
+
+def test_a_restore_keeps_what_came_before_the_maximize_and_after_the_restore(
+    clock: Clock,
+) -> None:
+    places = PlaceTracker(WindowPlace(1000, 700), MINIMUM, clock, reports_after_restore=False)
+    places.resized(1100, 720)
+    places.moved(150, 120)
+    clock.advance(5)
+    places.maximized()
+    places.resized(1400, 881)
+    clock.advance(5)
+    places.restored()
+    clock.advance(2)
+    places.moved(160, 130)
+    assert places.place() == WindowPlace(width=1100, height=720, x=160, y=130)
+
+
+def test_a_position_reported_as_the_window_is_restored_is_left_out(clock: Clock) -> None:
+    # Qt reports the restored window with the maximized frame's margins, a pixel off.
+    start = WindowPlace(width=1000, height=700, x=200, y=100)
+    places = PlaceTracker(start, MINIMUM, clock, reports_after_restore=False)
+    clock.advance(5)
+    places.maximized()
+    places.resized(1400, 881)
+    places.moved(0, 0)
+    clock.advance(3)
+    places.restored()
+    clock.advance(0.01)
+    places.moved(201, 101)
+    assert places.place() == start
+
+
+def test_restoring_from_minimized_keeps_what_was_reported_while_maximized(clock: Clock) -> None:
+    places = PlaceTracker(WindowPlace(1000, 700), MINIMUM, clock, reports_after_restore=False)
+    places.resized(1100, 720)
+    clock.advance(5)
+    places.maximized()
+    clock.advance(5)
+    places.minimized()
+    places.restored()
+    assert places.place() == WindowPlace(width=1100, height=720, maximized=True)
+
+
+def test_the_tracker_can_leave_the_moves_to_something_else(clock: Clock) -> None:
+    window = FakeWindow()
+    tracker(clock).attach(window, moves=False)
+    assert len(window.events.moved.handlers) == 0
+    assert len(window.events.resized.handlers) == 1
+
+
+def test_a_size_back_at_the_opening_one_is_kept_when_read_at_close(clock: Clock) -> None:
+    # Qt reports no size when it's the opening one, so the reports end at the size between
+    # (review F1).
+    start = WindowPlace(width=1000, height=700, x=1200, y=100)
+    places = PlaceTracker(start, MINIMUM, clock, reports_after_restore=False)
+    places.resized(1150, 760)
+    clock.advance(2)
+    places.closing(WindowPlace(1000, 700, x=1200, y=100))
+    assert places.place() == start
+
+
+def test_a_move_just_after_a_restore_is_kept_when_read_at_close(clock: Clock) -> None:
+    # The reports for half a second after a restore are left out (review F2).
+    places = PlaceTracker(WindowPlace(1000, 700, x=100, y=80), MINIMUM, clock, settle_s=0.5)
+    clock.advance(5)
+    places.maximized()
+    places.resized(1400, 845)
+    clock.advance(3)
+    places.restored()
+    clock.advance(0.15)
+    places.moved(300, 60)
+    places.closing(WindowPlace(1000, 700, x=300, y=60))
+    assert places.place() == WindowPlace(1000, 700, x=300, y=60)
+
+
+def test_a_window_maximized_at_close_keeps_the_place_from_before_the_maximize(
+    clock: Clock,
+) -> None:
+    places = tracker(clock)
+    places.resized(1300, 880)
+    places.moved(100, 50)
+    clock.advance(5)
+    places.maximized()
+    places.resized(1920, 1040)
+    places.closing(None)
+    assert places.place() == WindowPlace(width=1300, height=880, x=100, y=50, maximized=True)
+
+
+def test_a_maximize_reported_after_the_close_doesnt_undo_what_the_toolkit_said(
+    clock: Clock,
+) -> None:
+    places = tracker(clock)
+    places.closing(WindowPlace(1300, 880, x=100, y=50))
+    # An event thread from before the close can run after it.
+    places.maximized()
+    assert places.place() == WindowPlace(1300, 880, x=100, y=50)
+
+
+def test_each_close_reads_the_place_again(clock: Clock) -> None:
+    places = tracker(clock)
+    places.resized(1300, 880)
+    places.closing(WindowPlace(1100, 720, x=10, y=10))
+    # The user kept the window open, maximized it and closed it again.
+    clock.advance(5)
+    places.maximized()
+    places.closing(None)
+    assert places.place() == WindowPlace(width=1300, height=880, maximized=True)

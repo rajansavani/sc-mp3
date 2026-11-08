@@ -193,6 +193,12 @@ def test_the_window_uses_the_built_in_server_in_private_mode(api: Api) -> None:
     assert toolkit.start_options == {"http_server": True, "private_mode": True}
 
 
+def test_start_takes_the_toolkit_pywebview_already_picked(api: Api) -> None:
+    toolkit = FakeToolkit(renderer="qtwebengine")
+    main.open_window(toolkit, api, EventBus(), page=PAGE, gui="qt")
+    assert toolkit.start_options == {"http_server": True, "private_mode": True, "gui": "qt"}
+
+
 def test_file_urls_are_turned_off(api: Api) -> None:
     toolkit = FakeToolkit()
     main.open_window(toolkit, api, EventBus(), page=PAGE)
