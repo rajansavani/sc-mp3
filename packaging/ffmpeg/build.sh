@@ -2,13 +2,22 @@
 # Build sc-mp3's small LGPL ffmpeg from pinned source tarballs.
 #
 # Usage:
-#   build.sh fetch <sources-dir>                       download missing tarballs, check every SHA-256
-#   build.sh check-signature <sources-dir>             check FFmpeg's tarball against its signature
-#   build.sh build <target> <sources-dir> <work-dir>   build into <work-dir>/dist
+#   build.sh fetch <sources-dir>               download missing tarballs, check every SHA-256
+#   build.sh check-signature <sources-dir>     check FFmpeg's tarball against its signature
+#   build.sh build <target> <sources-dir> <work-dir> [<release-tag>]
+#                                              build, then zip ffmpeg into <work-dir>/dist
+#   build.sh version                           print the FFmpeg version this script builds
 #
-# Targets: windows-x64, cross-compiled on Linux with MinGW-w64 (apt: mingw-w64 nasm pkg-config),
-# and macos-arm64 or macos-x64, each built on a Mac of that architecture (brew: pkgconf, and nasm
-# for Intel). LAME's configure stops without pkg-config, though nothing here uses a .pc file.
+# <release-tag>, like ffmpeg-9.0.2-1, is the release the zip's README sends readers to.
+#
+# Each target needs bash, curl, tar and these:
+#   windows-x64 is cross-compiled on Ubuntu 24.04, with these apt packages:
+#     mingw-w64 nasm pkg-config make gcc xz-utils zip
+#     FFmpeg's configure builds a small helper with the host's gcc.
+#   macos-arm64 and macos-x64 each build on a Mac of that architecture, with Xcode's command line
+#   tools and Homebrew's pkgconf, plus nasm for macos-x64.
+# check-signature also needs gpg: apt's gnupg, or Homebrew's gnupg.
+# LAME's configure stops without pkg-config, though nothing here uses a .pc file.
 set -euo pipefail
 
 FFMPEG_VERSION=9.0.2
@@ -96,8 +105,13 @@ fetch_sources() {
 # Check the FFmpeg tarball against FFmpeg's detached signature, made with the pinned key.
 check_signature() {
   local sources="$1" tarball="ffmpeg-$FFMPEG_VERSION.tar.xz" keyring status
-  curl --fail --location --silent --show-error --retry 3 \
-    --output "$sources/$tarball.asc" "https://ffmpeg.org/releases/$tarball.asc"
+  command -v gpg >/dev/null || fail "check-signature needs gpg. Install gnupg with apt or Homebrew."
+  # A release attaches the signature, so a rebuild from its files needs no download.
+  if [ ! -f "$sources/$tarball.asc" ]; then
+    curl --fail --location --silent --show-error --retry 3 \
+      --output "$sources/$tarball.asc.partial" "https://ffmpeg.org/releases/$tarball.asc"
+    mv "$sources/$tarball.asc.partial" "$sources/$tarball.asc"
+  fi
   keyring="$(mktemp -d)"
   gpg --homedir "$keyring" --quiet --import "$SCRIPT_DIR/ffmpeg-release-key.asc"
   status="$(gpg --homedir "$keyring" --status-fd 1 --verify "$sources/$tarball.asc" "$sources/$tarball" 2>/dev/null || true)"
@@ -238,7 +252,7 @@ check_linking() {
 }
 
 build() {
-  local target="$1" sources="$2" work="$3"
+  local target="$1" sources="$2" work="$3" release_tag="$4"
   set_target "$target"
   fetch_sources "$sources"
   sources="$(cd "$sources" && pwd)"
@@ -255,10 +269,76 @@ build() {
   build_ffmpeg "$work" "$sources" "$prefix"
 
   # The Makefile strips ffmpeg_g's symbols into ffmpeg.
-  cp "$work/ffmpeg-$FFMPEG_VERSION/$BINARY" "$dist/$BINARY"
-  check_linking "$target" "$dist/$BINARY" "$dist/linking.txt"
-  echo "Built $dist/$BINARY, $(wc -c <"$dist/$BINARY" | tr -d ' ') bytes, linking:"
+  local binary="$work/ffmpeg-$FFMPEG_VERSION/$BINARY"
+  local zip="$dist/ffmpeg-$FFMPEG_VERSION-sc-mp3-$target.zip"
+  check_linking "$target" "$binary" "$dist/linking.txt"
+  package "$target" "$work" "$binary" "$zip" "$release_tag"
+  echo "Built $zip, with $BINARY at $(wc -c <"$binary" | tr -d ' ') bytes, linking:"
   cat "$dist/linking.txt"
+}
+
+# Zip the binary with a README and the license texts that have to go with it.
+package() {
+  local target="$1" work="$2" binary="$3" zip="$4" release_tag="$5"
+  local stage="$work/package" config_h="$work/ffmpeg-$FFMPEG_VERSION/config.h"
+  rm -rf "$stage" "$zip"
+  mkdir -p "$stage"
+  cp "$binary" "$stage/"
+  copy_licenses "$target" "$work" "$stage/licenses"
+  write_readme "$target" "$config_h" "$release_tag" >"$stage/README.txt"
+  # -X leaves out the build machine's user and group ids.
+  (cd "$stage" && zip -r -X "$zip" .)
+}
+
+# FFmpeg's and LAME's license texts come from their tarballs. -static links parts of the MinGW-w64
+# runtime and of GCC's libgcc into ffmpeg.exe, so the Windows zip has their notices too, from the
+# Ubuntu packages that supplied them.
+copy_licenses() {
+  local target="$1" work="$2" licenses="$3"
+  local ffmpeg="$work/ffmpeg-$FFMPEG_VERSION" lame="$work/lame-$LAME_VERSION"
+  mkdir -p "$licenses/FFmpeg" "$licenses/LAME"
+  cp "$ffmpeg/COPYING.LGPLv2.1" "$ffmpeg/LICENSE.md" "$licenses/FFmpeg/"
+  # LAME's LICENSE asks for a link to its website, which the README has.
+  cp "$lame/COPYING" "$lame/LICENSE" "$licenses/LAME/"
+  [ "$target" = windows-x64 ] || return 0
+  mkdir -p "$licenses/MinGW-w64" "$licenses/GCC"
+  cp /usr/share/doc/mingw-w64-x86-64-dev/copyright "$licenses/MinGW-w64/"
+  # Debian's notice for GCC points to the GPL's text by its path on Debian, so that file comes too.
+  cp /usr/share/doc/gcc-mingw-w64-base/copyright /usr/share/common-licenses/GPL-3 "$licenses/GCC/"
+}
+
+# The zip's README.txt: what the binary is, its licenses, where its source is and its configuration.
+write_readme() {
+  local target="$1" config_h="$2" release_tag="$3" configuration license notices="" sources_note
+  configuration="$(sed -n 's/^#define FFMPEG_CONFIGURATION "\(.*\)"$/\1/p' "$config_h")"
+  license="$(sed -n 's/^#define FFMPEG_LICENSE "\(.*\)"$/\1/p' "$config_h")"
+  [ -n "$configuration" ] && [ -n "$license" ] || fail "$config_h has no configuration or license."
+  if [ "$target" = windows-x64 ]; then
+    notices=$'\n'"ffmpeg.exe also holds parts of the MinGW-w64 runtime and of GCC's libgcc,"
+    notices="$notices and the licenses folder has their notices too."
+  fi
+  local files="the FFmpeg and LAME tarballs, and the build.sh that built this ffmpeg from them."
+  sources_note="This zip wasn't built for a release. Its source is $files"
+  if [ -n "$release_tag" ]; then
+    sources_note="Its source is in the sc-mp3 release $release_tag: $files"$'\n'
+    sources_note="${sources_note}https://github.com/rajansavani/sc-mp3/releases/tag/$release_tag"
+  fi
+  cat <<EOF
+FFmpeg $FFMPEG_VERSION with LAME $LAME_VERSION, for $target
+
+This ffmpeg was built for sc-mp3, with only what sc-mp3 runs it for.
+FFmpeg is licensed here under the $license.
+LAME is licensed under the GNU Library General Public License version 2 or later.
+Their license texts are in the licenses folder.$notices
+
+$sources_note
+
+FFmpeg: https://ffmpeg.org
+LAME: https://lame.sourceforge.io
+
+The configure options:
+$configuration
+EOF
 }
 
 main() {
@@ -272,11 +352,15 @@ main() {
       check_signature "$2"
       ;;
     build)
-      [ $# -eq 4 ] || fail "Usage: build.sh build <target> <sources-dir> <work-dir>"
-      build "$2" "$3" "$4"
+      [ $# -eq 4 ] || [ $# -eq 5 ] ||
+        fail "Usage: build.sh build <target> <sources-dir> <work-dir> [<release-tag>]"
+      build "$2" "$3" "$4" "${5:-}"
+      ;;
+    version)
+      echo "$FFMPEG_VERSION"
       ;;
     *)
-      fail "Usage: build.sh fetch|check-signature|build ... (see the top of build.sh)"
+      fail "Usage: build.sh fetch|check-signature|build|version ... (see the top of build.sh)"
       ;;
   esac
 }

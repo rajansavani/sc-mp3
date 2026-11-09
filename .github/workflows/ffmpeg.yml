@@ -1,16 +1,21 @@
 name: ffmpeg
 
 # Builds sc-mp3's own small LGPL ffmpeg with packaging/ffmpeg/build.sh, then checks each build on
-# the system it's for. The binaries and reports stay on the run's page as artifacts.
+# the system it's for. The zips and reports stay on the run's page as artifacts.
 on:
+  # A run started by hand builds and checks, and drafts nothing.
   workflow_dispatch:
-  # A tag like ffmpeg-9.0.2-1 builds and checks the binaries too. Nothing here publishes them.
+  # A tag like ffmpeg-9.0.2-1 also drafts a release with the zips and their sources, once every
+  # check has passed. Publishing it is done by hand.
   push:
     tags: ["ffmpeg-*"]
 
-# Read only, so no run can create or change a release.
+# Read only. The release job alone can write, and only to make the draft.
 permissions:
   contents: read
+
+# Every action is pinned by commit, with its tag in a comment. Any action in the run could replace
+# an artifact before the release job attaches it, so a moved tag anywhere could change a release.
 
 jobs:
   sources:
@@ -18,10 +23,20 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Nothing here pushes, so the token doesn't need to stay in .git/config.
           persist-credentials: false
+
+      # The release takes the FFmpeg version from the tag, so it has to be the one build.sh builds.
+      - name: Check the tag against build.sh
+        if: github.ref_type == 'tag'
+        run: |
+          version="$(bash packaging/ffmpeg/build.sh version)"
+          if [[ ! "$GITHUB_REF_NAME" =~ ^ffmpeg-([0-9.]+)-[0-9]+$ ]] || [ "${BASH_REMATCH[1]}" != "$version" ]; then
+            echo "::error::The tag $GITHUB_REF_NAME doesn't match build.sh, which builds FFmpeg $version. Use a tag like ffmpeg-$version-1."
+            exit 1
+          fi
 
       - name: Download the tarballs and check their SHA-256
         run: bash packaging/ffmpeg/build.sh fetch sources
@@ -29,8 +44,8 @@ jobs:
       - name: Check FFmpeg's release signature
         run: bash packaging/ffmpeg/build.sh check-signature sources
 
-      # Every build uses these same files, which a release can attach as the source.
-      - uses: actions/upload-artifact@v7
+      # Every build uses these same files, which the release attaches as the source.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ffmpeg-sources
           path: sources/
@@ -55,11 +70,11 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ffmpeg-sources
           path: sources
@@ -67,7 +82,7 @@ jobs:
       # LAME's configure stops without pkg-config. FFmpeg's x86 code needs nasm.
       - name: Install the cross-compiler
         if: matrix.target == 'windows-x64'
-        run: sudo apt-get update && sudo apt-get install -y mingw-w64 nasm pkg-config
+        run: sudo apt-get update && sudo apt-get install -y mingw-w64 nasm pkg-config zip
 
       - name: Install the build tools
         if: runner.os == 'macOS'
@@ -75,17 +90,21 @@ jobs:
           HOMEBREW_NO_AUTO_UPDATE: "1"
         run: brew install pkgconf ${{ matrix.target == 'macos-x64' && 'nasm' || '' }}
 
+      # On a tag, the zip's README names the release it will be in.
       - name: Build
-        run: bash packaging/ffmpeg/build.sh build ${{ matrix.target }} sources "$RUNNER_TEMP/ffmpeg-build"
+        env:
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: bash packaging/ffmpeg/build.sh build ${{ matrix.target }} sources "$RUNNER_TEMP/ffmpeg-build" "$RELEASE_TAG"
 
-      - uses: actions/upload-artifact@v7
+      # The zip, which the checks unpack and the release attaches, and the list of linked libraries.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ffmpeg-${{ matrix.target }}
           path: ${{ runner.temp }}/ffmpeg-build/dist/
           if-no-files-found: error
 
       # configure's log says why a library or component wasn't found.
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: build-logs-${{ matrix.target }}
@@ -97,8 +116,9 @@ jobs:
   check:
     name: Check on ${{ matrix.target }}
     needs: build
-    # Check every build that finished, even when another one failed.
-    if: ${{ !cancelled() }}
+    # Check every build that finished, even when another one failed. When the sources job failed,
+    # as it does for a bad tag, no build ran and there's nothing to check.
+    if: ${{ !cancelled() && needs.build.result != 'skipped' }}
     strategy:
       fail-fast: false
       matrix:
@@ -120,22 +140,27 @@ jobs:
     env:
       TARGET: ${{ matrix.target }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      # setup-uv only publishes exact version tags.
-      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           # Match the dev machine's uv, since setup-uv would otherwise pick the newest one that fits required-version.
           version: "0.8.22"
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ffmpeg-${{ matrix.target }}
           path: ${{ runner.temp }}/ours
 
       - run: uv sync --locked
+
+      # The checks run the binary from the zip that a release attaches.
+      - name: Unzip our build
+        run: |
+          uv run --locked python -m zipfile -l "$RUNNER_TEMP"/ours/ffmpeg-*.zip
+          uv run --locked python -m zipfile -e "$RUNNER_TEMP"/ours/ffmpeg-*.zip "$RUNNER_TEMP/ours"
 
       # The builds we ship now make the samples and the tests' own files, since ours can't.
       - name: Fetch a full ffmpeg to make the samples with
@@ -143,7 +168,7 @@ jobs:
           uv run --locked python packaging/fetch_binaries.py --os "${TARGET%-*}" --arch "${TARGET#*-}"
           uv run --locked python -c "import pathlib; print(pathlib.Path('packaging/bin/$TARGET').resolve())" >> "$GITHUB_PATH"
 
-      # Artifacts lose the execute bit.
+      # Python's zipfile doesn't keep the execute bit.
       - name: Show our build's version and the full ffmpeg's
         run: |
           chmod +x "$RUNNER_TEMP/ours/${{ matrix.binary }}"
@@ -180,9 +205,102 @@ jobs:
           SCMP3_FFMPEG: ${{ runner.temp }}/ours/${{ matrix.binary }}
         run: uv run --locked pytest -rs tests/unit/test_convert.py tests/unit/test_download.py
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: check-${{ matrix.target }}
           path: ${{ runner.temp }}/check/
           if-no-files-found: warn
+
+  release:
+    name: Draft the release
+    needs: [sources, build, check]
+    # Only for a pushed tag, and only once every build and check has passed.
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # One release job per tag at a time, so two runs can't both pass the first step's check.
+    concurrency:
+      group: ffmpeg-release-${{ github.ref }}
+    permissions:
+      # Only this job can write releases. It runs no project code, and each action is pinned by
+      # commit, so a moved tag can't change what runs with this token.
+      contents: write
+    steps:
+      # gh makes a second draft rather than refuse, so a rerun mustn't find one already there.
+      - name: Check that the tag has no release yet
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The list includes drafts. It's read first, so a failed read fails this step.
+          tags="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName --jq '.[].tagName')"
+          if grep -Fxq "$GITHUB_REF_NAME" <<<"$tags"; then
+            echo "::error::$GITHUB_REF_NAME already has a release or a draft. To redo the draft, delete it on the releases page, then rerun this job. To replace a published release, push a new tag with the next build number."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Without merge-multiple, each artifact lands in a folder named after it.
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: ffmpeg-*
+          path: artifacts
+
+      - name: Collect the release files
+        run: |
+          mkdir release
+          cp artifacts/ffmpeg-sources/* artifacts/ffmpeg-*/ffmpeg-*.zip release/
+          cp packaging/ffmpeg/build.sh packaging/ffmpeg/ffmpeg-release-key.asc release/
+          cd release
+          zips=(ffmpeg-*.zip)
+          if [ "${#zips[@]}" -ne 3 ]; then
+            echo "::error::Expected a zip for Windows and one for each Mac, but found: ${zips[*]}."
+            exit 1
+          fi
+          files=(*)
+          sha256sum "${files[@]}" > SHA256SUMS
+          cat SHA256SUMS
+
+      # A pre-release never becomes the repo's latest release, which the app's update check and
+      # the README's download links read. When an upload fails, this step deletes the incomplete
+      # draft gh leaves, so "Re-run failed jobs" starts clean.
+      - name: Create a draft release
+        working-directory: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # The sources job checked that the tag is ffmpeg-<version>-<build>.
+          version="${GITHUB_REF_NAME#ffmpeg-}"
+          version="${version%-*}"
+          lame_tarball=(lame-*.tar.gz)
+          lame="${lame_tarball[0]#lame-}"
+          lame="${lame%.tar.gz}"
+          cat > "$RUNNER_TEMP/notes.md" <<EOF
+          This isn't a release of the sc-mp3 app. It holds ffmpeg builds for sc-mp3's releases: FFmpeg ${version} with LAME ${lame}, built from the source tarballs here. It's marked as a pre-release so that it never shows as sc-mp3's latest release.
+
+          The build has only what sc-mp3 runs ffmpeg for: decoding the audio a download can hold, encoding MP3 with LAME, writing MP3 and M4A files, and HTTPS and HLS for yt-dlp. It's licensed under the GNU Lesser General Public License version 2.1 or later.
+
+          There's a zip for each target: windows-x64, macos-arm64 for Apple silicon and macos-x64 for Intel Macs. Each holds the program, a README.txt with its configure options, and the license texts. Each program passed sc-mp3's conversion and download checks on its own system before this release was drafted: ${RUN_URL}
+
+          To rebuild one, put build.sh, ffmpeg-release-key.asc, ffmpeg-${version}.tar.xz, its .asc and ${lame_tarball[0]} in one folder, and run these there:
+
+              bash build.sh check-signature .
+              bash build.sh build <target> . build
+
+          The zip lands in build/dist. The top of build.sh lists the tools each target needs. The Windows build runs on Ubuntu 24.04, and each Mac build on a Mac with that processor.
+
+          SHA256SUMS holds the SHA-256 of every file here.
+          EOF
+          if ! gh release create "$GITHUB_REF_NAME" * --draft --prerelease --verify-tag --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"; then
+            # The first step found no release for the tag, so a draft here is the one gh just made.
+            if gh release delete "$GITHUB_REF_NAME" --yes --repo "$GITHUB_REPOSITORY"; then
+              echo "::error::Drafting the release failed, and the incomplete draft was deleted. Rerun this job."
+            else
+              echo "::error::Drafting the release failed. If the releases page shows a draft for $GITHUB_REF_NAME, delete it, then rerun this job."
+            fi
+            exit 1
+          fi
