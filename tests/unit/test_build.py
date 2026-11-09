@@ -31,15 +31,31 @@ def load_module(name: str, path: Path) -> ModuleType:
     return module
 
 
-# build.py imports its siblings by name, as it does when it runs from packaging/.
+# build.py imports its siblings by name, as it does when it runs from packaging/, and
+# fetch_binaries.py imports the two before it.
 licenses = load_module("bundle_licenses", PACKAGING / "bundle_licenses.py")
 bundle_check = load_module("bundle_check", PACKAGING / "bundle_check.py")
+load_module("binary_archives", PACKAGING / "binary_archives.py")
+load_module("binaries_lock", PACKAGING / "binaries_lock.py")
 load_module("fetch_binaries", PACKAGING / "fetch_binaries.py")
 # A name that can't hide another module.
 build = load_module("scmp3_packaging_build", SCRIPT)
 WINDOWS = build.Target("windows", "x64")
 MACOS = build.Target("macos", "arm64")
-FFMPEG_TOP = licenses.ffmpeg_top_folder(WINDOWS.name)
+# What ffmpeg.yml's zips hold beside the binary, with pretend texts.
+FFMPEG_NOTICES = {
+    "README.txt": b"build notes",
+    "licenses/FFmpeg/COPYING.LGPLv2.1": b"LGPL 2.1",
+    "licenses/LAME/COPYING": b"LGPL 2",
+}
+WINDOWS_RUNTIME_NOTICES = {
+    "licenses/MinGW-w64/copyright": b"ZPL 2.1",
+    "licenses/GCC/copyright": b"GCC's runtime exception",
+}
+FFMPEG_ZIPS = {
+    WINDOWS: {"ffmpeg.exe": b"MZ", **FFMPEG_NOTICES, **WINDOWS_RUNTIME_NOTICES},
+    MACOS: {"ffmpeg": b"\xcf\xfa\xed\xfe", **FFMPEG_NOTICES},
+}
 
 
 def make_ffmpeg_archive(path: Path, members: dict[str, bytes]) -> Path:
@@ -61,13 +77,9 @@ def pretend_build_inputs(
     python_license = folder / "LICENSE.txt"
     python_license.write_text("PSF License", encoding="utf-8")
     monkeypatch.setattr(licenses, "PYTHON_LICENSES", (folder / "missing", python_license))
-    members = {
-        f"{FFMPEG_TOP}/LICENSE": b"GPL",
-        f"{FFMPEG_TOP}/README.txt": b"build notes",
-        f"{FFMPEG_TOP}/bin/ffmpeg.exe": b"MZ",
-    }
-    (folder / WINDOWS.name).mkdir()
-    make_ffmpeg_archive(folder / WINDOWS.name / "ffmpeg.zip", members)
+    for target, members in FFMPEG_ZIPS.items():
+        (folder / target.name).mkdir()
+        make_ffmpeg_archive(folder / target.name / "ffmpeg.zip", members)
     monkeypatch.setattr(licenses, "BIN_DIR", folder)
     monkeypatch.setattr(build, "WORK_DIR", tmp_path_factory.mktemp("work"))
 
@@ -201,16 +213,18 @@ def test_the_mac_zip_holds_the_app_with_the_license_and_notices_beside_it(tmp_pa
     build.build(FakeRunner(), VERSION, MACOS, tmp_path)
     with zipfile.ZipFile(tmp_path / build.zip_name(VERSION, MACOS)) as archive:
         names = set(archive.namelist())
-        ffmpeg_license = archive.read("sc-mp3/licenses/ffmpeg/LICENSE")
+        ffmpeg_license = archive.read("sc-mp3/licenses/ffmpeg/FFmpeg/COPYING.LGPLv2.1")
     assert {
         "sc-mp3/sc-mp3.app/Contents/MacOS/sc-mp3",
         "sc-mp3/LICENSE.txt",
         "sc-mp3/THIRD_PARTY_NOTICES.txt",
         "sc-mp3/licenses/python/LICENSE.txt",
+        "sc-mp3/licenses/ffmpeg/README.txt",
+        "sc-mp3/licenses/ffmpeg/LAME/COPYING",
     } <= names
-    # Martin Riedl's archive holds ffmpeg alone, and his builds are under sc-mp3's own GPL.
-    assert ffmpeg_license == (build.REPO_ROOT / "LICENSE").read_bytes()
+    assert ffmpeg_license == b"LGPL 2.1"
     assert not any(name.startswith("sc-mp3/_internal") for name in names)
+    assert not any("MinGW-w64" in name for name in names)
 
 
 def test_a_mac_build_replaces_the_last_builds_folder(tmp_path: Path) -> None:
@@ -360,6 +374,21 @@ def test_the_zip_holds_the_licenses_of_pyinstaller_python_and_ffmpeg(tmp_path: P
     with zipfile.ZipFile(tmp_path / build.zip_name(VERSION, WINDOWS)) as archive:
         names = archive.namelist()
         assert archive.read("sc-mp3/licenses/python/LICENSE.txt") == b"PSF License"
-        assert archive.read("sc-mp3/licenses/ffmpeg/LICENSE") == b"GPL"
         assert archive.read("sc-mp3/licenses/ffmpeg/README.txt") == b"build notes"
+        for name, data in {**FFMPEG_NOTICES, **WINDOWS_RUNTIME_NOTICES}.items():
+            # The zip's licenses folder becomes the app's licenses/ffmpeg.
+            assert archive.read(f"sc-mp3/licenses/ffmpeg/{name.removeprefix('licenses/')}") == data
     assert "sc-mp3/licenses/pyinstaller/COPYING.txt" in names
+    assert not any(name.endswith("ffmpeg.exe") for name in names)
+
+
+def test_a_build_whose_ffmpeg_zip_lacks_a_license_text_stops_before_the_zip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bare = tmp_path / "bin"
+    (bare / WINDOWS.name).mkdir(parents=True)
+    make_ffmpeg_archive(bare / WINDOWS.name / "ffmpeg.zip", {"ffmpeg.exe": b"MZ"})
+    monkeypatch.setattr(licenses, "BIN_DIR", bare)
+    with pytest.raises(build.BuildError, match=r"has no README\.txt"):
+        build.build(FakeRunner(), VERSION, WINDOWS, tmp_path / "dist")
+    assert not (tmp_path / "dist" / build.zip_name(VERSION, WINDOWS)).exists()

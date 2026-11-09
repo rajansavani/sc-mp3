@@ -4,7 +4,7 @@ import importlib.metadata
 import importlib.util
 import sys
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from types import ModuleType
 
 import pytest
@@ -24,7 +24,43 @@ def load_script() -> ModuleType:
 
 
 licenses = load_script()
-FFMPEG_TOP = licenses.ffmpeg_top_folder("windows-x64")
+
+# What ffmpeg.yml's Windows zip holds, folders included, with pretend texts.
+WINDOWS_ZIP = {
+    "README.txt": b"FFmpeg 9.0.2 with LAME 4.0, for windows-x64",
+    "ffmpeg.exe": b"MZ",
+    "licenses/": b"",
+    "licenses/FFmpeg/": b"",
+    "licenses/FFmpeg/LICENSE.md": b"FFmpeg's license overview",
+    "licenses/FFmpeg/COPYING.LGPLv2.1": b"LGPL 2.1",
+    "licenses/LAME/": b"",
+    "licenses/LAME/LICENSE": b"LAME's license note",
+    "licenses/LAME/COPYING": b"LGPL 2",
+    "licenses/MinGW-w64/": b"",
+    "licenses/MinGW-w64/copyright": b"ZPL 2.1",
+    "licenses/GCC/": b"",
+    "licenses/GCC/copyright": b"GCC's runtime exception",
+    "licenses/GCC/GPL-3": b"GPL 3",
+}
+WINDOWS_NOTICES = {
+    "README.txt": b"FFmpeg 9.0.2 with LAME 4.0, for windows-x64",
+    "FFmpeg/LICENSE.md": b"FFmpeg's license overview",
+    "FFmpeg/COPYING.LGPLv2.1": b"LGPL 2.1",
+    "LAME/LICENSE": b"LAME's license note",
+    "LAME/COPYING": b"LGPL 2",
+    "MinGW-w64/copyright": b"ZPL 2.1",
+    "GCC/copyright": b"GCC's runtime exception",
+    "GCC/GPL-3": b"GPL 3",
+}
+# The Mac zips hold the same, minus ffmpeg.exe and the two runtimes.
+MAC_ZIP = {
+    "ffmpeg": b"\xcf\xfa\xed\xfe",
+    **{
+        name: data
+        for name, data in WINDOWS_ZIP.items()
+        if name != "ffmpeg.exe" and "MinGW-w64" not in name and "GCC" not in name
+    },
+}
 
 
 def make_ffmpeg_archive(path: Path, members: dict[str, bytes]) -> Path:
@@ -33,6 +69,10 @@ def make_ffmpeg_archive(path: Path, members: dict[str, bytes]) -> Path:
         for name, data in members.items():
             archive.writestr(name, data)
     return path
+
+
+def as_names(notices: dict[PurePosixPath, bytes]) -> dict[str, bytes]:
+    return {str(name): data for name, data in notices.items()}
 
 
 def make_dist(site: Path, name: str, files: dict[str, str]) -> importlib.metadata.Distribution:
@@ -114,32 +154,85 @@ def test_each_package_folder_kept_in_the_repo_holds_a_license() -> None:
         assert any(folder.iterdir()), folder.name
 
 
-def test_ffmpeg_notices_are_the_license_and_readme_in_the_archives_top_folder(
-    tmp_path: Path,
-) -> None:
-    members = {
-        f"{FFMPEG_TOP}/LICENSE": b"GPL",
-        f"{FFMPEG_TOP}/README.txt": b"notes",
-        "other/LICENSE": b"not this one",
-    }
-    archive = make_ffmpeg_archive(tmp_path / "ffmpeg.zip", members)
-    assert licenses.ffmpeg_notices(archive, FFMPEG_TOP) == {
-        "LICENSE": b"GPL",
-        "README.txt": b"notes",
-    }
-    without_readme = make_ffmpeg_archive(tmp_path / "bare.zip", {f"{FFMPEG_TOP}/LICENSE": b"GPL"})
-    with pytest.raises(licenses.LicenseError, match=r"README\.txt"):
-        licenses.ffmpeg_notices(without_readme, FFMPEG_TOP)
-
-
-def test_the_ffmpeg_top_folder_comes_from_the_pinned_archive_member() -> None:
-    assert FFMPEG_TOP == "ffmpeg-9.0.2-essentials_build"
+def test_ffmpeg_notices_are_the_readme_and_every_license_text_in_our_zip(tmp_path: Path) -> None:
+    archive = make_ffmpeg_archive(tmp_path / "ffmpeg.zip", WINDOWS_ZIP)
+    required = licenses.required_ffmpeg_notices("windows-x64")
+    assert as_names(licenses.ffmpeg_notices(archive, required)) == WINDOWS_NOTICES
 
 
 @pytest.mark.parametrize("target", ["macos-arm64", "macos-x64"])
-def test_a_mac_ffmpeg_gets_sc_mp3s_gpl_since_its_archive_holds_ffmpeg_alone(target: str) -> None:
-    assert licenses.ffmpeg_top_folder(target) is None
-    assert licenses.target_ffmpeg_notices(target) == {"LICENSE": licenses.GPL_TEXT.read_bytes()}
+def test_a_mac_zip_needs_no_runtime_notices(target: str, tmp_path: Path) -> None:
+    archive = make_ffmpeg_archive(tmp_path / "ffmpeg.zip", MAC_ZIP)
+    notices = as_names(licenses.ffmpeg_notices(archive, licenses.required_ffmpeg_notices(target)))
+    assert set(notices) == {
+        "README.txt",
+        "FFmpeg/LICENSE.md",
+        "FFmpeg/COPYING.LGPLv2.1",
+        "LAME/LICENSE",
+        "LAME/COPYING",
+    }
+
+
+@pytest.mark.parametrize("missing", licenses.required_ffmpeg_notices("windows-x64"))
+def test_a_zip_without_a_required_text_stops_the_build_naming_it(
+    missing: str, tmp_path: Path
+) -> None:
+    members = {name: data for name, data in WINDOWS_ZIP.items() if name != missing}
+    archive = make_ffmpeg_archive(tmp_path / "ffmpeg.zip", members)
+    with pytest.raises(licenses.LicenseError, match=f"has no {missing}"):
+        licenses.ffmpeg_notices(archive, licenses.required_ffmpeg_notices("windows-x64"))
+
+
+def test_windows_needs_the_mingw_and_gcc_notices_and_every_target_ffmpegs_and_lames() -> None:
+    windows = licenses.required_ffmpeg_notices("windows-x64")
+    mac = licenses.required_ffmpeg_notices("macos-arm64")
+    assert set(windows) - set(mac) == {"licenses/MinGW-w64/copyright", "licenses/GCC/copyright"}
+    assert {"README.txt", "licenses/FFmpeg/COPYING.LGPLv2.1", "licenses/LAME/COPYING"} <= set(mac)
+
+
+@pytest.mark.parametrize(
+    ("member", "expected"),
+    [
+        ("README.txt", "README.txt"),
+        ("licenses/GCC/GPL-3", "GCC/GPL-3"),
+        ("licenses/FFmpeg/COPYING.LGPLv2.1", "FFmpeg/COPYING.LGPLv2.1"),
+        ("ffmpeg.exe", None),
+        ("licenses", None),
+        ("licenses/", None),
+        ("other/README.txt", None),
+        ("licenses/../../outside.txt", None),
+        ("licenses/./FFmpeg/COPYING", None),
+        ("/licenses/FFmpeg/COPYING", None),
+        ("licenses//FFmpeg/COPYING", None),
+        ("licenses\\..\\outside.txt", None),
+        # On Windows a drive in any part replaces the folder it's joined to.
+        ("licenses/C:/x.txt", None),
+        ("licenses/D:x.txt", None),
+        ("C:/licenses/x.txt", None),
+        ("", None),
+    ],
+)
+def test_only_the_readme_and_plain_names_inside_licenses_are_notices(
+    member: str, expected: str | None
+) -> None:
+    found = licenses.notice_name(member)
+    assert (str(found) if found else None) == expected
+
+
+def test_a_damaged_ffmpeg_zip_is_a_license_error(tmp_path: Path) -> None:
+    archive = tmp_path / "ffmpeg.zip"
+    archive.write_bytes(b"not a zip")
+    with pytest.raises(licenses.LicenseError, match="Couldn't read ffmpeg's notices"):
+        licenses.ffmpeg_notices(archive, ())
+
+
+def test_the_targets_notices_come_from_the_zip_fetch_binaries_keeps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "windows-x64").mkdir()
+    make_ffmpeg_archive(tmp_path / "windows-x64" / "ffmpeg.zip", WINDOWS_ZIP)
+    monkeypatch.setattr(licenses, "BIN_DIR", tmp_path)
+    assert as_names(licenses.target_ffmpeg_notices("windows-x64")) == WINDOWS_NOTICES
 
 
 def test_pythons_license_is_the_first_place_that_has_it(tmp_path: Path) -> None:

@@ -29,7 +29,8 @@ from scmp3.core.errors import ErrorKind, ScmpError
 FFMPEG_TIMEOUT = 20 * 60  # seconds
 
 # The ffmpeg options that pick the output codec for each conversion (TECH_SPEC §9).
-MP3_320_CODEC = ("-c:a", "libmp3lame", "-b:a", "320k")
+# LAME quality 4, since in CBR LAME 4.0's default of 3 sounds worse (LAME bug 516).
+MP3_320_CODEC = ("-c:a", "libmp3lame", "-b:a", "320k", "-compression_level", "4")
 # -q:a 0 is LAME's V0, its highest VBR quality.
 MP3_V0_CODEC = ("-c:a", "libmp3lame", "-q:a", "0")
 # faststart puts the index before the audio.

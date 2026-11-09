@@ -5,7 +5,6 @@ import errno
 import hashlib
 import importlib.util
 import io
-import stat
 import sys
 import tarfile
 import urllib.error
@@ -17,24 +16,27 @@ from typing import IO, Any, BinaryIO
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[2] / "packaging" / "fetch_binaries.py"
+PACKAGING = Path(__file__).resolve().parents[2] / "packaging"
 BINARY = b"pretend ffmpeg build\n" * 1000
 MEMBER = "ffmpeg-1.0/bin/ffmpeg.exe"
 
 
-def load_script() -> ModuleType:
-    """Import the script by its path, since packaging/ isn't a package."""
-    spec = importlib.util.spec_from_file_location("fetch_binaries", SCRIPT)
+def load_module(name: str) -> ModuleType:
+    """Import packaging/<name>.py by its path, since packaging/ isn't a package."""
+    spec = importlib.util.spec_from_file_location(name, PACKAGING / f"{name}.py")
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    # Registered first, as a normal import would, so dataclasses can find the module.
+    # Registered first, as a normal import would, so dataclasses and later siblings find it.
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
 
-fetch_binaries = load_script()
+# Each script imports the ones before it by name, as it does when it runs from packaging/.
+load_module("binary_archives")
+load_module("binaries_lock")
+fetch_binaries = load_module("fetch_binaries")
 
 
 def make_zip(path: Path, members: dict[str, bytes]) -> Path:
@@ -142,9 +144,34 @@ def test_wrong_hash_fails_with_a_clear_error_and_leaves_no_file(
 
     error = capsys.readouterr().err
     assert "SHA-256 mismatch" in error
-    assert f"binaries.lock expects: {wrong}" in error
-    assert f"the download has:      {sha256_hex(ffmpeg_zip)}" in error
+    assert f"the lock expects: {wrong}" in error
+    assert f"the download has: {sha256_hex(ffmpeg_zip)}" in error
     assert files_under(bin_dir) == []
+
+
+@pytest.mark.parametrize(
+    ("problem", "advice"),
+    [("sha256", "Check url and sha256 in"), ("member", "Check archive_member in")],
+)
+def test_errors_name_the_lock_given_with_the_lock_option(
+    problem: str,
+    advice: str,
+    sources: Path,
+    ffmpeg_zip: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    if problem == "sha256":
+        lock = write_lock(sources, ffmpeg_zip, sha256="0" * 64)
+    else:
+        lock = write_lock(sources, ffmpeg_zip, member="ffmpeg-1.0/missing.exe")
+    argv = ["--os", "windows", "--arch", "x64", "--lock", str(lock)]
+    assert fetch_binaries.main(argv, bin_dir=tmp_path / "bin") == 1
+
+    error = capsys.readouterr().err
+    # A lock outside the repo is named in full, so the error points at the file that was read.
+    assert f"{advice} {lock}." in error
+    assert "packaging/binaries.lock" not in error
 
 
 def test_wrong_hash_for_a_new_version_also_removes_the_old_files(
@@ -258,51 +285,6 @@ def test_missing_archive_member_is_a_clear_error(
     assert not (bin_dir / "windows-x64" / "ffmpeg.exe").exists()
 
 
-def make_special_zip(path: Path, kind: str) -> str:
-    """Write a zip whose only member is a symlink or a directory, returning the member name."""
-    with zipfile.ZipFile(path, "w") as archive:
-        if kind == "directory":
-            archive.mkdir("bin/ffmpeg")
-            return "bin/ffmpeg/"
-        link = zipfile.ZipInfo("bin/ffmpeg")
-        # Unix zip tools mark a symlink in the member's mode and store its target as the data.
-        link.create_system = 3
-        link.external_attr = (stat.S_IFLNK | 0o777) << 16
-        archive.writestr(link, "/usr/bin/ffmpeg")
-        return link.filename
-
-
-def make_special_tar(path: Path, kind: str) -> str:
-    """Write a tar whose only member is a symlink or a directory, returning the member name."""
-    member = tarfile.TarInfo("bin/ffmpeg")
-    if kind == "directory":
-        member.type = tarfile.DIRTYPE
-    else:
-        member.type = tarfile.SYMTYPE
-        member.linkname = "/usr/bin/ffmpeg"
-    with tarfile.open(path, "w:gz") as archive:
-        archive.addfile(member)
-    return member.name
-
-
-SPECIAL_MEMBER_MAKERS = {".zip": make_special_zip, ".tar.gz": make_special_tar}
-
-
-@pytest.mark.parametrize("suffix", list(SPECIAL_MEMBER_MAKERS))
-@pytest.mark.parametrize("kind", ["symlink", "directory"])
-def test_a_symlink_or_directory_in_the_archive_is_refused(
-    kind: str, suffix: str, sources: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    archive = sources / f"ffmpeg{suffix}"
-    member = SPECIAL_MEMBER_MAKERS[suffix](archive, kind)
-    lock = write_lock(sources, archive, target="macos-arm64", member=member)
-    bin_dir = tmp_path / "bin"
-
-    assert fetch(lock, bin_dir, target="macos-arm64") == 1
-    assert "isn't a regular file" in capsys.readouterr().err
-    assert not (bin_dir / "macos-arm64" / "ffmpeg").exists()
-
-
 def test_a_member_named_with_a_windows_path_is_refused_before_anything_is_written(
     sources: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -386,47 +368,6 @@ def test_a_download_cut_short_leaves_no_partial_file(
     assert files_under(bin_dir) == []
 
 
-@pytest.mark.parametrize(
-    ("entry", "message"),
-    [
-        ('[ffmpeg.windows-x64]\nurl = "https://x.invalid/a.zip"\n', "text value for sha256"),
-        ('[ffmpeg.win-x64]\nurl = "https://x.invalid/a.zip"\n', "named <os>-<arch>"),
-        ('["../ffmpeg".windows-x64]\n', "component names"),
-        ("ffmpeg = 1\n", "should be a table of targets"),
-        ("[ffmpeg\n", "isn't valid TOML"),
-    ],
-)
-def test_lock_problems_are_clear_errors(entry: str, message: str, tmp_path: Path) -> None:
-    lock = tmp_path / "binaries.lock"
-    lock.write_text(entry, encoding="utf-8")
-    with pytest.raises(fetch_binaries.FetchError, match=message):
-        fetch_binaries.load_pins(lock)
-
-
-@pytest.mark.parametrize(
-    ("field", "value", "message"),
-    [
-        ("sha256", "ABC123", "64 lowercase hex characters"),
-        ("url", "https://x.invalid/ffmpeg.7z", "url should end in one of"),
-        ("version", "", "needs a text value for version"),
-        ("archive_member", "ffmpeg-1.0/..", "plain file name"),
-        ("archive_member", "..\\escaped.exe", "plain file name"),
-        ("archive_member", "C:\\outside\\abs.exe", "plain file name"),
-        ("archive_member", "D:abs.exe", "plain file name"),
-    ],
-)
-def test_bad_field_values_are_clear_errors(
-    field: str, value: str, message: str, sources: Path, ffmpeg_zip: Path
-) -> None:
-    lock = write_lock(sources, ffmpeg_zip)
-    lines = lock.read_text(encoding="utf-8").splitlines()
-    # A TOML literal string, so backslashes in the value arrive as they are.
-    lines = [f"{field} = '{value}'" if line.startswith(f"{field} =") else line for line in lines]
-    lock.write_text("\n".join(lines), encoding="utf-8")
-    with pytest.raises(fetch_binaries.FetchError, match=message):
-        fetch_binaries.load_pins(lock)
-
-
 def test_nothing_pinned_for_linux_is_fine_because_the_system_provides_ffmpeg(
     sources: Path, ffmpeg_zip: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -457,15 +398,19 @@ def test_nothing_pinned_for_another_target_is_an_error_naming_it(
     assert not bin_dir.exists()
 
 
-def test_the_lock_pins_ffmpeg_for_windows_and_both_macos_architectures() -> None:
-    pins = fetch_binaries.load_pins(fetch_binaries.LOCK_PATH)
-    ffmpeg = {pin.target: pin for pin in pins if pin.component == "ffmpeg"}
+def test_lock_and_bin_dir_options_fetch_another_lock_into_another_folder(
+    sources: Path, ffmpeg_zip: Path, tmp_path: Path
+) -> None:
+    lock = write_lock(sources, ffmpeg_zip)
+    default_bin = tmp_path / "default-bin"
+    other_bin = tmp_path / "other-bin"
+    argv = ["--os", "windows", "--arch", "x64", "--lock", str(lock), "--bin-dir", str(other_bin)]
+    missing_lock = tmp_path / "no.lock"
+    result = fetch_binaries.main(argv, lock_path=missing_lock, bin_dir=default_bin)
 
-    assert set(ffmpeg) == {"windows-x64", "macos-arm64", "macos-x64"}
-    for pin in ffmpeg.values():
-        assert pin.url.startswith("https://")
-        assert pin.source_url.startswith("https://")
-        assert pin.license == "GPL-3.0-or-later"
+    assert result == 0
+    assert (other_bin / "windows-x64" / "ffmpeg.exe").read_bytes() == BINARY
+    assert not default_bin.exists()
 
 
 @pytest.mark.parametrize(

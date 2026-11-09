@@ -11,7 +11,8 @@ from scmp3.core import paths
 from scmp3.core.errors import ScmpError
 
 MB = 1_000_000
-# T-004's sizes for the builds we ship now: which build, ffmpeg unpacked and ffmpeg zipped, in MB.
+# T-004's sizes for the third-party builds sc-mp3 shipped before its own: which build, ffmpeg
+# unpacked and ffmpeg zipped, in MB.
 T004_SIZES = {
     "windows-x64": ("gyan.dev essentials 9.0.2", 105.4, 37.4),
     "macos-arm64": ("Martin Riedl 9.0.2", 66.3, 28.4),
@@ -127,7 +128,7 @@ def component_lines(ffmpeg: Path) -> list[str]:
 
 
 def zipped_size(binary: Path, folder: Path) -> int:
-    """The binary's size zipped on its own, as T-004 measured the builds we ship now."""
+    """The binary's size zipped on its own, as T-004 measured the third-party builds."""
     archive = folder / f"{binary.name}.zip"
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zipped:
         zipped.write(binary, binary.name)

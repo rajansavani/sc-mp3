@@ -162,11 +162,12 @@ jobs:
           uv run --locked python -m zipfile -l "$RUNNER_TEMP"/ours/ffmpeg-*.zip
           uv run --locked python -m zipfile -e "$RUNNER_TEMP"/ours/ffmpeg-*.zip "$RUNNER_TEMP/ours"
 
-      # The builds we ship now make the samples and the tests' own files, since ours can't.
+      # A full third-party build makes the samples and the tests' own files, since ours can't.
+      # binaries.lock pins ours, so the full one comes from its own lock, into its own folder.
       - name: Fetch a full ffmpeg to make the samples with
         run: |
-          uv run --locked python packaging/fetch_binaries.py --os "${TARGET%-*}" --arch "${TARGET#*-}"
-          uv run --locked python -c "import pathlib; print(pathlib.Path('packaging/bin/$TARGET').resolve())" >> "$GITHUB_PATH"
+          uv run --locked python packaging/fetch_binaries.py --os "${TARGET%-*}" --arch "${TARGET#*-}" --lock packaging/ffmpeg/reference.lock --bin-dir "$RUNNER_TEMP/reference"
+          uv run --locked python -c "import os, pathlib; print(pathlib.Path(os.environ['RUNNER_TEMP'], 'reference', os.environ['TARGET']).resolve())" >> "$GITHUB_PATH"
 
       # Python's zipfile doesn't keep the execute bit.
       - name: Show our build's version and the full ffmpeg's
@@ -189,7 +190,7 @@ jobs:
           SCMP3_FFMPEG: ${{ runner.temp }}/ours/${{ matrix.binary }}
         run: >-
           uv run --locked python packaging/ffmpeg/check_build.py --target "$TARGET"
-          --ffmpeg "$SCMP3_FFMPEG" --reference "packaging/bin/$TARGET/${{ matrix.binary }}"
+          --ffmpeg "$SCMP3_FFMPEG" --reference "$RUNNER_TEMP/reference/$TARGET/${{ matrix.binary }}"
           --certificate "$RUNNER_TEMP/cert.pem" --private-key "$RUNNER_TEMP/key.pem"
           --out "$RUNNER_TEMP/check"
 

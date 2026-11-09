@@ -213,7 +213,7 @@ def test_copy_mp3_onto_its_own_name_in_capitals_keeps_the_file(
 @pytest.mark.parametrize(
     ("conversion", "codec_args"),
     [
-        (convert.to_mp3_320, ["-c:a", "libmp3lame", "-b:a", "320k"]),
+        (convert.to_mp3_320, ["-c:a", "libmp3lame", "-b:a", "320k", "-compression_level", "4"]),
         (convert.to_mp3_v0, ["-c:a", "libmp3lame", "-q:a", "0"]),
         (convert.remux_m4a, ["-c:a", "copy", "-movflags", "+faststart"]),
     ],
@@ -243,6 +243,13 @@ def test_conversions_run_the_commands_in_the_spec(
             str(dst),
         ]
     ]
+
+
+def test_mp3_320_sets_lame_quality_4_and_v0_keeps_lames_own_vbr_setting() -> None:
+    # In CBR, LAME 4.0's default quality of 3 sounds worse than 4 (LAME bug 516). In VBR, LAME
+    # turns any quality below 5 into 0, so V0 is the same file either way.
+    assert convert.MP3_320_CODEC[-2:] == ("-compression_level", "4")
+    assert "-compression_level" not in convert.MP3_V0_CODEC
 
 
 def cancel_when_written(path: Path, cancel: threading.Event) -> threading.Thread:

@@ -4,33 +4,29 @@
 # Each table is [<component>.<os>-<arch>], with os in windows, macos, linux and arch in x64, arm64.
 # sha256 is the hash of the downloaded archive. archive_member is the binary's path inside it.
 
-# gyan.dev "essentials" release build. The URL is gyan.dev's GitHub mirror, which keeps every
-# release; gyan.dev itself keeps only the latest two. Build notes: https://www.gyan.dev/ffmpeg/builds/
+# sc-mp3's own ffmpeg: FFmpeg with LAME, built by .github/workflows/ffmpeg.yml from the source
+# tarballs and build.sh that the same release holds. Each zip also holds a README and the license
+# texts, which packaging/bundle_licenses.py copies next to the app.
 [ffmpeg.windows-x64]
-url = "https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-essentials_build.zip"
-sha256 = "60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba"
-archive_member = "ffmpeg-9.0.2-essentials_build/bin/ffmpeg.exe"
+url = "https://github.com/rajansavani/sc-mp3/releases/download/ffmpeg-9.0.2-1/ffmpeg-9.0.2-sc-mp3-windows-x64.zip"
+sha256 = "26c0727c28fe66b183b1583ba40f131eda988d6a01cafadbdaf78d479fb6744e"
+archive_member = "ffmpeg.exe"
 version = "9.0.2"
-license = "GPL-3.0-or-later"
-source_url = "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz"
+license = "LGPL-2.1-or-later"
+source_url = "https://github.com/rajansavani/sc-mp3/releases/tag/ffmpeg-9.0.2-1"
 
-# Martin Riedl's static release builds, which publish a .sha256 file per download. Build scripts:
-# https://git.martin-riedl.de/ffmpeg/build-script
-# Library versions: https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/versions.txt
 [ffmpeg.macos-arm64]
-url = "https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/ffmpeg.zip"
-sha256 = "c8ed4c4e6978a03c485edbfe4e0a5dc2380f8a30bba5150531b31b094492d924"
+url = "https://github.com/rajansavani/sc-mp3/releases/download/ffmpeg-9.0.2-1/ffmpeg-9.0.2-sc-mp3-macos-arm64.zip"
+sha256 = "2f11f1686348ba54a8aef101b5a74ee2e19e7c9cba207caba5d813af4bfcd46e"
 archive_member = "ffmpeg"
 version = "9.0.2"
-license = "GPL-3.0-or-later"
-source_url = "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz"
+license = "LGPL-2.1-or-later"
+source_url = "https://github.com/rajansavani/sc-mp3/releases/tag/ffmpeg-9.0.2-1"
 
-# Same builder. Its Intel releases stop in January 2027; published builds stay downloadable.
-# Library versions: https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/versions.txt
 [ffmpeg.macos-x64]
-url = "https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/ffmpeg.zip"
-sha256 = "7c6b4125b191cbf773832dc51f424cf2b6bb7da43007d1e066f95909e47cacd4"
+url = "https://github.com/rajansavani/sc-mp3/releases/download/ffmpeg-9.0.2-1/ffmpeg-9.0.2-sc-mp3-macos-x64.zip"
+sha256 = "24028bcc7515235aa328f4a7a1d30217215d04c5aa2f127a185643ef91074880"
 archive_member = "ffmpeg"
 version = "9.0.2"
-license = "GPL-3.0-or-later"
-source_url = "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz"
+license = "LGPL-2.1-or-later"
+source_url = "https://github.com/rajansavani/sc-mp3/releases/tag/ffmpeg-9.0.2-1"

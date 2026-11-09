@@ -1,8 +1,11 @@
 """Download the binaries pinned in binaries.lock, check their SHA-256 and extract them.
 
 Usage: python packaging/fetch_binaries.py [--os windows|macos|linux] [--arch x64|arm64]
+    [--lock <file>] [--bin-dir <folder>]
 Each binary lands in packaging/bin/<os>-<arch>/ next to its verified archive, which is kept so
-a second run can skip the download. It uses only the standard library.
+a second run can skip the download. --lock and --bin-dir read another lock into another folder,
+as ffmpeg.yml does for packaging/ffmpeg/reference.lock. It uses only the standard library.
+binaries_lock.py reads the lock, and binary_archives.py opens the archives.
 """
 
 import argparse
@@ -10,37 +13,31 @@ import hashlib
 import http.client
 import os
 import platform
-import re
 import shutil
 import stat
 import sys
 import tarfile
-import tomllib
 import urllib.request
 import zipfile
 from collections.abc import Callable, Iterator, Sequence
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import BinaryIO
-from urllib.parse import urlsplit
+
+# packaging/ is on sys.path when this file runs as a script.
+from binaries_lock import ARCH_CHOICES, OS_CHOICES, FetchError, Pin, load_pins
+from binary_archives import MEMBER_OPENERS, ArchiveError
 
 PACKAGING_DIR = Path(__file__).resolve().parent
 LOCK_PATH = PACKAGING_DIR / "binaries.lock"
 BIN_DIR = PACKAGING_DIR / "bin"
 
-OS_CHOICES = ("windows", "macos", "linux")
-ARCH_CHOICES = ("x64", "arm64")
 # What platform.system() and platform.machine() report, mapped to the names the lock uses.
 OS_BY_SYSTEM = {"Windows": "windows", "Darwin": "macos", "Linux": "linux"}
 ARCH_BY_MACHINE = {"amd64": "x64", "x86_64": "x64", "arm64": "arm64", "aarch64": "arm64"}
 
-REQUIRED_FIELDS = ("url", "sha256", "archive_member", "version", "license", "source_url")
-SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
-COMPONENT_PATTERN = re.compile(r"[a-z0-9_-]+")
-# A plain file name, so no backslash, drive or ".." that Windows would read as a path.
-BINARY_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 CHUNK_SIZE = 1024 * 1024
 # How long one read may stall before the download fails, so a dead server can't hang CI.
 TIMEOUT_SECONDS = 60
@@ -49,11 +46,6 @@ USER_AGENT = "sc-mp3-fetch-binaries"
 SYSTEM_PROVIDED = {"linux": "On Linux, ffmpeg comes from the system package manager."}
 
 type UrlOpener = Callable[[str], BinaryIO]
-type MemberOpener = Callable[[Path, str], AbstractContextManager[tuple[BinaryIO, int]]]
-
-
-class FetchError(Exception):
-    """A pinned binary couldn't be downloaded, verified or extracted."""
 
 
 class Action(StrEnum):
@@ -65,158 +57,12 @@ class Action(StrEnum):
 
 
 @dataclass(frozen=True)
-class Pin:
-    """One binary pinned in binaries.lock, for one OS and architecture."""
-
-    component: str
-    os_name: str
-    arch: str
-    url: str
-    sha256: str
-    archive_member: str
-    version: str
-    license: str
-    source_url: str
-    # Taken from the URL, like ".zip"; it picks how the archive is read.
-    archive_suffix: str
-
-    @property
-    def target(self) -> str:
-        return f"{self.os_name}-{self.arch}"
-
-    @property
-    def label(self) -> str:
-        return f"{self.component} {self.version} for {self.target}"
-
-    @property
-    def archive_name(self) -> str:
-        # Named after the component, so a version bump overwrites the old archive.
-        return self.component + self.archive_suffix
-
-    @property
-    def binary_name(self) -> str:
-        return PurePosixPath(self.archive_member).name
-
-
-@dataclass(frozen=True)
 class Fetched:
     """The result of fetching one pin."""
 
     pin: Pin
     binary: Path
     action: Action
-
-
-@contextmanager
-def open_zip_member(archive: Path, member: str) -> Iterator[tuple[BinaryIO, int]]:
-    """Open one file inside a zip archive, yielding the stream and its unpacked size."""
-    with zipfile.ZipFile(archive) as zip_file:
-        try:
-            info = zip_file.getinfo(member)
-        except KeyError:
-            raise missing_member_error(archive, member) from None
-        # Zip archives made on Unix can hold symlinks, which store the target path as content.
-        if info.is_dir() or stat.S_ISLNK(info.external_attr >> 16):
-            raise not_a_file_error(archive, member)
-        with zip_file.open(info) as stream:
-            yield stream, info.file_size
-
-
-@contextmanager
-def open_tar_member(archive: Path, member: str) -> Iterator[tuple[BinaryIO, int]]:
-    """Open one file inside a tar archive (any compression), yielding the stream and size."""
-    with tarfile.open(archive) as tar_file:
-        try:
-            info = tar_file.getmember(member)
-        except KeyError:
-            raise missing_member_error(archive, member) from None
-        stream = tar_file.extractfile(info) if info.isfile() else None
-        if stream is None:
-            raise not_a_file_error(archive, member)
-        with stream:
-            yield stream, info.size
-
-
-# Supported archive types, keyed by the suffix the download URL ends in.
-MEMBER_OPENERS: dict[str, MemberOpener] = {
-    ".zip": open_zip_member,
-    ".tar.gz": open_tar_member,
-    ".tgz": open_tar_member,
-    ".tar.xz": open_tar_member,
-}
-
-
-def archive_suffix(url: str) -> str | None:
-    """The archive suffix the URL's path ends in, or None when it isn't a known type."""
-    path = urlsplit(url).path.lower()
-    return next((suffix for suffix in MEMBER_OPENERS if path.endswith(suffix)), None)
-
-
-def missing_member_error(archive: Path, member: str) -> FetchError:
-    return FetchError(
-        f"{archive.name} has no file named {member}. "
-        "Check archive_member in packaging/binaries.lock."
-    )
-
-
-def not_a_file_error(archive: Path, member: str) -> FetchError:
-    return FetchError(
-        f"{member} in {archive.name} isn't a regular file. "
-        "Point archive_member in packaging/binaries.lock at the binary itself."
-    )
-
-
-def load_pins(lock_path: Path) -> list[Pin]:
-    """Read every entry in the lock file, checking that each has the fields fetching needs."""
-    try:
-        with lock_path.open("rb") as lock_file:
-            lock = tomllib.load(lock_file)
-    except OSError as error:
-        raise FetchError(f"Couldn't read {lock_path}: {error}") from error
-    except tomllib.TOMLDecodeError as error:
-        raise FetchError(f"{lock_path} isn't valid TOML: {error}") from error
-
-    pins = []
-    for component, targets in lock.items():
-        if not isinstance(targets, dict):
-            raise FetchError(f"{component} in {lock_path.name} should be a table of targets.")
-        for target, entry in targets.items():
-            pins.append(parse_pin(component, target, entry, lock_path.name))
-    return pins
-
-
-def parse_pin(component: str, target: str, entry: object, lock_name: str) -> Pin:
-    """Turn one [<component>.<os>-<arch>] table into a Pin, or explain what's wrong with it."""
-    where = f"[{component}.{target}] in {lock_name}"
-    # The component names the archive file, so it mustn't be able to point outside the folder.
-    if not COMPONENT_PATTERN.fullmatch(component):
-        raise FetchError(f"{where}: use lowercase letters, digits, - and _ in component names.")
-    os_name, _, arch = target.partition("-")
-    if os_name not in OS_CHOICES or arch not in ARCH_CHOICES:
-        raise FetchError(f"{where} should be named <os>-<arch>, like windows-x64.")
-    if not isinstance(entry, dict):
-        raise FetchError(f"{where} should be a table of fields.")
-
-    missing = [name for name in REQUIRED_FIELDS if not is_text(entry.get(name))]
-    if missing:
-        raise FetchError(f"{where} needs a text value for {', '.join(missing)}.")
-    if not SHA256_PATTERN.fullmatch(entry["sha256"]):
-        raise FetchError(f"{where}: sha256 should be 64 lowercase hex characters.")
-    if not BINARY_NAME_PATTERN.fullmatch(PurePosixPath(entry["archive_member"]).name):
-        raise FetchError(
-            f"{where}: archive_member should end in a plain file name, like bin/ffmpeg.exe."
-        )
-    suffix = archive_suffix(entry["url"])
-    if suffix is None:
-        known = ", ".join(MEMBER_OPENERS)
-        raise FetchError(f"{where}: url should end in one of {known}.")
-
-    fields = {name: entry[name] for name in REQUIRED_FIELDS}
-    return Pin(component=component, os_name=os_name, arch=arch, archive_suffix=suffix, **fields)
-
-
-def is_text(value: object) -> bool:
-    return isinstance(value, str) and value != ""
 
 
 def sha256_of_stream(stream: BinaryIO) -> str:
@@ -243,12 +89,12 @@ def download_verified(pin: Pin, dest: Path, open_url: UrlOpener) -> None:
         actual = download_to(pin, partial, open_url)
         if actual != pin.sha256:
             raise FetchError(
-                f"SHA-256 mismatch: the download of {pin.label} doesn't match binaries.lock, "
+                f"SHA-256 mismatch: the download of {pin.label} doesn't match {pin.lock}, "
                 "so it was deleted.\n"
-                f"  url:                   {pin.url}\n"
-                f"  binaries.lock expects: {pin.sha256}\n"
-                f"  the download has:      {actual}\n"
-                "Check url and sha256 in packaging/binaries.lock."
+                f"  url:              {pin.url}\n"
+                f"  the lock expects: {pin.sha256}\n"
+                f"  the download has: {actual}\n"
+                f"Check url and sha256 in {pin.lock}."
             )
         os.replace(partial, dest)
     finally:
@@ -288,6 +134,9 @@ def open_member(pin: Pin, archive: Path) -> Iterator[tuple[BinaryIO, int]]:
     try:
         with opener(archive, pin.archive_member) as opened:
             yield opened
+    except ArchiveError as error:
+        # Its message names the archive and the member, and this adds where to fix it.
+        raise FetchError(f"{error} Check archive_member in {pin.lock}.") from error
     except (zipfile.BadZipFile, tarfile.TarError) as error:
         raise FetchError(f"Couldn't read {archive.name} for {pin.label}: {error}") from error
 
@@ -397,13 +246,21 @@ def host_target(system: str, machine: str) -> tuple[str | None, str | None]:
     return OS_BY_SYSTEM.get(system), ARCH_BY_MACHINE.get(machine.lower())
 
 
-def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
-    """Read --os and --arch, defaulting to this machine's."""
+def parse_args(
+    argv: Sequence[str] | None, lock_path: Path = LOCK_PATH, bin_dir: Path = BIN_DIR
+) -> argparse.Namespace:
+    """Read --os and --arch, defaulting to this machine's, and --lock and --bin-dir."""
     default_os, default_arch = host_target(platform.system(), platform.machine())
     parser = argparse.ArgumentParser(description="Download and verify the pinned binaries.")
     parser.add_argument("--os", choices=OS_CHOICES, default=default_os, help="default: this OS")
     parser.add_argument(
         "--arch", choices=ARCH_CHOICES, default=default_arch, help="default: this machine's"
+    )
+    parser.add_argument(
+        "--lock", type=Path, default=lock_path, help="default: packaging/binaries.lock"
+    )
+    parser.add_argument(
+        "--bin-dir", type=Path, default=bin_dir, help="where each <os>-<arch> folder goes"
     )
     args = parser.parse_args(argv)
     if args.os is None:
@@ -420,21 +277,24 @@ def main(
     bin_dir: Path = BIN_DIR,
     open_url: UrlOpener = open_download,
 ) -> int:
-    """Fetch the binaries for one OS and architecture, returning the exit code."""
-    args = parse_args(argv)
+    """Fetch the binaries for one OS and architecture, returning the exit code.
+
+    lock_path and bin_dir are the defaults for --lock and --bin-dir.
+    """
+    args = parse_args(argv, lock_path, bin_dir)
     target = f"{args.os}-{args.arch}"
-    target_dir = bin_dir / target
+    target_dir = args.bin_dir / target
     try:
-        pins = load_pins(lock_path)
+        pins = load_pins(args.lock)
         results = fetch_target(pins, args.os, args.arch, target_dir, open_url)
         if not results and args.os not in SYSTEM_PROVIDED:
-            raise unpinned_error(target, pins, lock_path.name)
+            raise unpinned_error(target, pins, args.lock.name)
     except FetchError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
 
     if not results:
-        print(f"Nothing is pinned for {target} in {lock_path.name}. {SYSTEM_PROVIDED[args.os]}")
+        print(f"Nothing is pinned for {target} in {args.lock.name}. {SYSTEM_PROVIDED[args.os]}")
         return 0
     print(format_summary(target_dir, results))
     return 0

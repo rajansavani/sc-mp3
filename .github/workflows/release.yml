@@ -9,11 +9,13 @@ on:
 permissions:
   contents: read
 
+# Every action is pinned by commit, with its tag in a comment. Any action in the run could replace
+# an artifact before the release job attaches it, so a moved tag anywhere could change a release.
+
 env:
-  # The FFmpeg source the bundled ffmpeg builds come from, attached to each release for the GPL.
-  FFMPEG_SOURCE_URL: https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz
-  # Checked against FFmpeg's release signature, key FCF986EA15E6E293A5644F10B4322F04D67658D8.
-  FFMPEG_SOURCE_SHA256: 8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e
+  # The ffmpeg release that packaging/binaries.lock's builds come from. Each app release attaches
+  # the bundled ffmpeg's complete source from it, which the Windows job collects.
+  FFMPEG_RELEASE_URL: https://github.com/rajansavani/sc-mp3/releases/tag/ffmpeg-9.0.2-1
 
 jobs:
   version:
@@ -24,7 +26,7 @@ jobs:
       app: ${{ steps.version.outputs.app }}
       prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Nothing here pushes, so the token doesn't need to stay in .git/config.
           persist-credentials: false
@@ -64,12 +66,11 @@ jobs:
     env:
       APP_VERSION: ${{ needs.version.outputs.app }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      # setup-uv only publishes exact version tags.
-      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           # Match the dev machine's uv, since setup-uv would otherwise pick the newest one that fits required-version.
           version: "0.8.22"
@@ -97,20 +98,46 @@ jobs:
             exit 1
           }
 
+      # Our ffmpeg has no lavfi, so the check writes a WAV tone with Python and converts that.
+      - name: Check that the zipped app's ffmpeg makes both kinds of MP3
+        run: |
+          $ffmpeg = Join-Path $env:RUNNER_TEMP "smoke/sc-mp3/_internal/ffmpeg.exe"
+          uv run --locked python packaging/ffmpeg/check_bundled.py --ffmpeg $ffmpeg --out (Join-Path $env:RUNNER_TEMP "ffmpeg-check")
+          if ($LASTEXITCODE -ne 0) {
+            Write-Output "::error::The bundled ffmpeg failed its checks. The table above says which."
+            exit 1
+          }
+
       - name: Collect the release files
         run: |
           $release = New-Item -ItemType Directory -Path release
           # build.py writes the checksum in sha256sum's format, which is what SHA256SUMS holds.
           Copy-Item "dist/sc-mp3-$env:APP_VERSION-windows-x64.zip*" $release
-          $source = Join-Path $release ([IO.Path]::GetFileName($env:FFMPEG_SOURCE_URL))
-          Invoke-WebRequest -Uri $env:FFMPEG_SOURCE_URL -OutFile $source
-          $hash = (Get-FileHash -Algorithm SHA256 $source).Hash.ToLower()
-          if ($hash -ne $env:FFMPEG_SOURCE_SHA256) {
-            Write-Output "::error::The FFmpeg source has SHA-256 $hash, not the pinned $env:FFMPEG_SOURCE_SHA256."
-            exit 1
+          # The bundled ffmpeg's complete source: FFmpeg's and LAME's tarballs, and the script that
+          # built ffmpeg from them. Each SHA-256 is the one in the ffmpeg release's SHA256SUMS.
+          $sources = [ordered]@{
+            "ffmpeg-9.0.2.tar.xz" = "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e"
+            "lame-4.0.tar.gz" = "3df5124d5ad3a98312ffd7ba6a9b36230e4f8a3e66d3ce0f425e336c32d216eb"
+            "build.sh" = "1bfb8f5cd8b3de77275d7345551cd4842df9fdadd138bb79c8f5e0bce130a03a"
+          }
+          $download = $env:FFMPEG_RELEASE_URL.Replace("/releases/tag/", "/releases/download/")
+          foreach ($name in $sources.Keys) {
+            $file = Join-Path $release $name
+            # A download from ffmpeg.org once lost its connection, so curl retries before giving up.
+            # Under 1 KB/s for a minute counts as a failure too, so a stalled download is retried.
+            curl.exe --fail --location --silent --show-error --connect-timeout 30 --speed-limit 1000 --speed-time 60 --retry 5 --retry-all-errors --retry-delay 10 --output $file "$download/$name"
+            if ($LASTEXITCODE -ne 0) {
+              Write-Output "::error::Couldn't download $name from $download."
+              exit 1
+            }
+            $hash = (Get-FileHash -Algorithm SHA256 $file).Hash.ToLower()
+            if ($hash -ne $sources[$name]) {
+              Write-Output "::error::$name has SHA-256 $hash, not the pinned $($sources[$name])."
+              exit 1
+            }
           }
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-windows-x64
           path: release/
@@ -140,11 +167,11 @@ jobs:
       # uv's own Python runs on older macOS versions than the runner's Homebrew Python does.
       UV_PYTHON_PREFERENCE: only-managed
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: astral-sh/setup-uv@v10.3.0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: "0.8.22"
 
@@ -175,9 +202,15 @@ jobs:
             echo "::error::sc-mp3 --version exited with ${status:-0} and printed '$printed'."
             exit 1
           fi
-          # The bundled ffmpeg has to run on this Mac and make an MP3.
-          "$app/Contents/Frameworks/ffmpeg" -hide_banner -loglevel error -f lavfi -i "sine=duration=1" -c:a libmp3lame "$RUNNER_TEMP/tone.mp3"
           echo "SMOKE_APP=$app" >> "$GITHUB_ENV"
+
+      # Our ffmpeg has no lavfi, so the check writes a WAV tone with Python and converts that.
+      - name: Check that the zipped app's ffmpeg makes both kinds of MP3
+        run: |
+          if ! uv run --locked python packaging/ffmpeg/check_bundled.py --ffmpeg "$SMOKE_APP/Contents/Frameworks/ffmpeg" --out "$RUNNER_TEMP/ffmpeg-check"; then
+            echo "::error::The bundled ffmpeg failed its checks. The table above says which."
+            exit 1
+          fi
 
       - name: Open the app and check that it shows the UI
         run: |
@@ -211,7 +244,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: smoke-macos-${{ matrix.arch }}
@@ -224,7 +257,7 @@ jobs:
           # build.py writes the checksum in sha256sum's format, which is what SHA256SUMS holds.
           cp "dist/sc-mp3-$APP_VERSION-$TARGET.zip" "dist/sc-mp3-$APP_VERSION-$TARGET.zip.sha256" release/
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-${{ env.TARGET }}
           path: release/
@@ -241,7 +274,7 @@ jobs:
       # Only this job, which runs no project code, can write releases.
       contents: write
     steps:
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: release-*
           path: release
@@ -259,16 +292,25 @@ jobs:
             echo "::error::Expected the Windows zip and both Mac zips, but found: ${zips[*]}."
             exit 1
           fi
+          # The Windows job collected these from the ffmpeg release and checked each SHA-256.
+          sources=(ffmpeg-*.tar.xz lame-*.tar.gz build.sh)
+          for file in "${sources[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "::error::The Windows job's files have no $file, which is part of ffmpeg's source."
+              exit 1
+            fi
+          done
           cat sc-mp3-*.zip.sha256 > SHA256SUMS
-          source="$(basename "$FFMPEG_SOURCE_URL")"
           prefix="sc-mp3-${APP_VERSION}"
           cat > notes.md <<EOF
           Windows: download ${prefix}-windows-x64.zip, extract it, and open sc-mp3.exe in the extracted folder. The first time, Windows shows "Windows protected your PC". Select More info, then Run anyway.
 
           Mac, with macOS 12 or later: download ${prefix}-macos-arm64.zip for a Mac with Apple silicon (M1 or later), or ${prefix}-macos-x64.zip for a Mac with an Intel processor. Double-click the zip, then drag sc-mp3.app from the sc-mp3 folder to Applications. The first time, macOS says it couldn't verify sc-mp3. The README says how to open it.
 
-          The README explains setup and how to add your songs to Spotify. SHA256SUMS holds the zips' SHA-256 checksums. ${source} is the source of the FFmpeg version the app bundles.
+          The README explains setup and how to add your songs to Spotify. SHA256SUMS holds the zips' SHA-256 checksums.
+
+          The app bundles an ffmpeg that sc-mp3 builds from FFmpeg and LAME, under the LGPL version 2.1 or later. Its source is attached: ${sources[0]} is FFmpeg's, ${sources[1]} is LAME's, and ${sources[2]} is the script that built ffmpeg from them. They come from ${FFMPEG_RELEASE_URL}, which says how to rebuild it.
           EOF
           options=(--draft --verify-tag --repo "$GITHUB_REPOSITORY" --title "sc-mp3 ${GITHUB_REF_NAME#v}" --notes-file notes.md)
           if [ "$PRERELEASE" = "true" ]; then options+=(--prerelease); fi
-          gh release create "$GITHUB_REF_NAME" "${zips[@]}" SHA256SUMS "$source" "${options[@]}"
+          gh release create "$GITHUB_REF_NAME" "${zips[@]}" SHA256SUMS "${sources[@]}" "${options[@]}"

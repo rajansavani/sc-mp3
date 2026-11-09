@@ -3,6 +3,7 @@ ffmpeg on PATH, and skip without one."""
 
 import importlib
 import sys
+import wave
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from types import ModuleType
@@ -25,6 +26,7 @@ conversions = load("check_conversions")
 network = load("check_network")
 samples = load("check_samples")
 check_build = load("check_build")
+bundled = load("check_bundled")
 
 # FFmpeg 9.0.2's own texts, from fftools/opt_common.c, with its line breaks.
 LGPL_TEXT = """ffmpeg is free software; you can redistribute it and/or
@@ -274,3 +276,39 @@ def test_an_aes_128_playlist_served_locally_downloads_through_yt_dlp(
         dst = tmp_path / "out.m4a"
         outcome = common.run_and_check(runner, common.aac_m4a_problems, ffmpeg_exe, playlist, dst)
     assert outcome.passed, outcome.detail
+
+
+def test_the_bundled_check_tone_is_a_16_bit_stereo_wav_of_the_sample_length(
+    tmp_path: Path,
+) -> None:
+    tone = bundled.write_tone(tmp_path / "tone.wav")
+    with wave.open(str(tone), "rb") as wav:
+        assert (wav.getnchannels(), wav.getsampwidth(), wav.getframerate()) == (2, 2, 44100)
+        assert wav.getnframes() == int(common.SECONDS * 44100)
+        # Not silence, which an encoder could pass without doing anything.
+        assert max(wav.readframes(wav.getnframes())) > 0
+
+
+def test_the_bundled_check_runs_both_mp3_commands_on_the_tone(
+    ffmpeg_exe: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    argv = ["--ffmpeg", str(ffmpeg_exe), "--out", str(tmp_path)]
+    assert bundled.main(argv) == 0
+    rows = capsys.readouterr().out.splitlines()
+    assert [row.split(" | ")[1] for row in rows[2:]] == ["MP3 320", "MP3 V0"]
+    assert all("| ok: mp3, " in row for row in rows[2:])
+
+
+def test_the_bundled_check_fails_when_the_ffmpeg_doesnt_run(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    argv = ["--ffmpeg", str(tmp_path / "missing" / "ffmpeg.exe"), "--out", str(tmp_path / "out")]
+    assert bundled.main(argv) == 1
+    assert "FAILED" in capsys.readouterr().out
+
+
+def test_the_bundled_check_fails_when_no_command_takes_a_wav(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(bundled, "COMMANDS", ())
+    assert bundled.main(["--ffmpeg", "ffmpeg", "--out", str(tmp_path)]) == 1

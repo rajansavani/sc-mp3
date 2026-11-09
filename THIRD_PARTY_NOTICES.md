@@ -2,118 +2,29 @@
 
 sc-mp3 is licensed under GPL-3.0-or-later. Its license is in LICENSE, which each release zip holds as LICENSE.txt.
 
-The release zips for Windows and Mac also hold the software below, each under its own license. The list and the versions come from the files in the 0.1.0 builds. Paths are inside the unzipped `sc-mp3` folder, as in the Windows zip. In the Mac zips, what the Windows zip keeps in `_internal` is inside `sc-mp3.app/Contents`, in `Frameworks` and `Resources`.
+The release zips for Windows and Mac also hold the software below, each under its own license. The list and the versions come from the files in the release builds. Paths are inside the unzipped `sc-mp3` folder, as in the Windows zip. In the Mac zips, what the Windows zip keeps in `_internal` is inside `sc-mp3.app/Contents`, in `Frameworks` and `Resources`.
 
 The `licenses` folder, next to `sc-mp3.exe` or `sc-mp3.app`, holds the license files that each bundled package, Python, PyInstaller and ffmpeg ship, one folder each.
 
 ## ffmpeg
 
-sc-mp3 runs ffmpeg as a separate program to convert audio. The Windows and Mac releases bundle different builds of FFmpeg 9.0.2.
+sc-mp3 runs ffmpeg as a separate program to convert audio. The Windows and Mac releases bundle an ffmpeg that sc-mp3 builds itself, from FFmpeg 9.0.2 and LAME 4.0, with only what sc-mp3 runs it for. On Windows it's `_internal\ffmpeg.exe`, and on a Mac `sc-mp3.app/Contents/Frameworks/ffmpeg`. It reports its version as `9.0.2-sc-mp3`.
 
-### Windows
+- License: LGPL-2.1-or-later. FFmpeg is under the GNU Lesser General Public License version 2.1 or later, and LAME under the GNU Library General Public License version 2 or later. The build leaves out every part of FFmpeg that the GPL, version 3 of the LGPL or a nonfree license covers.
+- `licenses\ffmpeg` holds the build's README.txt, with its full configure options, and the license texts: FFmpeg's `COPYING.LGPLv2.1` and `LICENSE.md` in `FFmpeg`, and LAME's `COPYING` and `LICENSE` in `LAME`.
+- On Windows, `ffmpeg.exe` also holds parts of the MinGW-w64 runtime and of GCC's libgcc, from the Ubuntu 24.04 packages it was cross-compiled with. Their notices from those packages are in `licenses\ffmpeg\MinGW-w64` and `licenses\ffmpeg\GCC`. The MinGW-w64 runtime is mostly under the Zope Public License 2.1, and its notice lists the permissive terms of the few files that differ. libgcc is under GPL-3.0-or-later with the GCC Runtime Library Exception 3.1, which lets it be part of programs under any license.
 
-The Windows release runs `_internal\ffmpeg.exe`.
+The source is in the sc-mp3 release ffmpeg-9.0.2-1, https://github.com/rajansavani/sc-mp3/releases/tag/ffmpeg-9.0.2-1. It holds:
 
-- Build: FFmpeg 9.0.2, the "essentials" static build for 64-bit Windows from gyan.dev. It reports its version as `9.0.2-essentials_build-www.gyan.dev`.
-- License: GPL-3.0-or-later.
-- FFmpeg 9.0.2 source: https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz, SHA-256 `8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e`. Each release on GitHub has a copy attached.
-- gyan.dev's builds page: https://www.gyan.dev/ffmpeg/builds/
-- The archive the release takes `ffmpeg.exe` from: https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-essentials_build.zip, SHA-256 `60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba`. Its LICENSE (the GPL) and its README.txt (the full build configuration) are in `licenses\ffmpeg`.
+- FFmpeg 9.0.2's source, `ffmpeg-9.0.2.tar.xz`, SHA-256 `8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e`, with FFmpeg's signature for it and FFmpeg's release key. It's the tarball from https://ffmpeg.org/releases/, unchanged.
+- LAME 4.0's source, `lame-4.0.tar.gz`, SHA-256 `3df5124d5ad3a98312ffd7ba6a9b36230e4f8a3e66d3ce0f425e336c32d216eb`. It's the tarball LAME publishes on SourceForge, unchanged. LAME's site is https://lame.sourceforge.io.
+- `build.sh`, the script that built each ffmpeg from those two tarballs. The release's notes say how to run it.
+- The zips the app releases take ffmpeg from. Each holds the program, the README.txt and the license texts above.
+  - Windows: `ffmpeg-9.0.2-sc-mp3-windows-x64.zip`, SHA-256 `26c0727c28fe66b183b1583ba40f131eda988d6a01cafadbdaf78d479fb6744e`
+  - Apple silicon: `ffmpeg-9.0.2-sc-mp3-macos-arm64.zip`, SHA-256 `2f11f1686348ba54a8aef101b5a74ee2e19e7c9cba207caba5d813af4bfcd46e`
+  - Intel Macs: `ffmpeg-9.0.2-sc-mp3-macos-x64.zip`, SHA-256 `24028bcc7515235aa328f4a7a1d30217215d04c5aa2f127a185643ef91074880`
 
-The build's configuration, from `ffmpeg -buildconf`, turns on these libraries and interfaces: AMF, aom, AviSynth+, bzip2, cairo, CUDA, D3D11VA, D3D12VA, DXVA2, ffnvcodec, fontconfig, FreeType, FriBidi, GMP, GnuTLS, gsm, HarfBuzz, iconv, LAME, libass, libgme, libopencore-amrnb, libopencore-amrwb, libopenmpt, libssh, libtheora, libvorbis, libvpx, libwebp, libxml2, liblzma, Media Foundation, NVDEC, NVENC, OpenAL Soft, OpenJPEG, Opus, Rubber Band, SDL, Speex, SRT, VAAPI, vid.stab, VMAF, vo-amrwbenc, VPL, x264, x265, Xvid, ZeroMQ, zimg and zlib.
-
-The versions the build's README.txt lists:
-
-```
-AMF v1.5.2-2-gc35f613
-aom v3.15.0-25-g023743a7d7
-AviSynthPlus v3.7.5-383-g5c82777b
-cairo 1.18.5
-ffnvcodec n13.1.15.0-1-geddcea9
-freetype VER-2-14-3
-fribidi v1.0.16-19-gc928e4c
-gsm 1.0.24
-harfbuzz 14.4.0-108-g64e2b532
-lame 3.100
-libass 0.17.5-8-gb2fe9d8
-libgme 0.6.6
-libopencore-amrnb 0.1.6
-libopencore-amrwb 0.1.6
-libssh 0.12.2
-libtheora v1.2.0
-libwebp v1.6.0-249-g1f34635
-openal-soft 1.25.2-48-g7532541
-openjpeg2 2.5.4
-openmpt libopenmpt-0.6.30-3-g6c0a06bc
-opus v1.6.1-68-g503d81b1
-rubberband v4.0.0
-SDL release-2.32.0-234-gb90ac9502
-speex Speex-1.2.1-51-g0589522
-srt v1.5.7-7-gcae8f62
-VAAPI 2.25.0.
-vidstab v1.1.2-214-ge2445c4
-vmaf v3.2.0-13-gf85a8536
-vo-amrwbenc 0.1.3
-vorbis v1.3.7-37-g1b75110b
-VPL 2.17
-vpx v1.17.0-57-gd2413e2ca
-x264 v0.165.3223
-x265 4.3-45-g116b875
-xvid v1.3.7
-zeromq 4.3.5
-zimg release-3.0.6-253-g67e0603
-```
-
-gyan.dev doesn't publish its build scripts or the sources of these libraries. A later release of sc-mp3 will ship an ffmpeg it builds itself, with the full source of FFmpeg and every library published.
-
-### Mac
-
-The Mac releases run `sc-mp3.app/Contents/Frameworks/ffmpeg`.
-
-- Build: FFmpeg 9.0.2, Martin Riedl's static release builds, one for Apple silicon (arm64) and one for Intel (x86_64). They report their version as `9.0.2-https://www.martin-riedl.de`.
-- License: GPL-3.0-or-later. The archives hold ffmpeg alone, so `licenses/ffmpeg/LICENSE` is the GPL text from sc-mp3's own LICENSE, which is the same license.
-- FFmpeg 9.0.2 source: the same tarball as for Windows, above.
-- Martin Riedl's build scripts: https://git.martin-riedl.de/ffmpeg/build-script
-- The archive for Apple silicon: https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/ffmpeg.zip, SHA-256 `c8ed4c4e6978a03c485edbfe4e0a5dc2380f8a30bba5150531b31b094492d924`. Its configuration and library versions: https://ffmpeg.martin-riedl.de/download/macos/arm64/1789931890_9.0.2/versions.txt
-- The archive for Intel: https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/ffmpeg.zip, SHA-256 `7c6b4125b191cbf773832dc51f424cf2b6bb7da43007d1e066f95909e47cacd4`. Its configuration and library versions: https://ffmpeg.martin-riedl.de/download/macos/amd64/1789931006_9.0.2/versions.txt
-
-Both builds' configuration turns on these libraries: aom, dav1d, fontconfig, FreeType, HarfBuzz, LAME, libass, libbluray, libklvanc, libxml2, OpenH264, OpenJPEG, OpenSSL, Opus, rav1e, Snappy, SRT, SVT-AV1, libtheora, VMAF, libvorbis, libvpx, vvenc, libwebp, x264, x265, zimg and zvbi. libass brings in FriBidi.
-
-The versions both builds' versions.txt lists:
-
-```
-aom                 3.15.0
-libass              0.17.5
-libbluray           1.5.0
-dav1d               1.5.4
-fontconfig          2.17.1
-freetype            2.13.0
-fribidi             1.0.16
-harfbuzz            14.4.0
-libklvanc           1.6.0
-lame                4.0
-openh264            2.6.0
-openJPEG            2.5.4
-openssl             3.6.4
-opus                1.6.1
-rav1e               0.8.1
-sdl                 2.32.10
-snappy              1.2.2
-srt                 1.5.7
-svt-av1             4.2.0
-libtheora           1.2.0
-libvmaf             3.2.0
-libvorbis           1.3.7
-vpx                 1.16.0
-vvenc               1.14.0
-libwebp             1.6.0
-x264                0.165.x
-x265                4.2
-libxml2             2.15.3
-zimg                3.0.6
-zlib                1.3.2
-zvbi                0.2.35
-```
+Each app release on GitHub also has copies of the two source tarballs and `build.sh` attached.
 
 ## Python
 
@@ -131,7 +42,7 @@ Each package's page, with its source and license, is at `https://pypi.org/projec
 |---|---|---|
 | bottle | 0.13.4 | MIT |
 | brotli | 1.2.0 | MIT |
-| certifi | 2026.10.18 | MPL-2.0 |
+| certifi | 2026.10.23 | MPL-2.0 |
 | cffi | 2.1.1 | MIT-0 |
 | charset-normalizer | 3.5.2 | MIT |
 | clr_loader | 0.3.1 | MIT |
@@ -161,7 +72,7 @@ Each package's page, with its source and license, is at `https://pypi.org/projec
 | typing_extensions | 4.16.0 | PSF-2.0 |
 | urllib3 | 2.8.0 | MIT |
 | websockets | 17.2 | BSD-3-Clause |
-| yt-dlp | 2026.8.19 | Unlicense |
+| yt-dlp | 2026.10.26 | Unlicense |
 | yt-dlp-ejs | 0.8.0 | Unlicense, MIT and ISC |
 
 clr_loader and pythonnet are in the Windows release only, and the four pyobjc packages in the Mac releases only. pyobjc-core and pyobjc-framework-UniformTypeIdentifiers ship no license file, so the files in their `licenses` folders come from their 12.2.2 source releases.

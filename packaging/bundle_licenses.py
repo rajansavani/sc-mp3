@@ -6,16 +6,15 @@ RECORD lists it.
 """
 
 import importlib.metadata
+import re
 import shutil
 import sys
 import sysconfig
-import tomllib
 import zipfile
 from collections.abc import Iterable, Iterator
 from pathlib import Path, PurePosixPath
 
 PACKAGING_DIR = Path(__file__).resolve().parent
-REPO_ROOT = PACKAGING_DIR.parent
 
 # The folder next to the app with the license files of everything bundled, one folder each.
 LICENSES_DIR = "licenses"
@@ -30,14 +29,19 @@ PYTHON_LICENSES = (
     Path(sys.base_prefix) / "LICENSE.txt",
     Path(sysconfig.get_path("stdlib")) / "LICENSE.txt",
 )
-BINARIES_LOCK = PACKAGING_DIR / "binaries.lock"
-# Where fetch_binaries.py keeps each target's verified downloads.
+# Where fetch_binaries.py keeps each target's verified downloads, as <component><suffix>.
 BIN_DIR = PACKAGING_DIR / "bin"
-# What gyan.dev's archive holds beside its bin folder: the GPL and the build's configuration.
-FFMPEG_NOTICE_FILES = frozenset({"LICENSE", "README.txt"})
-# Martin Riedl's macOS archives hold ffmpeg alone. His builds are GPL-3.0-or-later, whose text is
-# sc-mp3's own LICENSE, and the notices list their libraries.
-GPL_TEXT = REPO_ROOT / "LICENSE"
+FFMPEG_ARCHIVE = "ffmpeg.zip"
+# Our ffmpeg zips hold the binary, a README with its configuration and where its source is, and
+# a licenses folder with one folder of texts per part. All but the binary go to licenses/ffmpeg.
+FFMPEG_README = "README.txt"
+FFMPEG_LICENSES = "licenses"
+# A plain file or folder name, so no drive, separator, "." or ".." that a path on disk acts on.
+PLAIN_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+-]*")
+# The texts every ffmpeg zip must hold, so a zip without them stops the build.
+FFMPEG_NOTICES = (FFMPEG_README, "licenses/FFmpeg/COPYING.LGPLv2.1", "licenses/LAME/COPYING")
+# The runtime notices an OS's zip must also hold, since ffmpeg.exe has parts of both runtimes in it.
+RUNTIME_NOTICES = {"windows": ("licenses/MinGW-w64/copyright", "licenses/GCC/copyright")}
 
 # Where a license file goes under licenses/<name>, and where it is now.
 type LicenseFile = tuple[PurePosixPath, Path]
@@ -121,33 +125,55 @@ def python_license(candidates: Iterable[Path]) -> Path:
     return found
 
 
-def ffmpeg_top_folder(target: str, lock: Path = BINARIES_LOCK) -> str | None:
-    """The folder the pinned ffmpeg archive keeps everything in, or None when it has no folder."""
-    pin = tomllib.loads(lock.read_text(encoding="utf-8"))["ffmpeg"][target]
-    *folders, _ = PurePosixPath(pin["archive_member"]).parts
-    return folders[0] if folders else None
+def required_ffmpeg_notices(target: str) -> tuple[str, ...]:
+    """The texts the target's ffmpeg zip must hold, by their names in the zip."""
+    os_name = target.partition("-")[0]
+    return FFMPEG_NOTICES + RUNTIME_NOTICES.get(os_name, ())
 
 
-def target_ffmpeg_notices(target: str) -> dict[str, bytes]:
-    """The notice files for the target's ffmpeg: from its archive, or the GPL when it has none."""
-    top = ffmpeg_top_folder(target)
-    if top is not None:
-        return ffmpeg_notices(BIN_DIR / target / "ffmpeg.zip", top)
-    try:
-        return {"LICENSE": GPL_TEXT.read_bytes()}
-    except OSError as error:
-        raise LicenseError(f"Couldn't read the GPL from {GPL_TEXT.name}: {error}") from error
+def notice_name(member: str) -> PurePosixPath | None:
+    """Where a zip member goes under licenses/ffmpeg, or None when it isn't a notice."""
+    parts = member.split("/")
+    # Each name becomes a path on disk, so nothing may climb out of licenses/ffmpeg.
+    if not all(PLAIN_NAME.fullmatch(part) for part in parts):
+        return None
+    if member == FFMPEG_README:
+        return PurePosixPath(member)
+    if parts[0] == FFMPEG_LICENSES and len(parts) > 1:
+        return PurePosixPath(*parts[1:])
+    return None
 
 
-def ffmpeg_notices(archive: Path, top: str) -> dict[str, bytes]:
-    """The notice files in the ffmpeg archive's top folder, by name."""
+def read_notices(files: zipfile.ZipFile) -> dict[PurePosixPath, bytes]:
+    """Every notice in an open ffmpeg zip, by where it goes in licenses/ffmpeg."""
+    notices = {}
+    for info in files.infolist():
+        name = notice_name(info.filename)
+        if name is not None and not info.is_dir():
+            notices[name] = files.read(info)
+    return notices
+
+
+def ffmpeg_notices(archive: Path, required: Iterable[str]) -> dict[PurePosixPath, bytes]:
+    """The README and the license texts in our ffmpeg zip, by where they go in licenses/ffmpeg."""
     try:
         with zipfile.ZipFile(archive) as files:
-            return {name: files.read(f"{top}/{name}") for name in sorted(FFMPEG_NOTICE_FILES)}
-    except (KeyError, OSError, zipfile.BadZipFile) as error:
+            notices = read_notices(files)
+    except (OSError, zipfile.BadZipFile) as error:
         raise LicenseError(
             f"Couldn't read ffmpeg's notices from {archive.name}: {error}"
         ) from error
+    missing = [name for name in required if notice_name(name) not in notices]
+    if missing:
+        raise LicenseError(
+            f"{archive.name} has no {', '.join(missing)}. Pin a zip that ffmpeg.yml built."
+        )
+    return notices
+
+
+def target_ffmpeg_notices(target: str) -> dict[PurePosixPath, bytes]:
+    """The notices in the target's verified ffmpeg zip, which fetch_binaries.py keeps."""
+    return ffmpeg_notices(BIN_DIR / target / FFMPEG_ARCHIVE, required_ffmpeg_notices(target))
 
 
 def copy_licenses(files: Iterable[LicenseFile], folder: Path) -> None:
@@ -174,7 +200,8 @@ def add_licenses(built: Path, exe: Path, release: Path, app_name: str, target: s
         copy_licenses(package_license_files(name), licenses / name)
     python = python_license(PYTHON_LICENSES)
     copy_licenses([(PurePosixPath("LICENSE.txt"), python)], licenses / "python")
-    (licenses / "ffmpeg").mkdir(parents=True, exist_ok=True)
     for name, data in target_ffmpeg_notices(target).items():
-        (licenses / "ffmpeg" / name).write_bytes(data)
+        destination = licenses / "ffmpeg" / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(data)
     return packages

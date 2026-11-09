@@ -8,8 +8,8 @@ sc-mp3 runs on 64-bit Windows, on Macs with macOS 12 or later, and on Linux.
 
 ## Install on Windows
 
-1. Download `sc-mp3-<version>-windows-x64.zip` from the [latest release](../../releases/latest). It's about 68 MB.
-2. Extract the zip: right-click it, choose Extract All, then Extract. sc-mp3 doesn't run from inside the zip. Extracted, it takes about 155 MB.
+1. Download `sc-mp3-<version>-windows-x64.zip` from the [latest release](../../releases/latest). It's about 35 MB.
+2. Extract the zip: right-click it, choose Extract All, then Extract. sc-mp3 doesn't run from inside the zip. Extracted, it takes about 61 MB.
 3. Open the extracted `sc-mp3` folder and double-click `sc-mp3.exe`.
 
 sc-mp3 isn't signed, so the first time you open it Windows shows "Windows protected your PC". Select More info, then Run anyway.
@@ -22,10 +22,10 @@ To update, quit sc-mp3, download the new zip, extract it, and replace the old `s
 
 ## Install on a Mac
 
-1. Check which kind of Mac you have: open the Apple menu, then About This Mac. If it shows a Chip such as Apple M1 or later, you need `sc-mp3-<version>-macos-arm64.zip`, about 58 MB. If it shows a Processor from Intel, you need `sc-mp3-<version>-macos-x64.zip`, about 65 MB.
+1. Check which kind of Mac you have: open the Apple menu, then About This Mac. If it shows a Chip such as Apple M1 or later, you need `sc-mp3-<version>-macos-arm64.zip`, about 32 MB. If it shows a Processor from Intel, you need `sc-mp3-<version>-macos-x64.zip`, about 33 MB.
 2. Download that zip from the [latest release](../../releases/latest).
 3. Open your Downloads folder. If Safari didn't unzip the file already, double-click it. You get a folder named `sc-mp3`.
-4. Drag `sc-mp3` (sc-mp3.app) from that folder into Applications. It takes about 121 MB, or about 151 MB on an Intel Mac.
+4. Drag `sc-mp3` (sc-mp3.app) from that folder into Applications. It takes about 60 MB.
 5. Open sc-mp3 from Applications.
 
 sc-mp3 isn't notarized by Apple, so macOS stops it the first time. On macOS 15 and later:

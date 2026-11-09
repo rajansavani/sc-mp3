@@ -52,7 +52,7 @@ VERSION_TRANSLATION = [0x0409, 1200]
 # The usual form for a project hosted on GitHub. The Keychain and macOS's privacy settings know
 # the app by it, so it stays the same from release to release.
 BUNDLE_ID = "io.github.rajansavani.sc-mp3"
-# Martin Riedl's ffmpeg 9.0.2 builds need macOS 12, the newest of any bundled binary.
+# The oldest macOS the app runs on. packaging/ffmpeg/build.sh builds our ffmpeg for the same one.
 MINIMUM_MACOS = "12.0"
 # PyInstaller's names for the architectures, which it thins universal2 binaries down to.
 MACOS_ARCHS = {"arm64": "arm64", "x64": "x86_64"}
