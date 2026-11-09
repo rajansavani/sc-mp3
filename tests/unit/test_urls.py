@@ -418,7 +418,7 @@ def test_youtube_playlist_links_are_unsupported(pasted: str) -> None:
         normalize_youtube(pasted)
     parsed = classify(pasted)
     assert parsed.kind == "unsupported"
-    assert parsed.reason == "YouTube playlists aren't supported yet."
+    assert parsed.reason == YOUTUBE_PLAYLIST
 
 
 @pytest.mark.parametrize("pasted", YOUTUBE_NON_VIDEOS)

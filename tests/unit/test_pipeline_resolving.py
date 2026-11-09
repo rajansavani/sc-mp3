@@ -130,7 +130,7 @@ def test_a_short_link_to_a_set_is_refused_with_a_reason(
     world: FakeSoundCloud, settings: Settings, history: History
 ) -> None:
     world.redirects[SHORT_URL] = "https://soundcloud.com/the80m/sets/singles"
-    with pytest.raises(UnsupportedInput, match="sets and albums can't be saved yet"):
+    with pytest.raises(UnsupportedInput, match="can't save SoundCloud sets and albums yet"):
         prepare(world, settings, history, parsed=link(SHORT_URL))
     assert world.extracted == []
 

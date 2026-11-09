@@ -93,7 +93,7 @@ export default {
     },
     download_while_reviewing: {
       label: "Download while I review",
-      hint: "Saving is then almost instant.",
+      hint: "sc-mp3 downloads the audio while you check the tags, so saving takes less time.",
     },
     offer_clipboard_links: {
       label: "Offer links from the clipboard",
@@ -173,7 +173,7 @@ export default {
     app: (version) => `sc-mp3 ${version}`,
     appCurrent: "You have the latest version.",
     appAvailable: (version) => `sc-mp3 ${version} is out.`,
-    releaseNotes: "See what's new",
+    releaseNotes: "Release notes",
     appUnknown: "sc-mp3 hasn't checked for a newer version yet.",
     checkNow: "Check now",
     checking: "Checking…",
@@ -258,7 +258,7 @@ export default {
     cardArtist: "Artist",
     titlesHint: "You can change this in Settings, or for a single track while you review it.",
     accountIntro:
-      "Signing in is optional. It gets you the artist's original file when they allow downloads, and better audio with Go+. You can do it later from the top bar.",
+      "Signing in is optional. It gets you the artist's original file when they allow downloads, and AAC 256 kbps with Go+. You can do it later from the top bar.",
     benefitsCorner: "What you get",
     benefitsColumns: ["Not signed in", "Free account", "Go+"],
     benefits: [
@@ -293,6 +293,6 @@ export default {
       ],
     },
     openSpotify: "Open Spotify",
-    phoneTip: "Want the songs on your phone too? Settings › Spotify help shows how.",
+    phoneTip: "To get the songs on your phone too, see Settings › Spotify help.",
   },
 };

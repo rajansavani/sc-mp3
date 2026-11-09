@@ -206,6 +206,17 @@ def test_the_string_check_sees_every_kind_of_quote() -> None:
     assert STRING_LITERAL.findall(code) == ["'one!'", '"two"', "`three`"]
 
 
+@pytest.mark.parametrize(
+    "script", sorted((WEB_DIR / "components").rglob("*.js")), ids=lambda p: p.name
+)
+def test_every_drop_zone_takes_dragenter_as_well_as_dragover(script: Path) -> None:
+    # WebKit refuses a drop whose last move entered a new element unless dragenter took it too
+    # (RESEARCH §4, T-078). Handlers are props, as onDragOver=${...} or onDragOver: handler.
+    code = script.read_text(encoding="utf-8")
+    over = len(re.findall(r"onDragOver[=:]", code))
+    assert len(re.findall(r"onDragEnter[=:]", code)) >= over
+
+
 def test_every_reason_code_the_mock_returns_has_text() -> None:
     mock = (WEB_DIR / "mock" / "jobs.js").read_text(encoding="utf-8")
     # Reason codes are the only all-caps strings in the mock.

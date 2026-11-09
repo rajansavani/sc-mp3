@@ -85,7 +85,7 @@ export default {
   // The editor with nothing selected.
   emptyTitle: "Paste a SoundCloud or YouTube link to start",
   emptyBody:
-    "You check the title, artist and cover, then it saves as an MP3 ready for Spotify. To fix the tags of songs you already have, drop the MP3 or M4A files here.",
+    "You check the title, artist and cover, then sc-mp3 saves a tagged MP3 for Spotify Local Files. To fix the tags of songs you already have, drop the MP3 or M4A files here.",
   openAudioFiles: "Open audio files",
   setsToo: "Sets and albums work too",
   pasteKeys: { mac: "⌘V", other: "Ctrl+V" },

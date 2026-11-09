@@ -1,7 +1,7 @@
 // Extra sample jobs for ?mock&states: the warnings, a save waiting for its download, a taken file
 // name, a cover that couldn't be used, a save without its cover, a re-tag whose cover can't be
-// previewed, and one job for each error kind, so every banner can be seen without making
-// anything fail.
+// previewed, and one job for each error kind and reason, so every banner can be seen without
+// making anything fail.
 import { artistFolder } from "./names.js";
 import {
   avatar,
@@ -145,26 +145,32 @@ function savedWithoutCover() {
   });
 }
 
-// A file to re-tag whose cover can't be previewed, which the save keeps as it is.
-function unseenFileCover() {
-  const path = "~/Music/old songs/tape-hiss.mp3";
+// A file to re-tag, read from a folder outside the library.
+function retagFile({ title, artist, state = "needs_review", ...fields }) {
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const path = `~/Music/old songs/${slug}.mp3`;
   return makeJob({
-    id: "sample-tape-hiss",
-    state: "needs_review",
+    id: `sample-${slug}`,
+    state,
     kind: "retag",
     input: path,
     source: makeSource({
       kind: "file",
       id: path,
       url: path,
-      title: "Tape Hiss",
-      uploader: "Ilo",
+      title,
+      uploader: artist,
       formats: [],
       artwork_url: null,
     }),
-    suggestion: makeSuggestion({ base_title: "Tape Hiss", main_artists: ["Ilo"] }),
-    cover_unseen: true,
+    suggestion: makeSuggestion({ base_title: title, main_artists: [artist] }),
+    ...fields,
   });
+}
+
+// A file to re-tag whose cover can't be previewed, which the save keeps as it is.
+function unseenFileCover() {
+  return retagFile({ title: "Tape Hiss", artist: "Ilo", cover_unseen: true });
 }
 
 // An older YouTube video without an HD thumbnail: its cover is cut from the picture between the
@@ -179,8 +185,8 @@ function letterboxedCover() {
   });
 }
 
-// One job per error kind. `reviewed` ones failed while saving, so their review stays up.
-// `where` and `reason` say more about a disk error, as T-022's bridge does.
+// One job per error kind and reason. `reviewed` ones failed while saving, so their review stays
+// up. `where` and `reason` say more about an error, as T-022's bridge does.
 const ERROR_SAMPLES = [
   { kind: "drm", title: "Golden Hour", artist: "Ilo" },
   { kind: "preview_only", title: "Glass Hours", artist: "Mara Lune" },
@@ -206,11 +212,39 @@ const ERROR_SAMPLES = [
   { kind: "disk", title: "Window Seat", artist: "Mara Lune", reviewed: true, reason: "file_in_use" },
   { kind: "disk", title: "Long Way Down", artist: "Teo Marr", reviewed: true, reason: "path_too_long" },
   { kind: "convert_failed", title: "Tidal", artist: "Teo Marr", reviewed: true },
+  { kind: "convert_failed", title: "Fog Lamp", artist: "Kaia", reviewed: true, reason: "ffmpeg_missing" },
   { kind: "duplicate", title: "Old Light", artist: "Ilo", reviewed: true },
+  // Files being re-tagged. A disk error there is about the file's own folder, as Python marks it.
+  { kind: "disk", title: "Tape Loop", artist: "Ilo", source: "file", reviewed: true, where: "file" },
+  { kind: "disk", title: "Moth", artist: "Kaia", source: "file", where: "file", reason: "file_missing" },
+  { kind: "disk", title: "Pale Blue", artist: "Juno Vale", source: "file", where: "file", reason: "file_locked" },
+  {
+    kind: "disk",
+    title: "Second Draft",
+    artist: "Teo Marr",
+    source: "file",
+    reviewed: true,
+    where: "file",
+    reason: "file_changed",
+  },
+  { kind: "convert_failed", title: "Not A Song", artist: "Ilo", source: "file", reason: "unreadable_file" },
+  {
+    kind: "convert_failed",
+    title: "Cracked Tag",
+    artist: "Mara Lune",
+    source: "file",
+    reviewed: true,
+    reason: "tag_write_failed",
+  },
 ];
 
+function failedJob({ title, artist, source }) {
+  if (source === "file") return retagFile({ title, artist, state: "error" });
+  return track({ title, artist, kind: source, state: "error", art: PALETTES.moss });
+}
+
 function failed({ kind, title, artist, source = "soundcloud", reviewed = false, ...more }) {
-  const job = track({ title, artist, kind: source, state: "error", art: PALETTES.moss });
+  const job = failedJob({ title, artist, source });
   // A rate limit's next try is a few minutes off, as after its second wait.
   const retryAt = kind === "rate_limited" ? new Date(Date.now() + 120000).toISOString() : null;
   job.error = {

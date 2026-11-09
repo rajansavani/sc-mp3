@@ -17,7 +17,7 @@ export default {
     drm: {
       status: "Copy-protected",
       headline: () => "This track is copy-protected by its label, so it can't be saved.",
-      detail: () => "Signing in won't change that. Labels turn this on for some releases.",
+      detail: () => "Signing in won't change that. Try another upload of the song.",
     },
     preview_only: {
       status: "Preview only",
@@ -33,7 +33,8 @@ export default {
         private: {
           status: "Private video",
           headline: () => "This video is private.",
-          detail: () => "Only people the uploader shares it with can watch it, so sc-mp3 can't save it.",
+          detail: () =>
+            "Only people the uploader shares it with can watch it, so sc-mp3 can't save it. Try another upload of the song.",
         },
         age_restricted: {
           status: "Age-restricted",
@@ -65,6 +66,8 @@ export default {
     geo_blocked: {
       status: "Not available here",
       headline: () => "This track isn't available in your country.",
+      // There's no next step to offer, so the detail says so plainly.
+      detail: () => "sc-mp3 can't get around that, so it can't be saved.",
     },
     rate_limited: {
       status: "Waiting to retry",
@@ -100,7 +103,8 @@ export default {
         unreadable_file: {
           status: "Not MP3 or M4A audio",
           headline: () => "This file isn't MP3 or M4A audio that sc-mp3 can read.",
-          detail: () => "It may be damaged, or have the wrong extension.",
+          detail: () =>
+            "It may be damaged, or be in another format with an .mp3 or .m4a name. Check that it plays in a music player. If it's in another format, convert it to MP3 first.",
         },
         ffmpeg_missing: {
           status: "ffmpeg not found",

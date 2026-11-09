@@ -24,7 +24,10 @@ if TYPE_CHECKING:
     from yt_dlp import YoutubeDL
 
 # Inputs `prepare` doesn't take, with the reason given. The app lists sets with prepare_set.
-SETS_NOT_SUPPORTED = "SoundCloud sets and albums can't be saved yet. Add each track's own link."
+SETS_NOT_SUPPORTED = (
+    "The command line can't save SoundCloud sets and albums yet. Save the set in the sc-mp3 app, "
+    "or use each track's own link."
+)
 NOT_YET: dict[str, str] = {
     "soundcloud_set": SETS_NOT_SUPPORTED,  # T-051
 }

@@ -4,6 +4,8 @@
 // ?browser=none has neither. The pretend window closes by itself, or with ?closes=by_hand the
 // person closes it. ?window=closed_early and ?window=timed_out show those endings. ?profile=kept
 // starts signed out with the browser profile from an earlier sign-in still kept.
+// ?account_fails=<kind>, such as offline or no_browser, makes every sign-in and sign-out fail
+// with that problem kind, so each message can be seen.
 
 const SAMPLE_USER = {
   username: "Sam",
@@ -28,6 +30,7 @@ const EDGE = { id: "edge", name: "Edge" };
 const BRAVE = { id: "brave", name: "Brave" };
 const DEFAULT_BROWSERS = { edge: EDGE, none: null };
 const defaultBrowser = query.has("browser") ? DEFAULT_BROWSERS[query.get("browser")] : BRAVE;
+const failsWith = query.get("account_fails");
 let windowTimer = null;
 
 let account = {
@@ -111,6 +114,7 @@ function closeAndRead() {
 }
 
 export function sign_in_window() {
+  if (failsWith) return begin("window", () => failed("window", failsWith), CHECK_MS);
   // The pretend window closes by itself and is read, or the person closes it after a while.
   const ending = account.window_closes_itself ? closeAndRead : windowEnding();
   return begin("window", ending, SIGN_IN_WINDOW_MS);
@@ -132,6 +136,7 @@ export function cancel_sign_in() {
 export function sign_in_from_browser(access_token, refresh_token) {
   const refused = refusal(access_token, refresh_token);
   if (refused) return begin("browser", () => failed("browser", "refused", ...refused), 0);
+  if (failsWith) return begin("browser", () => failed("browser", failsWith), CHECK_MS);
   // A second value that starts with "offline" shows how a failure that isn't the shape looks.
   if (refresh_token.trim().startsWith("offline")) {
     return begin("browser", () => failed("browser", "offline"), CHECK_MS);
@@ -140,6 +145,7 @@ export function sign_in_from_browser(access_token, refresh_token) {
 }
 
 export function sign_out() {
+  if (failsWith) return begin("sign_out", () => failed("sign_out", failsWith), CHECK_MS);
   const finish = () =>
     change({
       status: "signed_out",

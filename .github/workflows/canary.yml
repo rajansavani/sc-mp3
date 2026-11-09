@@ -39,10 +39,15 @@ jobs:
           # Match the dev machine's uv, since setup-uv would otherwise pick the newest one that fits required-version.
           version: "0.8.22"
 
+      # apt tries each download again, and drops a mirror that stalls for a minute, so one slow
+      # mirror doesn't use up the step's time (the 2026-11-06 failure).
       - name: Install ffmpeg (Linux)
         if: runner.os == 'Linux'
         timeout-minutes: 10
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+        run: |
+          apt_options=(-o Acquire::Retries=5 -o Acquire::http::Timeout=60 -o Acquire::https::Timeout=60)
+          sudo apt-get "${apt_options[@]}" update
+          sudo apt-get "${apt_options[@]}" install -y ffmpeg
 
       - name: Install ffmpeg (Windows)
         if: runner.os == 'Windows'
@@ -53,13 +58,29 @@ jobs:
       - name: Check that ffmpeg is on PATH
         run: ffmpeg -version
 
-      # The deno extra brings the Deno that YouTube links need.
-      - run: uv sync --locked --extra deno
+      # The deno extra brings the Deno that YouTube links need. uv tries each download 3 times
+      # itself, and a sync that still fails runs again after a pause (the 2026-11-08 failure,
+      # when Python's download failed).
+      - name: Install Python and the packages
         timeout-minutes: 10
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if uv sync --locked --extra deno; then
+              exit 0
+            fi
+            echo "uv sync failed on attempt ${attempt} of 3."
+            if [ "$attempt" -lt 3 ]; then
+              sleep 30
+            fi
+          done
+          exit 1
 
+      # The issue text tells this step from the setup steps by its name, so keep the two in step.
       # -rfEs lists the reason for each skip, such as YouTube's bot check, next to the failures.
       # The JUnit report holds the same, for the closing comment.
-      - run: uv run --locked --extra deno pytest -m network -v -rfEs --junitxml="${{ runner.temp }}/network-${{ matrix.os }}.xml"
+      - name: Run the network tests
+        run: uv run --locked --extra deno pytest -m network -v -rfEs --junitxml="${{ runner.temp }}/network-${{ matrix.os }}.xml"
         timeout-minutes: 20
 
       # An upload that fails mustn't fail the job, which would report the tests as failing.
@@ -89,17 +110,71 @@ jobs:
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       TITLE: The nightly canary is failing
     steps:
+      # The text names each step that failed, so a setup download that failed doesn't read as
+      # a site that changed.
       - name: Write the issue text
         run: |
-          failed=$(gh run view "$GITHUB_RUN_ID" --json jobs --jq '[.jobs[] | select(.conclusion == "failure") | .name] | join(", ")')
-          today=$(date -u +%Y-%m-%d)
-          echo "Failed again on ${today}: ${RUN_URL}. Failed jobs: ${failed}." > "$RUNNER_TEMP/comment.md"
-          cat > "$RUNNER_TEMP/body.md" <<EOF
-          The network tests failed on ${today}: ${RUN_URL}. Failed jobs: ${failed}.
+          gh run view "$GITHUB_RUN_ID" --json jobs > "$RUNNER_TEMP/jobs.json"
+          python3 - "$RUNNER_TEMP/jobs.json" "$(date -u +%Y-%m-%d)" "$RUN_URL" "$RUNNER_TEMP" <<'EOF'
+          import json
+          import sys
+          from pathlib import Path
 
-          These tests save real SoundCloud and YouTube links, so a failure usually means a site changed and yt-dlp needs an update. The run's log names the failing tests. When yt-dlp publishes a fix, the Engine bump workflow opens a pull request for it within a day.
+          jobs_file, today, run_url, out = Path(sys.argv[1]), sys.argv[2], sys.argv[3], Path(sys.argv[4])
+          # The one step that reaches SoundCloud and YouTube. The steps before it set up the runner.
+          TESTS = "Run the network tests"
+          SITES = (
+              "The network tests save real SoundCloud and YouTube links, so a failure there usually means a site changed and yt-dlp needs an update. "
+              "The run's log names the failing tests. When yt-dlp publishes a fix, the Engine bump workflow opens a pull request for it within a day."
+          )
+          SETUP = (
+              "Setup failed before the network tests ran, so a runner whose setup failed checked nothing about SoundCloud or YouTube. "
+              "It's usually a download on the runner, such as ffmpeg from apt or Python from uv. Run the workflow again from the Actions tab, or wait for the next night's run."
+          )
+          UNKNOWN = "A job failed without a failed step, as when its runner stops. The run's log says why."
+          AFTER = "Only a step after the network tests failed, such as the upload of the test report. The run's log says why."
 
-          Later failures add a comment here. The next run that passes on main closes this issue.
+
+          def kind_of(step, tests_number):
+              """Whether a failed step is the tests, part of the setup, or a step after the tests."""
+              if step["name"] == TESTS:
+                  return "tests"
+              # A step after the tests, such as the upload, may show as failed despite continue-on-error.
+              if tests_number is not None and step["number"] > tests_number:
+                  return "after"
+              return "setup"
+
+
+          jobs = json.loads(jobs_file.read_text(encoding="utf-8"))["jobs"]
+          lines, kinds = [], set()
+          for job in jobs:
+              if job.get("conclusion") != "failure":
+                  continue
+              steps = job.get("steps", [])
+              tests_number = next((step["number"] for step in steps if step["name"] == TESTS), None)
+              failed = [step for step in steps if step.get("conclusion") == "failure"]
+              kinds.update(kind_of(step, tests_number) for step in failed)
+              if not failed:
+                  kinds.add("unknown")
+              names = ", ".join(step["name"] for step in failed)
+              lines.append(f"- {job['name']}: {names or 'no step is marked as failed'}")
+          sections = ["Failed steps:\n\n" + "\n".join(lines)]
+          if "setup" in kinds:
+              sections.append(SETUP)
+          if "unknown" in kinds:
+              sections.append(UNKNOWN)
+          if "tests" in kinds:
+              sections.append(SITES)
+          if kinds == {"after"}:
+              sections.append(AFTER)
+          failures = "\n\n".join(sections)
+
+          (out / "comment.md").write_text(f"Failed again on {today}: {run_url}.\n\n{failures}\n", encoding="utf-8")
+          (out / "body.md").write_text(
+              f"The network tests failed on {today}: {run_url}.\n\n{failures}\n\n"
+              "Later failures add a comment here. The next run that passes on main closes this issue.\n",
+              encoding="utf-8",
+          )
           EOF
 
       # Only main posts the issue, so a test run on another branch shows the text here instead.

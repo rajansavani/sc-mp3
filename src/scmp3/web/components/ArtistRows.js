@@ -75,13 +75,16 @@ function Row({ row, names, labelId, hintId, active, adding, dropAt, actions }) {
   const focusIndex = Math.max(0, names.indexOf(active));
   const target = dropAt?.row === row;
   const dropAtEnd = target && dropAt.before === null;
+  // WebKit refuses a drop whose last move entered a new element, unless dragenter took it too.
+  const onDragOver = (event) => actions.dragOver(event, row);
   return html`
     <div
       class="artist-row"
       role="group"
       aria-labelledby=${labelId}
       data-target=${target ? "true" : undefined}
-      onDragOver=${(event) => actions.dragOver(event, row)}
+      onDragEnter=${onDragOver}
+      onDragOver=${onDragOver}
       onDragLeave=${(event) => actions.dragLeave(event, row)}
       onDrop=${(event) => actions.drop(event, row)}
     >

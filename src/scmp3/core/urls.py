@@ -13,10 +13,10 @@ from urllib.parse import SplitResult, parse_qs, parse_qsl, unquote, urlencode, u
 
 type LinkKind = Literal["soundcloud_track", "soundcloud_set", "soundcloud_short", "youtube_video"]
 
-# Reasons are shown to the user next to the item that was rejected.
-NOT_SUPPORTED = (
-    "Not a supported link. Paste a SoundCloud or YouTube link, or add an MP3 or M4A file."
-)
+# Reasons are shown to the user next to the item that was rejected. The command line prints them,
+# and the app shows its own text for each, from web/strings/main.js.
+# Only `scmp3 get` prints this one, since `scmp3 retag` gives files its own text.
+NOT_SUPPORTED = "Not a supported link. Use a SoundCloud or YouTube link."
 SOUNDCLOUD_NOT_TRACK = (
     "This SoundCloud link isn't a track or a set. Open the track or set and copy its link."
 )
@@ -24,7 +24,7 @@ SHORT_LINK_DEAD_END = (
     "This SoundCloud short link doesn't lead to a track or a set. "
     "Open it in a browser and copy the full link."
 )
-YOUTUBE_PLAYLIST = "YouTube playlists aren't supported yet."
+YOUTUBE_PLAYLIST = "YouTube playlists can't be saved yet. Use the link of one video instead."
 YOUTUBE_NOT_VIDEO = "This YouTube link isn't a video. Open the video and copy its link."
 
 

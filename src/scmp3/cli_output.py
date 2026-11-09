@@ -71,25 +71,34 @@ COVER_PROBLEMS: dict[ErrorKind, str] = {
 }
 
 # What each error kind means for you, and what to do next, in PLAN §4.11's wording where it has
-# one. {source} is SoundCloud or YouTube. The app's own wording is in web/strings.
+# one. {source} is SoundCloud or YouTube. The app's own wording is in web/strings. The command
+# line never signs in to SoundCloud, so the sign-in's next steps point to the app.
 ERROR_MESSAGES: dict[ErrorKind, str] = {
     ErrorKind.drm: (
         "This track is copy-protected by its label, so it can't be saved. "
-        "Signing in won't change that."
+        "Signing in won't change that. Try another upload of the song."
     ),
-    ErrorKind.preview_only: "Only a 30-second preview is available: this is a Go+ track.",
+    ErrorKind.preview_only: (
+        "Only a 30-second preview is available: this is a Go+ track. To save the whole track, "
+        "sign in with Go+ in the sc-mp3 app and save it there."
+    ),
     ErrorKind.unavailable: (
         "This track is private or was removed. If you have a private share link, use that instead."
     ),
-    ErrorKind.geo_blocked: "This track isn't available in your country.",
+    ErrorKind.geo_blocked: (
+        "This track isn't available in your country. "
+        "sc-mp3 can't get around that, so it can't be saved."
+    ),
     ErrorKind.rate_limited: "{source} asked us to slow down. Wait a few minutes, then try again.",
-    ErrorKind.auth_expired: "Your SoundCloud sign-in expired. Sign in again.",
+    ErrorKind.auth_expired: "Your SoundCloud sign-in expired. Sign in again in the sc-mp3 app.",
     ErrorKind.engine_outdated: (
         "{source} changed something on their end. "
-        "Updating the download engine (yt-dlp) usually fixes this."
+        "Updating the download engine (yt-dlp) usually fixes this. Update it in the sc-mp3 app's "
+        "Settings, under Engine and updates, then try again."
     ),
     ErrorKind.bot_check: (
-        "YouTube wants to confirm you're not a bot. This usually clears up after a while."
+        "YouTube wants to confirm you're not a bot. This usually clears up after a while. "
+        "Wait a few minutes, then try again."
     ),
     ErrorKind.offline: "You're offline. Check your connection and try again.",
     ErrorKind.convert_failed: (
@@ -97,7 +106,8 @@ ERROR_MESSAGES: dict[ErrorKind, str] = {
         "the log has the details: {log}"
     ),
     ErrorKind.disk: "Can't save to {folder}. Choose another folder with --out.",
-    ErrorKind.duplicate: "Already in your library (saved {saved}).",
+    # already_saved adds the date when the history has one.
+    ErrorKind.duplicate: "Already in your library.",
     ErrorKind.service_down: "{source} isn't responding right now. Try again later.",
     ErrorKind.bad_download: (
         "A download sc-mp3 needed was damaged, so it wasn't installed. Try again."
@@ -130,7 +140,7 @@ REASON_MESSAGES: dict[ErrorReason, str] = {
     ),
     "private": (
         "This video is private. Only people the uploader shares it with can watch it, "
-        "so sc-mp3 can't save it."
+        "so sc-mp3 can't save it. Try another upload of the song."
     ),
     "age_restricted": (
         "YouTube shows this video only to signed-in adults, and sc-mp3 doesn't sign in to "
@@ -157,8 +167,9 @@ REASON_MESSAGES: dict[ErrorReason, str] = {
         "and that its drive is connected."
     ),
     "unreadable_file": (
-        "This file isn't MP3 or M4A audio that sc-mp3 can read. "
-        "It may be damaged, or have the wrong extension."
+        "This file isn't MP3 or M4A audio that sc-mp3 can read. It may be damaged, or be in "
+        "another format with an .mp3 or .m4a name. Check that it plays in a music player. If "
+        "it's in another format, convert it to MP3 first."
     ),
     "file_locked": (
         "sc-mp3 couldn't read this file. Close any program that's using it, then try again."
@@ -175,13 +186,22 @@ REASON_MESSAGES: dict[ErrorReason, str] = {
 }
 
 
-def saved_on(entry: HistoryEntry) -> str:
-    """When a track was saved, like "Oct 3", with the year when it isn't this year."""
+def saved_on(entry: HistoryEntry) -> str | None:
+    """When a track was saved, like "Oct 3", with the year when it isn't this year. None when
+    the history doesn't say."""
     if entry.saved_at is None:
-        return "before"
+        return None
     when = entry.saved_at.astimezone()
     day = f"{when:%b} {when.day}"
     return day if when.year == datetime.now().year else f"{day}, {when.year}"
+
+
+def already_saved(entry: HistoryEntry) -> str:
+    """PLAN §4.11's message for a track in the history, with the save date when it has one."""
+    day = saved_on(entry)
+    if day is None:
+        return ERROR_MESSAGES[ErrorKind.duplicate]
+    return f"Already in your library (saved {day})."
 
 
 def error_message(error: ScmpError, settings: Settings, *, source: str = "SoundCloud") -> str:
@@ -195,7 +215,7 @@ def error_message(error: ScmpError, settings: Settings, *, source: str = "SoundC
     if error.reason is not None:
         message = REASON_MESSAGES[error.reason]
     return message.format(
-        folder=settings.library_dir, log=paths.log_dir() / LOG_FILE, saved="before", source=source
+        folder=settings.library_dir, log=paths.log_dir() / LOG_FILE, source=source
     )
 
 

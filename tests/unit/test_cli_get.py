@@ -444,6 +444,16 @@ def test_arguments_it_cant_use_are_a_usage_error(
     assert said in capsys.readouterr().err
 
 
+def test_text_that_isnt_a_link_isnt_told_to_try_a_file(
+    fake: FakePipeline, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # get refuses files, so suggesting one would only lead to another refusal.
+    assert get("--yes", "notalink") == cli_output.EXIT_USAGE
+    said = capsys.readouterr().err
+    assert "notalink: Not a supported link. Use a SoundCloud or YouTube link." in said
+    assert "MP3" not in said
+
+
 @pytest.mark.parametrize(
     "args",
     [

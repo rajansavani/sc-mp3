@@ -4,7 +4,7 @@ export default {
   askBody:
     "Saving from YouTube needs one extra part, about 40 MB, downloaded once. SoundCloud works without it.",
   askDetail:
-    "The part is Deno, a small program the download engine uses to read YouTube pages. It comes from Deno's official releases on GitHub, is checked against its published checksum, and is kept with sc-mp3's other data.",
+    "The part is Deno, a program the download engine uses to read YouTube pages. It comes from Deno's official releases on GitHub, is checked against its published checksum, and is kept with sc-mp3's other data.",
   notNow: "Not now",
   download: "Download it",
 

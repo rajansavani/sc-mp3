@@ -132,8 +132,8 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
    - You should see: "Only a 30-second preview is available: this is a Go+ track." with Sign in with Go+ and Remove from the queue.
 3. Paste the missing track's link.
    - You should see: "This track is private or was removed." with Remove from the queue.
-4. Paste `https://soundcloud.com/the80m`, a profile. Then a set, `https://soundcloud.com/the80m/sets/insomnia-ep`, and a YouTube link.
-   - You should see: a toast for each, and nothing queued: "This SoundCloud link isn't a track. Open the track and copy its link.", "SoundCloud sets and albums can't be saved yet. Paste each track's own link instead." and "YouTube links can't be saved yet. Paste a SoundCloud track link instead."
+4. Paste `https://soundcloud.com/the80m`, a profile. Then paste `https://www.youtube.com/playlist?list=PL123`, a YouTube playlist.
+   - You should see: a toast for each, and nothing queued: "This SoundCloud link isn't a track or a set. Open the track or set and copy its link." and "YouTube playlists can't be saved yet. Paste the link of one video instead." Sets and YouTube videos are queued; section 12 checks sets.
 5. In Settings, choose the spare folder as the library, and save The Following there. Then deny yourself write access to the folder: in its Properties, Security, Edit, add your user with Write denied. Save a track you haven't saved before.
    - You should see: "Can't save to <folder>. Check that the drive is connected, or choose another folder." with Choose another folder, Retry and Remove from the queue.
 6. Paste The Following again, save it, and answer Replace.
@@ -150,7 +150,7 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
 3. From an Explorer search, drag two files with the same name from different folders onto the window.
    - You should see: one toast, without a path: "Two of the dropped files have the same name, so sc-mp3 can't tell them apart. Add them one at a time."
 4. Copy a track link in the browser, then click on the sc-mp3 window.
-   - You should see: "Add the link on your clipboard?" with the link, Not now and Add it. Not now hides it for that link. Add it queues it. A link that's queued already, a profile, a set or a YouTube link isn't offered.
+   - You should see: "Add the link on your clipboard?" with the link, Not now and Add it. Not now hides it for that link. Add it queues it. A YouTube video link is offered too. A link that's queued already, a profile, a set or a YouTube playlist isn't offered.
 5. Use ↑ and ↓ outside the text fields, then press Enter on a queue item, then Enter again.
    - You should see: the arrows move through the queue, the first Enter puts the cursor in the Title field, and the second saves.
 6. Press Ctrl+, (Ctrl and comma).
@@ -188,6 +188,8 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
    - You should see: it closes without asking, and Traffic comes back with its error. Clear finished removes it.
 5. Open the log folder, `%LOCALAPPDATA%\sc-mp3\Logs`, and search `sc-mp3.log` for "Traceback" and for your user name.
    - You should see: neither. Your home folder appears as `~`.
+6. Make the window smaller and move it away from where it opened. Close it and open sc-mp3 again. Then maximize it, close it and open sc-mp3 once more.
+   - You should see: the first time, the window opens with the size and place it had when you closed it. The second time, it opens maximized, and restoring it gives the size and place from before.
 
 ## 12. Sets and albums
 

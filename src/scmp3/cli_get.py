@@ -17,7 +17,6 @@ from typing import TextIO, get_args
 from scmp3.cli_output import (
     COVER_NOT_DOWNLOADED,
     COVER_PROBLEMS,
-    ERROR_MESSAGES,
     EXIT_ERROR,
     EXIT_OK,
     EXIT_STOPPED,
@@ -32,8 +31,8 @@ from scmp3.cli_output import (
     SKIPPED_NAME_TAKEN,
     STOPPED,
     TITLE_NEEDS_ONE_LINK,
+    already_saved,
     error_message,
-    saved_on,
 )
 from scmp3.cli_review import (
     WHOLE_NUMBER,
@@ -230,7 +229,7 @@ def _save(prepared: pipeline.Prepared, options: GetOptions, settings: Settings) 
 
 def _save_again(duplicate: HistoryEntry, options: GetOptions) -> bool:
     """Whether to save a track that's in the history again. With --yes, it never is."""
-    already = ERROR_MESSAGES[ErrorKind.duplicate].format(saved=saved_on(duplicate))
+    already = already_saved(duplicate)
     if options.yes:
         say(f"{already} {SAVE_AGAIN_WITH_REVIEW}")
         return False

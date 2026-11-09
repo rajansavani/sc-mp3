@@ -108,7 +108,9 @@ function fail(job, kind) {
   job.state = "error";
   const wait = AUTO_RETRY_MS[kind];
   const retryAt = wait ? new Date(Date.now() + wait).toISOString() : null;
-  job.error = { kind, detail: null, retry_at: retryAt };
+  // A re-tag writes into the file where it is, so Python marks its disk errors as the file's.
+  const where = job.kind === "retag" && kind === "disk" ? "file" : null;
+  job.error = { kind, detail: null, where, reason: null, retry_at: retryAt };
   job.progress = null;
   downloading.delete(job.id);
   if (kind === "duplicate") {
