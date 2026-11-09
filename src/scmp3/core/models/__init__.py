@@ -28,6 +28,7 @@ from scmp3.core.models.settings import (
     EngineChannel,
     FeatWording,
     Settings,
+    SignInBrowser,
     SinglesAlbum,
     TitleStyle,
 )
@@ -75,6 +76,7 @@ __all__ = [
     "PlaylistInfo",
     "Progress",
     "Settings",
+    "SignInBrowser",
     "SinglesAlbum",
     "SourceInfo",
     "SourceKind",

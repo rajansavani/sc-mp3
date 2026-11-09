@@ -769,6 +769,7 @@ dependencies = [
     { name = "pillow" },
     { name = "platformdirs" },
     { name = "pywebview" },
+    { name = "websockets" },
     { name = "yt-dlp", extra = ["curl-cffi", "default"] },
 ]
 
@@ -795,6 +796,7 @@ requires-dist = [
     { name = "platformdirs", specifier = ">=4.13.4" },
     { name = "pywebview", specifier = ">=6.2.1" },
     { name = "pywebview", extras = ["qt"], marker = "extra == 'qt'", specifier = ">=6.2.1" },
+    { name = "websockets", specifier = ">=17.2" },
     { name = "yt-dlp", extras = ["curl-cffi", "default"], specifier = ">=2026.8.19" },
     { name = "yt-dlp", extras = ["deno"], marker = "extra == 'deno'", specifier = ">=2026.8.19" },
 ]

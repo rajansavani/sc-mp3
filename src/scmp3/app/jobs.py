@@ -30,6 +30,7 @@ from scmp3.app.job_renames import (
 )
 from scmp3.app.job_set_calls import SetCalls
 from scmp3.app.job_settings import SettingsFollowing
+from scmp3.app.job_sign_in import JobSignIn
 from scmp3.app.job_steps import PipelineSteps, Steps
 from scmp3.app.queue_file import QueueFile
 from scmp3.app.queue_keeper import QueueKeeper
@@ -88,13 +89,22 @@ class JobManager(JobEditing, SettingsFollowing, SetCalls, QueueLifecycle):
         self._keeper = QueueKeeper(queue, self._flow, steps) if queue else None
 
     @classmethod
-    def for_app(cls, settings: SettingsStore, history: History, events: EventBus) -> "JobManager":
-        """The job manager the app runs, on the real pipeline and yt-dlp, kept in queue.json."""
+    def for_app(
+        cls,
+        settings: SettingsStore,
+        history: History,
+        events: EventBus,
+        sign_in: JobSignIn | None = None,
+    ) -> "JobManager":
+        """The job manager the app runs, on the real pipeline and yt-dlp, kept in queue.json.
+
+        `sign_in` hands SoundCloud jobs the token, and says when a job finds the sign-in ended.
+        """
         tools = pipeline.Tools(make_ydl=soundcloud.make_ydl, history=history)
         return cls(
             settings,
             events,
-            steps=PipelineSteps(tools),
+            steps=PipelineSteps(tools, sign_in),
             covers=CoverReader(soundcloud.make_ydl),
             queue=QueueFile(queue_file.default_path()),
         )
@@ -289,10 +299,20 @@ class JobManager(JobEditing, SettingsFollowing, SetCalls, QueueLifecycle):
 
     def youtube_support_ready(self) -> None:
         """Retry every job that stopped for want of YouTube support, now that it's installed."""
+        self._retry_stopped_by(ErrorKind.youtube_support_missing)
+
+    def sign_in_ready(self) -> None:
+        """Retry every job that stopped because the SoundCloud sign-in ended, now that it's back."""
+        self._retry_stopped_by(ErrorKind.auth_expired)
+
+    def _retry_stopped_by(self, kind: ErrorKind) -> None:
+        """Retry each failed job, set or set's track that stopped with this kind of error."""
         with self._flow.lock:
-            for record in list(self._flow.tracks()):
+            # Sets are included, since listing one can stop for the sign-in too.
+            for record in self._flow.every_record():
                 error = record.job.error
-                if error is not None and error.kind == ErrorKind.youtube_support_missing:
+                failed = record.job.state == JobState.error and not record.closed
+                if failed and error is not None and error.kind == kind:
                     self._flow.retry(record)
 
     def remove_jobs(self, job_ids: Iterable[str]) -> Answer:

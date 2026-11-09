@@ -7,7 +7,8 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
 ## Before you start
 
 - **A clean profile.** Use a Windows user account where sc-mp3 has never run, or delete its folder, `%LOCALAPPDATA%\sc-mp3`. On macOS, delete `~/Library/Application Support/sc-mp3`, `~/Library/Caches/sc-mp3` and `~/Library/Logs/sc-mp3`.
-- **Spotify.** Have the Spotify desktop app installed and signed in. For section 14, have an iPhone and an Android phone with Spotify, signed in to the same account.
+- **Spotify.** Have the Spotify desktop app installed and signed in. For section 15, have an iPhone and an Android phone with Spotify, signed in to the same account.
+- **A SoundCloud account** for section 16, and Chrome, Edge or Brave. A free account will do. With Go+, also try the Go+ step.
 - **An image file**, JPEG or PNG, at least 600 × 600, to use as a cover.
 - **A spare folder** for the disk test in section 7, such as `C:\sc-mp3-qa\locked`.
 - **A tag viewer** for sections 6 and 12, such as Mp3tag, or a file's Properties › Details in Explorer.
@@ -37,7 +38,7 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
    - You should see: the arrow keys move the choice between the cards, and "In the artist field" is picked again.
 5. Select Next.
    - You should see: "SoundCloud account (optional)", with the table of what signing in gets you, and Skip for now.
-6. Select Skip for now.
+6. Select Skip for now. Section 14 covers signing in.
    - You should see: "Add the folder to Spotify", with three numbered steps that name your folder.
 7. Select Open Spotify.
    - You should see: the Spotify app opens or comes to the front.
@@ -89,7 +90,7 @@ The steps are for Windows. On macOS, read Cmd for Ctrl and Finder for Explorer.
 6. Select Replace, then Use the original cover.
    - You should see: the profile picture again, with its note.
 7. Put your own image back, crop it, and save.
-   - You should see: it saves. Check the cover in section 13.
+   - You should see: it saves. Check the cover in section 14.
 
 ## 5. Skip, cancel and retry
 
@@ -253,6 +254,37 @@ These need a person with the phones.
 3. **Changes.** Edit one track's title in sc-mp3 and save it again with Replace. If Spotify on the desktop still shows the old title, try the three steps in Spotify help, "Songs not showing up".
    - You should see: the new title after one of the three steps.
 
-## 16. Record the run
+## 16. Signing in to SoundCloud
+
+These steps use your default browser. When it's one sc-mp3 can't sign in with, such as Firefox, sc-mp3 uses Edge.
+
+1. Select Sign in to SoundCloud at the top right.
+   - You should see: the sign-in dialog with two ways to sign in, Sign in with your browser and Copy from your browser. The dialog names no browser. The note at the bottom says the sign-in is stored in Windows Credential Manager.
+2. Select Continue in your browser. When the browser window opens on SoundCloud's sign-in page, close it without signing in.
+   - You should see: while the window was open, the dialog said Continue in your browser and that the window closes by itself once you're signed in, with I've signed in and Cancel without signing in. After the close, it says the browser window closed before SoundCloud signed you in, with Try again and Copy from your browser.
+3. Select Try again. Leave the window on the sign-in page for a minute, then select Cancel without signing in.
+   - You should see: the window stays open until you cancel. Then it closes, and the dialog shows Continue in your browser again, with no error.
+4. Select Continue in your browser, and sign in on the SoundCloud page, with Google if your account uses it. If the browser asks whether soundcloud.com may use Google sign-in, select Allow. Don't select anything in sc-mp3.
+   - You should see: once SoundCloud shows you're signed in, the browser window closes by itself. Within a few seconds the dialog closes, a toast says "Signed in to SoundCloud as @" and your profile's name, and the top right shows your name and plan, such as "@name · Free". If your own browser was open, its windows and tabs didn't change.
+5. Open `%LOCALAPPDATA%\sc-mp3\signin`.
+   - You should see: one folder, named after the browser, such as `brave`. sc-mp3 keeps the window's profile there so Google remembers you next time.
+6. Open Settings › SoundCloud account, and set Browser for signing in to Edge. Sign out, then sign in again with the window.
+   - You should see: the window opens in Edge this time, and Google asks you to sign in again. Set the browser back to Your default browser afterwards.
+7. Paste The Following.
+   - You should see: the review offers the artist's original file, which only signed-in accounts get.
+8. With Go+, paste Look What You Made Me Do.
+   - You should see: no preview error, and it saves the whole track from the AAC 256 kbps stream.
+9. Quit sc-mp3 and open it again.
+   - You should see: still signed in, with your name at the top right.
+10. Open Settings › SoundCloud account.
+    - You should see: "Signed in as @name" with your plan, and "Stored in Windows Credential Manager."
+11. Select Sign out.
+    - You should see: "Not signed in", and Sign in to SoundCloud at the top right. In Control Panel › Credential Manager › Windows Credentials, no sc-mp3 entries are left. `%LOCALAPPDATA%\sc-mp3\signin` is empty, or gone.
+12. Select Sign in to SoundCloud, then Copy from your browser. Follow the steps in Chrome or Edge, but paste the `oauth_token` value into both boxes, then select Sign in.
+    - You should see: under the second box, "This looks like oauth_token. Paste the oauth_refresh_token value here, the shorter one." Nothing is signed in.
+13. Paste the `oauth_refresh_token` value into the second box and select Sign in. Close the private browser window without signing out.
+    - You should see: the dialog closes, the toast names your profile, and the top right shows your name and plan. Sign out again in Settings.
+
+## 17. Record the run
 
 Write down the version, the date, the computer and OS, the Spotify versions, and each step that failed with what you saw instead. Attach the diagnostics from section 10 to each bug you report.

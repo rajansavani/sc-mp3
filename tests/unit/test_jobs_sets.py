@@ -117,6 +117,18 @@ def test_a_set_that_cant_be_listed_fails_and_retry_lists_it_again(jobs: Harness)
     assert len(tracks(jobs, set_id)) == 5
 
 
+def test_a_set_whose_listing_stopped_for_the_sign_in_is_listed_again_after_signing_in(
+    jobs: Harness,
+) -> None:
+    jobs.steps.list_errors.append(ScmpError(ErrorKind.auth_expired, "ended"))
+    set_id = listed(jobs)
+    assert jobs.job(set_id)["error"]["kind"] == "auth_expired"
+    jobs.manager.sign_in_ready()
+    jobs.pools.run("resolve")
+    assert jobs.job(set_id)["state"] == "needs_review"
+    assert len(tracks(jobs, set_id)) == 5
+
+
 # Numbers and the album's fields
 
 

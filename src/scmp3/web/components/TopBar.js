@@ -2,8 +2,9 @@
 import { html } from "htm/preact";
 import { useEffect, useState } from "preact/hooks";
 
-import { openDialog, openView } from "../store.js";
+import { openDialog, openView, useStore } from "../store.js";
 import { strings } from "../strings/index.js";
+import { chipLabel, hasEnded, isSignedIn } from "./account-view.js";
 import { ClipboardOffer } from "./ClipboardOffer.js";
 import { Icon } from "./icons.js";
 import { addInputs, dialogIsOpen, isEditable, isSeveralLines, useInputDrop } from "./inputs.js";
@@ -35,16 +36,40 @@ function usePasteAnywhere() {
   }, []);
 }
 
-// TODO(T-041): Show the account chip here once signing in works.
-function AccountSlot() {
+// The account chip: Sign in, the signed-in account and its plan, or Sign in again once SoundCloud
+// has ended the sign-in. Each opens the sign-in dialog, which also has Sign out.
+function AccountChip() {
+  const { account } = useStore();
+  const open = () => openDialog("sign_in");
+  if (hasEnded(account)) {
+    return html`
+      <button
+        type="button"
+        class="control-button is-ghost top-bar-account"
+        data-tone="warn"
+        aria-label=${strings.account.chipEndedLabel}
+        onClick=${open}
+      >
+        <${Icon} name="warning" size=${18} className="tone-icon top-bar-account-icon" />
+        <span>${strings.account.chipEnded}</span>
+      </button>
+    `;
+  }
+  if (!isSignedIn(account)) {
+    return html`
+      <button type="button" class="control-button is-ghost top-bar-account" onClick=${open}>
+        <${Icon} name="person" size=${18} />
+        <span>${text.signIn}</span>
+      </button>
+    `;
+  }
+  const avatar = account.user?.avatar_url;
   return html`
-    <button
-      type="button"
-      class="control-button is-ghost top-bar-account"
-      onClick=${() => openDialog("sign_in")}
-    >
-      <${Icon} name="person" size=${18} />
-      <span>${text.signIn}</span>
+    <button type="button" class="control-button is-ghost top-bar-account" onClick=${open}>
+      ${avatar
+        ? html`<img class="top-bar-avatar" src=${avatar} alt="" width="22" height="22" />`
+        : html`<${Icon} name="person" size=${18} />`}
+      <span class="top-bar-account-name">${chipLabel(account.user)}</span>
     </button>
   `;
 }
@@ -98,7 +123,7 @@ export function TopBar() {
       </div>
       <${PasteForm} dropOver=${drop.over} />
       <div class="top-bar-actions">
-        <${AccountSlot} />
+        <${AccountChip} />
         <button
           type="button"
           class="control-button is-ghost is-icon"

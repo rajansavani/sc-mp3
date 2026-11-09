@@ -56,6 +56,8 @@ MENU_DEFAULTS: dict[str, Any] = {
     "check_engine_updates": True,
     "engine_channel": "stable",
     "soundcloud_client_id": None,
+    # SoundCloud account
+    "signin_browser": "default",
 }
 
 # Settings kept in settings.json that aren't options in the menu.

@@ -57,6 +57,7 @@ MENU_CHANGES: dict[str, Any] = {
     "check_engine_updates": False,
     "engine_channel": "nightly",
     "soundcloud_client_id": "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6",
+    "signin_browser": "brave",
 }
 
 CLIENT_ID = "Zz0Yy9Xx8Ww7Vv6Uu5Tt4Ss3Rr2Qq1Pp"

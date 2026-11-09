@@ -331,3 +331,16 @@
 .first-run-next[aria-disabled="true"] {
   cursor: progress;
 }
+
+/* Step 3 once someone has signed in. */
+.first-run-signed-in {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.first-run-signed-in-icon {
+  flex: none;
+  color: var(--ok);
+}

@@ -1,4 +1,4 @@
-"""Tests for the bridge: every call exists, the stubs answer not_implemented, and snapshot()."""
+"""Tests for the bridge: every call exists, any stubs answer not_implemented, and snapshot()."""
 
 import inspect
 import json
@@ -60,7 +60,13 @@ CALLS: dict[type, set[str]] = {
         "open_local_files_folder",
     },
     SettingsApi: {"update_settings", "preview_render"},
-    AccountApi: {"sign_in_window", "sign_in_firefox", "sign_in_token", "sign_out"},
+    AccountApi: {
+        "sign_in_window",
+        "finish_sign_in",
+        "cancel_sign_in",
+        "sign_in_from_browser",
+        "sign_out",
+    },
     ComponentsApi: {
         "check_updates",
         "update_engine",
@@ -79,6 +85,7 @@ BUILT = {
     "preview_render",
     *CALLS[JobsApi],
     *CALLS[FilesApi],
+    *CALLS[AccountApi],
 }
 STUBS = [name for name in ALL_CALLS if name not in BUILT]
 
@@ -152,7 +159,19 @@ def test_the_snapshot_has_every_part(api: Api) -> None:
     snapshot = api.snapshot()
     assert set(snapshot) == {"jobs", "settings", "account", "components", "first_run"}
     assert snapshot["jobs"] == []
-    assert snapshot["account"] is None
+    # Which browsers the sign-in window can use, and whether it closes by itself, depend on the
+    # computer.
+    for key in ("window_browser", "default_browser", "browsers", "window_closes_itself"):
+        snapshot["account"].pop(key)
+    assert snapshot["account"] == {
+        "status": "signed_out",
+        "user": None,
+        "stored_in": None,
+        "running": None,
+        "finishing": False,
+        "window_profile": False,
+        "problem": None,
+    }
     assert snapshot["components"] == {
         "app_version": __version__,
         "engine_version": "2026.08.19",
@@ -191,7 +210,7 @@ def test_first_run_is_true_until_setup_is_done(api: Api, store: SettingsStore) -
 
 def test_the_snapshot_is_json_with_snake_case_keys(api: Api) -> None:
     snapshot = json.loads(json.dumps(api.snapshot()))
-    keys = [*snapshot, *snapshot["settings"], *snapshot["components"]]
+    keys = [*snapshot, *snapshot["settings"], *snapshot["components"], *snapshot["account"]]
     assert all(SNAKE_CASE.fullmatch(key) for key in keys), keys
 
 

@@ -5,11 +5,13 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from scmp3.app.account_state import AccountState
 from scmp3.app.clipboard import ClipboardReader, read_clipboard
 from scmp3.app.components_view import components_view
 from scmp3.app.desktop import Desktop
 from scmp3.app.drag_paths import DragPaths
 from scmp3.app.events import EventBus
+from scmp3.app.job_sign_in import JobSignIn
 from scmp3.app.jobs import JobManager
 from scmp3.app.settings_watch import WatchedSettingsStore
 from scmp3.app.spotify_files import local_files_location
@@ -25,9 +27,27 @@ from scmp3.core.settings import SettingsStore
 log = logging.getLogger(__name__)
 
 
+def app_account_state(context: "AppContext") -> AccountState:
+    """The SoundCloud account on the real token store, telling the UI what changed.
+
+    Each sign-in retries the jobs that stopped because the last one ended, and the window opens in
+    the browser picked in Settings.
+    """
+    account = AccountState(
+        context.events.emit,
+        # The job manager is built after the account, so it's looked up when a sign-in finishes.
+        on_signed_in=lambda: context.jobs.sign_in_ready(),
+        browser_setting=lambda: context.settings.load().signin_browser,
+    )
+    if isinstance(context.settings, WatchedSettingsStore):
+        context.settings.watch(lambda settings, version: account.refresh_browsers())
+    return account
+
+
 def app_job_manager(context: "AppContext") -> JobManager:
     """The job manager on the real pipeline, following the settings when they're saved."""
-    manager = JobManager.for_app(context.settings, context.history, context.events)
+    sign_in = JobSignIn(on_ended=context.account.sign_in_ended)
+    manager = JobManager.for_app(context.settings, context.history, context.events, sign_in)
     if isinstance(context.settings, WatchedSettingsStore):
         context.settings.watch(manager.settings_changed)
     return manager
@@ -68,6 +88,11 @@ class AppContext:
     clipboard: ClipboardReader = read_clipboard
     # Finds Spotify's local-files.bnk, or its folder, for the Spotify help.
     find_local_files: Callable[[], Path | None] = local_files_location
+    # Builds the SoundCloud account from the fields above. Tests pass one with fake sign-ins.
+    make_account: Callable[["AppContext"], AccountState] = field(
+        default=app_account_state, repr=False
+    )
+    account: AccountState = field(init=False, repr=False)
     # Builds the job manager from the fields above. Tests pass one with a fake pipeline.
     make_jobs: Callable[["AppContext"], JobManager] = field(default=app_job_manager, repr=False)
     jobs: JobManager = field(init=False, repr=False)
@@ -79,6 +104,7 @@ class AppContext:
 
     def __post_init__(self) -> None:
         # Frozen dataclasses set their own fields this way too.
+        object.__setattr__(self, "account", self.make_account(self))
         object.__setattr__(self, "jobs", self.make_jobs(self))
         object.__setattr__(self, "updates", self.make_updates(self))
 

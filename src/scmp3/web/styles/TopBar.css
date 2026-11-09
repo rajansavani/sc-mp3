@@ -67,8 +67,30 @@
 }
 
 .top-bar-account {
+  max-width: 280px;
   padding: 0 14px;
   font-weight: 500;
+}
+
+/* An ended sign-in shows in the warning tone, with its icon in place. */
+.top-bar-account[data-tone="warn"] {
+  border-color: var(--tone-line);
+  background: var(--tone-surface);
+}
+
+.top-bar-account-icon {
+  margin-top: 0;
+}
+
+.top-bar-account-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.top-bar-avatar {
+  flex: none;
+  border-radius: var(--radius-chip);
+  object-fit: cover;
 }
 
 .clipboard-offer {

@@ -390,3 +390,29 @@ def test_youtube_support_arriving_with_nothing_waiting_changes_nothing(jobs: Har
     jobs.manager.youtube_support_ready()
     assert jobs.job(job_id)["state"] == "needs_review"
     assert len(jobs.events.events) == before
+
+
+# Signing in again
+
+
+def test_a_job_stopped_by_an_ended_sign_in_carries_on_after_signing_in(jobs: Harness) -> None:
+    jobs.steps.prepare_errors.extend(
+        [ScmpError(ErrorKind.unavailable, "404"), ScmpError(ErrorKind.auth_expired, "ended")]
+    )
+    failed = jobs.add_and_resolve()
+    waiting = jobs.add_and_resolve(fakes.OTHER)
+    assert jobs.job(waiting)["error"]["kind"] == "auth_expired"
+
+    jobs.manager.sign_in_ready()
+    assert jobs.job(waiting)["state"] == "queued"
+    assert jobs.job(failed)["state"] == "error"
+    jobs.pools.run("resolve")
+    assert jobs.job(waiting)["state"] == "needs_review"
+
+
+def test_a_sign_in_with_nothing_waiting_changes_nothing(jobs: Harness) -> None:
+    job_id = jobs.add_and_resolve()
+    before = len(jobs.events.events)
+    jobs.manager.sign_in_ready()
+    assert jobs.job(job_id)["state"] == "needs_review"
+    assert len(jobs.events.events) == before

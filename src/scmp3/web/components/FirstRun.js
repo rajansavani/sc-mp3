@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../api.js";
 import { closeView, openDialog, reportError, useStore } from "../store.js";
 import { strings } from "../strings/index.js";
+import { isSignedIn, signedInLabel } from "./account-view.js";
+import { Icon } from "./icons.js";
 import { folderLabel } from "./paths.js";
 import { CHOICES, FolderField, useRadioGroup } from "./settings/fields.js";
 import { Logo, SaveBanner } from "./settings/parts.js";
@@ -145,13 +147,21 @@ function PersonIcon() {
   `;
 }
 
-// TODO(T-041): Sign in here, and show who's signed in.
 function AccountStep() {
+  const { account } = useStore();
+  const signedIn = isSignedIn(account)
+    ? html`
+        <p class="first-run-signed-in" role="status">
+          <${Icon} name="check" size=${18} className="first-run-signed-in-icon" />
+          <span>${signedInLabel(account.user)}</span>
+        </p>
+      `
+    : null;
   return html`
     <div class="first-run-body first-run-body-tight">
       <p class="first-run-intro">${text.accountIntro}</p>
       <${BenefitsTable} />
-      <div class="first-run-actions">
+      ${signedIn ?? html`<div class="first-run-actions">
         <button
           type="button"
           class="control-button is-raised first-run-icon-button"
@@ -160,8 +170,8 @@ function AccountStep() {
           <${PersonIcon} />
           <span>${text.signIn}</span>
         </button>
-        <span class="first-run-tip">${text.passwordTip}</span>
-      </div>
+        <span class="first-run-tip">${text.signInTip}</span>
+      </div>`}
     </div>
   `;
 }
@@ -236,7 +246,7 @@ function StepButtons({ onBack, onNext, nextLabel, busy }) {
 
 function nextLabel(step, account) {
   const labels = text.steps[step.id];
-  return account && labels.nextSignedIn ? labels.nextSignedIn : labels.next;
+  return isSignedIn(account) && labels.nextSignedIn ? labels.nextSignedIn : labels.next;
 }
 
 export function FirstRun() {

@@ -295,3 +295,38 @@ def test_a_context_hidden_with_from_none_is_not_followed() -> None:
             raise DownloadError("ERROR: something else went wrong") from None
     except DownloadError as error:
         assert ytdlp_errors.error_kind(error) is ErrorKind.engine_outdated
+
+
+def test_a_401_behind_yt_dlps_error_counts_as_a_refused_sign_in() -> None:
+    error = raised_by_yt_dlp(request_fails_with(401))
+    assert ytdlp_errors.is_unauthorized(error)
+    # Its kind stays what it was, since the caller who sent a token decides what it means.
+    assert ytdlp_errors.error_kind(error) is ErrorKind.engine_outdated
+
+
+def test_a_401_still_counts_once_it_has_become_a_scmp_error() -> None:
+    cause = raised_by_yt_dlp(request_fails_with(401))
+    try:
+        raise ytdlp_errors.to_scmp_error(cause) from cause
+    except ScmpError as error:
+        assert ytdlp_errors.is_unauthorized(error)
+
+
+def test_a_401_named_only_in_the_message_counts() -> None:
+    error = DownloadError("ERROR: Unable to download JSON metadata: HTTP Error 401: Unauthorized")
+    assert ytdlp_errors.is_unauthorized(error)
+
+
+@pytest.mark.parametrize("status", [403, 404, 500])
+def test_other_statuses_dont_count_as_a_refused_sign_in(status: int) -> None:
+    assert not ytdlp_errors.is_unauthorized(raised_by_yt_dlp(request_fails_with(status)))
+
+
+def test_a_401_that_yt_dlp_recovered_from_doesnt_count() -> None:
+    try:
+        try:
+            raise http_error(401)
+        except HTTPError:
+            raise DownloadError("ERROR: something else went wrong")  # noqa: B904
+    except DownloadError as error:
+        assert not ytdlp_errors.is_unauthorized(error)

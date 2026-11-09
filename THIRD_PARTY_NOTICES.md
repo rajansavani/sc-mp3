@@ -137,8 +137,10 @@ Each package's page, with its source and license, is at `https://pypi.org/projec
 | clr_loader | 0.3.1 | MIT |
 | curl_cffi | 0.16.3 | MIT |
 | idna | 3.20 | BSD-3-Clause |
+| jaraco.classes | 3.4.0 | MIT |
 | jaraco.context | 6.1.2 | MIT |
 | jaraco.functools | 4.6.0 | MIT |
+| keyring | 25.7.0 | MIT |
 | more-itertools | 11.2.1 | MIT |
 | mutagen | 1.48.1 | GPL-2.0-or-later |
 | packaging | 26.3 | Apache-2.0 or BSD-2-Clause |
@@ -153,6 +155,7 @@ Each package's page, with its source and license, is at `https://pypi.org/projec
 | pyobjc-framework-WebKit | 12.2.2 | MIT |
 | pythonnet | 3.2.1 | MIT |
 | pywebview | 6.2.1 | BSD-3-Clause |
+| pywin32-ctypes | 0.2.3 | BSD-3-Clause |
 | requests | 2.34.2 | Apache-2.0 |
 | setuptools | 84.0.0 | MIT |
 | typing_extensions | 4.16.0 | PSF-2.0 |

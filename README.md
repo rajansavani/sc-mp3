@@ -132,7 +132,7 @@ Setup has four steps:
 
 1. Where your songs go. The default is Music › sc-mp3, and each artist gets a folder inside it.
 2. How titles look. Pick where featured artists go. You can change this later.
-3. SoundCloud account. Select Skip for now.
+3. SoundCloud account, optional. Signing in gets you the artist's original file when they allow downloads, and AAC 256 kbps with Go+. Select Sign in to SoundCloud. On Windows, select Continue in your browser. SoundCloud's sign-in page opens in a new window of your default browser when it's Edge, Brave, Chrome, Vivaldi or Chromium, and in Edge otherwise. Sign in there with Google, Apple or your email, and the window closes by itself. It has a profile of its own, which sc-mp3 keeps so Google remembers you next time, and deletes when you sign out. To use another of those browsers, pick it in Settings › SoundCloud account. On macOS and Linux, and as a backup on Windows, the dialog shows how to copy the sign-in from a browser yourself. You can also select Skip for now and sign in later from the top bar.
 4. Add the folder to Spotify. In Spotify on your computer, select your profile picture at the top right, then Settings. Under Your Library, turn on Show Local Files. Choose Add a source and pick the sc-mp3 folder. Your songs appear under Local Files in Your Library. Then select Finish in sc-mp3.
 
 ## Save a song

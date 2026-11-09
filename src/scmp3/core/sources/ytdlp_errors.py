@@ -74,6 +74,7 @@ _APOSTROPHES = str.maketrans({"\u2019": "'", "\u2018": "'"})
 # What an HTTP status in a yt-dlp error means: the API meanings, except that yt-dlp sends no token
 # of ours and has already retried a 401 with a fresh client_id. 5xx is service_down.
 STATUS_KINDS: dict[int, ErrorKind] = {**engine.STATUS_KINDS, 401: ErrorKind.engine_outdated}
+UNAUTHORIZED = 401
 
 # Standard library network failures that can sit under a yt-dlp error. Some are OSErrors, so
 # they're checked before an OSError is read as a disk failure.
@@ -138,6 +139,26 @@ def error_kind(error: BaseException) -> ErrorKind:
     if any(_is_yt_dlp_error(item) for item in chain):
         return ErrorKind.engine_outdated
     return ErrorKind.internal
+
+
+def is_unauthorized(error: BaseException) -> bool:
+    """Whether a 401 is behind the error, which is how api-v2 refuses a sign-in that ended.
+
+    Callers that sent a token ask this before reading the kind, since STATUS_KINDS counts a 401
+    as an outdated engine.
+    """
+    return any(_status_of(item) == UNAUTHORIZED for item in _chain(error))
+
+
+def _status_of(error: BaseException) -> int | None:
+    """The HTTP status one error in a chain carries, or None."""
+    engine.load_yt_dlp()
+    from yt_dlp.networking.exceptions import HTTPError
+
+    if isinstance(error, HTTPError | engine.HttpStatusError):
+        return error.status
+    found = _STATUS_IN_MESSAGE.search(str(error))
+    return int(found[1]) if found else None
 
 
 def status_kind(status: int) -> ErrorKind:

@@ -188,6 +188,7 @@ SETTINGS = Settings(
     check_engine_updates=False,
     engine_channel="nightly",
     soundcloud_client_id="a1b2c3",
+    signin_browser="brave",
     first_run_done=True,
 )
 

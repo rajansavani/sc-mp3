@@ -18,6 +18,8 @@ CoverSize = Literal[300, 640, 1000, 1400]
 CommentMode = Literal["source_url", "description", "none"]
 DownloadsAtOnce = Literal[1, 2, 3, 4]
 EngineChannel = Literal["stable", "nightly"]
+# The browser for the sign-in window. Each id but "default" is a row in app/signin_browsers.py.
+SignInBrowser = Literal["default", "edge", "brave", "chrome", "vivaldi", "chromium"]
 
 
 @dataclass
@@ -62,5 +64,7 @@ class Settings(Model):
     check_engine_updates: bool = True
     engine_channel: EngineChannel = "stable"
     soundcloud_client_id: str | None = None  # overrides the one yt-dlp finds
+    # SoundCloud account
+    signin_browser: SignInBrowser = "default"
     # Not in the menu: set when first-run setup ends, so it isn't shown again.
     first_run_done: bool = False

@@ -12,6 +12,7 @@ dependencies = [
     "pillow>=13.0.0",
     "platformdirs>=4.13.4",
     "pywebview>=6.2.1",
+    "websockets>=17.2",
     "yt-dlp[curl-cffi,default]>=2026.8.19",
 ]
 

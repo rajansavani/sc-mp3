@@ -144,11 +144,24 @@ export default {
       "This change wasn't saved because sc-mp3 hit an error. Try again, and if it keeps happening, restart sc-mp3.",
   },
 
-  // The placeholders until signing in (T-041) and updates (T-071) are built.
+  // The SoundCloud account section. The dialog's own text is in account.js.
   account: {
     notSignedIn: "Not signed in",
-    notBuilt: "Signing in to SoundCloud isn't built yet.",
+    notSignedInHint:
+      "Optional. It gets you the artist's original file when they allow downloads, and AAC 256 kbps with Go+.",
     signIn: "Sign in to SoundCloud",
+    // Signed out, with a browser profile for signing in still kept.
+    profileKept:
+      "sc-mp3 may still keep a browser profile from signing in. Sign out deletes it, and anything else a sign-in left.",
+    ended: "Your SoundCloud sign-in ended",
+    endedHint: "Sign in again to get original files and Go+ audio back. Sign out deletes what's left.",
+    signInAgain: "Sign in again",
+    browserLabel: "Browser for signing in",
+    defaultBrowser: "Your default browser",
+    // Which browser "Your default browser" opens, or why it's another one.
+    defaultIs: (browser) => `Your default browser is ${browser}.`,
+    defaultUnusable: (browser) =>
+      `sc-mp3 can't sign in with your default browser, so it uses ${browser}.`,
   },
   spotifyHelp: {
     title: "Getting your songs into Spotify",
@@ -258,7 +271,7 @@ export default {
       { what: "Tracks a label has copy-protected", values: ["No", "No", "No"] },
     ],
     signIn: "Sign in to SoundCloud",
-    passwordTip: "Signed up with Google or Apple? Set a SoundCloud password first.",
+    signInTip: "Google, Apple and email accounts all work.",
     spotifyIntro:
       "Spotify plays your saved songs once it knows the folder. Do this once in Spotify on your computer.",
     // The steps in Spotify's desktop app on each system, given the library folder's short name.

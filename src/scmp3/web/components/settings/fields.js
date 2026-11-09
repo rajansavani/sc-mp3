@@ -81,13 +81,13 @@ async function pickFolder() {
 
 // The ids of a field's error and hint, and of a line elsewhere that describes it too, for
 // aria-describedby. Null when there are none.
-function describedBy(id, error, hint, also = null) {
+export function describedBy(id, error, hint, also = null) {
   const ids = [error && `${id}-error`, hint && `${id}-hint`, also].filter(Boolean);
   return ids.length > 0 ? ids.join(" ") : null;
 }
 
 // The lines under a field: what's wrong with it, if anything, then its hint.
-function FieldNotes({ id, error, hint }) {
+export function FieldNotes({ id, error, hint }) {
   return html`
     ${error &&
     html`<span id=${`${id}-error`} class="field-error">${problemText(error)}</span>`}

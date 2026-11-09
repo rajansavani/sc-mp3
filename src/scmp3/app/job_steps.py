@@ -4,6 +4,7 @@ import threading
 from collections.abc import Mapping, Sequence
 from typing import Protocol
 
+from scmp3.app.job_sign_in import JobSignIn
 from scmp3.core import paths, pipeline
 from scmp3.core.download import ProgressCallback
 from scmp3.core.inputs import ParsedInput
@@ -19,6 +20,7 @@ from scmp3.core.models import (
     TitleStyle,
 )
 from scmp3.core.pipeline import (
+    LINK_SOURCES,
     AlbumPlace,
     Prepared,
     PreparedSet,
@@ -29,6 +31,9 @@ from scmp3.core.pipeline import (
     TrackResult,
 )
 from scmp3.core.sources import soundcloud_sets
+
+# The source whose steps take a sign-in. YouTube and files never send one.
+SIGNED_IN_SOURCE = "soundcloud"
 
 
 class Steps(Protocol):
@@ -95,14 +100,24 @@ class Steps(Protocol):
 
 
 class PipelineSteps:
-    """The steps in core/pipeline.py, with yt-dlp and the history from `tools`."""
+    """The steps in core/pipeline.py, with yt-dlp and the history from `tools`.
 
-    def __init__(self, tools: Tools) -> None:
+    SoundCloud steps get the current sign-in from `sign_in` each time they run.
+    """
+
+    def __init__(self, tools: Tools, sign_in: JobSignIn | None = None) -> None:
         self._tools = tools
+        self._sign_in = sign_in or JobSignIn(make_ydl=tools.make_ydl)
 
     def prepare(self, parsed: ParsedInput, *, settings: Settings, job_id: str) -> Prepared:
-        # TODO(T-041): Pass auth.current_token() to prepare.
-        return pipeline.prepare(parsed, settings=settings, tools=self._tools, job_id=job_id)
+        def attempt(token: str | None) -> Prepared:
+            return pipeline.prepare(
+                parsed, settings=settings, token=token, tools=self._tools, job_id=job_id
+            )
+
+        if LINK_SOURCES.get(parsed.kind) != SIGNED_IN_SOURCE:
+            return attempt(None)
+        return self._sign_in.run(attempt)
 
     def restore(
         self,
@@ -115,7 +130,7 @@ class PipelineSteps:
     ) -> Prepared:
         """What prepare gave a job before a restart, without resolving it again."""
         # yt-dlp's info isn't kept, so a download extracts it again, as for info that's too old.
-        # TODO(T-041): Pass auth.current_token() here too.
+        signed_in = source.kind == SIGNED_IN_SOURCE
         return Prepared(
             job_id=job_id,
             source=source,
@@ -123,6 +138,8 @@ class PipelineSteps:
             duplicate=duplicate,
             settings=settings,
             info={},
+            # Only read, so the review shows the right formats. fetch renews it when it's due.
+            token=self._sign_in.stored_token() if signed_in else None,
             tools=self._tools,
         )
 
@@ -135,7 +152,15 @@ class PipelineSteps:
     ) -> Staged:
         # Checked first, so a missing ffmpeg fails before the whole track downloads for nothing.
         paths.ffmpeg_exe()
-        return pipeline.fetch(prepared, on_progress=on_progress, cancel=cancel)
+
+        def attempt(token: str | None) -> Staged:
+            # The job keeps it, so a retry, and the review's formats, use the newest one.
+            prepared.token = token
+            return pipeline.fetch(prepared, on_progress=on_progress, cancel=cancel)
+
+        if prepared.source.kind != SIGNED_IN_SOURCE:
+            return pipeline.fetch(prepared, on_progress=on_progress, cancel=cancel)
+        return self._sign_in.run(attempt)
 
     def finalize(
         self,
@@ -171,8 +196,11 @@ class PipelineSteps:
         pipeline.discard(prepared)
 
     def prepare_set(self, parsed: ParsedInput, *, settings: Settings) -> PreparedSet:
-        # TODO(T-041): Pass auth.current_token() to prepare_set.
-        return pipeline.prepare_set(parsed, settings=settings, tools=self._tools)
+        # Only SoundCloud has sets, so the listing always takes the sign-in.
+        def attempt(token: str | None) -> PreparedSet:
+            return pipeline.prepare_set(parsed, settings=settings, token=token, tools=self._tools)
+
+        return self._sign_in.run(attempt)
 
     def restore_set(self, url: str, playlist: PlaylistInfo, *, settings: Settings) -> PreparedSet:
         """What prepare_set gave a set before a restart, without listing it again."""

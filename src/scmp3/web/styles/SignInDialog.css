@@ -1,1 +1,124 @@
-/* The sign-in dialog. A placeholder for now, styled by .placeholder in app.css. */
+/* The sign-in dialog, from the design's A-sign-in screen. The frame is the shell's .dialog in
+   controls.css, made as wide as the design's. */
+
+.dialog:has(.sign-in) {
+  width: min(680px, calc(100vw - 48px));
+}
+
+.sign-in {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sign-in-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sign-in-title {
+  font-size: var(--text-page-title);
+  letter-spacing: -0.015em;
+}
+
+.sign-in-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-segmented);
+  background: var(--bg);
+}
+
+.sign-in-tab {
+  flex: 1 1 0;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-segment);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sign-in-tab[aria-selected="true"] {
+  background: var(--line-3);
+  color: var(--text-1);
+}
+
+.sign-in-panel,
+.sign-in-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* While the Edge window is open. */
+.sign-in-waiting {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-primary);
+  background: var(--surface-3);
+}
+
+.sign-in-waiting-title {
+  font-weight: 600;
+}
+
+.sign-in-waiting-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.sign-in-note {
+  font-size: var(--text-small);
+}
+
+.sign-in-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+/* The Cookies list in the developer tools, with made-up values. */
+.sign-in-shot {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-control);
+}
+
+/* Cookie names, as the browser's developer tools show them. */
+.sign-in-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+}
+
+.sign-in-value {
+  font-family: var(--font-mono);
+}
+
+/* Sign out, for what an earlier sign-in left, below the footer. */
+.sign-in-kept {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sign-in-footer {
+  padding-top: 14px;
+  border-top: 1px solid var(--line-1);
+  color: var(--text-3);
+  font-size: var(--text-small);
+}

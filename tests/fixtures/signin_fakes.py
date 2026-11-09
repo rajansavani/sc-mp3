@@ -4,11 +4,15 @@ The test files load this by path, since pytest's importlib mode can't import it 
 """
 
 import base64
+import io
 import json
 import secrets
-from typing import Any
+from collections.abc import Callable
+from typing import Any, Self
 
 from keyring.errors import PasswordDeleteError
+from yt_dlp.networking.common import Request, Response
+from yt_dlp.networking.exceptions import HTTPError
 
 from scmp3.core.token_store import TokenStore
 from scmp3.core.tokens import Tokens
@@ -138,3 +142,76 @@ class BrokenKeyring:
 
     def delete_password(self, service: str, username: str) -> None:
         raise self.error
+
+
+Outcome = bytes | Exception | Callable[[Request], bytes]
+
+TOKEN_URL = "https://secure.soundcloud.com/oauth/token"
+ME_URL = "https://api-v2.soundcloud.com/me"
+
+
+class FakeYdl:
+    """Answers urlopen with canned outcomes in order, and records each request.
+
+    It's also its own context manager and maker, so `with make_ydl() as ydl` gets it back.
+    """
+
+    def __init__(self, *outcomes: Outcome) -> None:
+        self.requests: list[Request] = []
+        self.made = 0
+        self._outcomes = list(outcomes)
+
+    def __call__(self, token: str | None = None, **options: Any) -> Self:
+        self.made += 1
+        return self
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        return None
+
+    def answer(self, *outcomes: Outcome) -> None:
+        """Queue more outcomes after the ones still waiting."""
+        self._outcomes.extend(outcomes)
+
+    def urlopen(self, request: Request) -> io.BytesIO:
+        self.requests.append(request)
+        assert self._outcomes, f"an unexpected request to {request.url}"
+        outcome = self._outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        if callable(outcome):
+            return io.BytesIO(outcome(request))
+        return io.BytesIO(outcome)
+
+
+def token_answer(access: str, refresh: str | None = None) -> bytes:
+    """The token endpoint's answer to a renewal, as seen in T-003."""
+    answer: dict[str, Any] = {"access_token": access, "expires_in": 86399, "token_type": "Bearer"}
+    if refresh is not None:
+        answer["refresh_token"] = refresh
+    return json.dumps(answer).encode()
+
+
+def me_answer(product_id: str | None = "free", **fields: Any) -> bytes:
+    """A /me answer for a made-up account, with private fields like the real one's."""
+    answer: dict[str, Any] = {
+        "username": "Kaia",
+        "permalink": "kaia-music",
+        "avatar_url": "https://i1.sndcdn.com/avatars-000-abc-large.jpg",
+        "consumer_subscription": {"product": {"id": product_id}},
+        "primary_email": "kaia@example.com",
+        "full_name": "Kaia Example",
+        **fields,
+    }
+    return json.dumps(answer).encode()
+
+
+def oauth_error(code: str, status: int = 400) -> HTTPError:
+    body = json.dumps({"error": code, "error_description": "made up"}).encode()
+    return HTTPError(Response(io.BytesIO(body), TOKEN_URL, {}, status=status))
+
+
+def status_error(status: int, url: str = ME_URL) -> HTTPError:
+    return HTTPError(Response(io.BytesIO(b""), url, {}, status=status))

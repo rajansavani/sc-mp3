@@ -75,7 +75,7 @@ export default {
     auth_expired: {
       status: "Sign-in expired",
       headline: () => "Your SoundCloud sign-in expired.",
-      detail: () => "Sign in again, then retry.",
+      detail: () => "Sign in again, and this job carries on by itself.",
     },
     engine_outdated: {
       status: "Couldn't read the track",

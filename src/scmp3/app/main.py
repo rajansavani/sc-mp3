@@ -276,6 +276,8 @@ def run_window(paths: Sequence[str] = (), engine_start: EngineStart | None = Non
     finally:
         if memory is not None:
             memory.keep()
+        # Windows doesn't end child processes with their parent, so a sign-in's browser is stopped.
+        context.account.shut_down()
         context.updates.stop()
         context.jobs.shut_down()
         webview_data.remove_data_folder(webview_data.data_folder())

@@ -36,6 +36,7 @@ const DEFAULTS = {
   check_engine_updates: true,
   engine_channel: "stable",
   soundcloud_client_id: null,
+  signin_browser: "default",
   first_run_done: false,
 };
 
@@ -51,6 +52,7 @@ const CHOICES = {
   comment_mode: ["source_url", "description", "none"],
   concurrent_downloads: [1, 2, 3, 4],
   engine_channel: ["stable", "nightly"],
+  signin_browser: ["default", "edge", "brave", "chrome", "vivaldi", "chromium"],
 };
 // Text settings that may also be null.
 const NULLABLE = new Set(["filename_template", "soundcloud_client_id"]);
