@@ -72,7 +72,7 @@ Each package's page, with its source and license, is at `https://pypi.org/projec
 | typing_extensions | 4.16.0 | PSF-2.0 |
 | urllib3 | 2.8.0 | MIT |
 | websockets | 17.2 | BSD-3-Clause |
-| yt-dlp | 2026.10.26 | Unlicense |
+| yt-dlp | 2026.11.23 | Unlicense |
 | yt-dlp-ejs | 0.8.0 | Unlicense, MIT and ISC |
 
 clr_loader and pythonnet are in the Windows release only, and the four pyobjc packages in the Mac releases only. pyobjc-core and pyobjc-framework-UniformTypeIdentifiers ship no license file, so the files in their `licenses` folders come from their 12.2.2 source releases.
