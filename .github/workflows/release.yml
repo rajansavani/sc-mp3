@@ -108,6 +108,72 @@ jobs:
             exit 1
           }
 
+      # Explorer marks every file it unzips from a browser download, and .NET then refuses
+      # pythonnet's assembly unless sc-mp3.exe.config allows it, so WinForms never loads (T-100).
+      - name: Mark the zipped app as downloaded, open it, and check that it shows the UI
+        run: |
+          $app = Join-Path $env:RUNNER_TEMP "smoke/sc-mp3"
+          if (-not (Test-Path (Join-Path $app "sc-mp3.exe.config"))) {
+            Write-Output "::error::The zip has no sc-mp3.exe.config beside sc-mp3.exe."
+            exit 1
+          }
+          # The mark Explorer's Extract All gives each file from a zip downloaded in a browser.
+          Get-ChildItem -Path $app -Recurse -File | ForEach-Object {
+            Set-Content -Path $_.FullName -Stream Zone.Identifier -Value "[ZoneTransfer]`r`nZoneId=3"
+          }
+          $dll = Join-Path $app "_internal/pythonnet/runtime/Python.Runtime.dll"
+          if ("$(Get-Content -Path $dll -Stream Zone.Identifier)" -notmatch "ZoneId=3") {
+            Write-Output "::error::Couldn't mark the app's files as downloaded."
+            exit 1
+          }
+          $appHome = Join-Path $env:RUNNER_TEMP "home"
+          $smoke = Join-Path $env:RUNNER_TEMP "smoke-results"
+          New-Item -ItemType Directory -Force -Path (Join-Path $appHome "config"), $smoke | Out-Null
+          # No update checks, so the run makes no downloads.
+          Set-Content -Path (Join-Path $appHome "config/settings.json") -Value '{"check_engine_updates": false, "check_app_updates": false}'
+          $env:SCMP3_HOME = $appHome
+          # pywebview's own debug lines go into the app's log too.
+          $env:PYWEBVIEW_LOG = "debug"
+          # Redirected output keeps a traceback, which the app would otherwise only show in a box.
+          $process = Start-Process -FilePath (Join-Path $app "sc-mp3.exe") -RedirectStandardOutput (Join-Path $smoke "stdout.txt") -RedirectStandardError (Join-Path $smoke "stderr.txt") -PassThru
+          # Without the handle read now, ExitCode stays empty once the process has exited.
+          $null = $process.Handle
+          $log = Join-Path $appHome "logs/sc-mp3.log"
+          $shown = $false
+          $deadline = (Get-Date).AddSeconds(60)
+          while ((Get-Date) -lt $deadline -and -not $process.HasExited) {
+            # The app logs this once its page has loaded and the UI's scripts have run.
+            if ((Test-Path $log) -and (Select-String -Path $log -SimpleMatch "The window shows the UI" -Quiet)) {
+              $shown = $true
+              break
+            }
+            Start-Sleep -Seconds 1
+          }
+          $exited = $process.HasExited
+          if (-not $exited) {
+            # By process id, with the WebView2 processes the app started, or an error box it shows.
+            taskkill /PID $process.Id /T /F | Out-Null
+          }
+          Copy-Item -Recurse -Path (Join-Path $appHome "logs") -Destination $smoke -ErrorAction SilentlyContinue
+          Get-Content -Path (Join-Path $smoke "stderr.txt")
+          if ($exited) {
+            Write-Output "::error::The marked app closed by itself with exit code $($process.ExitCode)."
+            exit 1
+          }
+          if (-not $shown) {
+            Write-Output "::error::The marked app's window didn't show the UI within 60 s. Its output above says why."
+            exit 1
+          }
+          # taskkill's exit code isn't the check's result.
+          exit 0
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: smoke-windows-x64
+          path: ${{ runner.temp }}/smoke-results/
+          if-no-files-found: warn
+
       - name: Collect the release files
         run: |
           $release = New-Item -ItemType Directory -Path release

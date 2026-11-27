@@ -225,6 +225,7 @@ def test_the_mac_zip_holds_the_app_with_the_license_and_notices_beside_it(tmp_pa
     assert ffmpeg_license == b"LGPL 2.1"
     assert not any(name.startswith("sc-mp3/_internal") for name in names)
     assert not any("MinGW-w64" in name for name in names)
+    assert not any(name.endswith(".config") for name in names)
 
 
 def test_a_mac_build_replaces_the_last_builds_folder(tmp_path: Path) -> None:
@@ -324,6 +325,27 @@ def test_the_license_and_the_notices_go_next_to_the_exe(
     with zipfile.ZipFile(tmp_path / build.zip_name(VERSION, WINDOWS)) as archive:
         text = archive.read(f"sc-mp3/{name}")
     assert text == (build.REPO_ROOT / source).read_bytes()
+
+
+def test_the_windows_zip_holds_a_config_beside_the_exe_that_trusts_downloaded_assemblies(
+    tmp_path: Path,
+) -> None:
+    build.build(FakeRunner(), VERSION, WINDOWS, tmp_path)
+    with zipfile.ZipFile(tmp_path / build.zip_name(VERSION, WINDOWS)) as archive:
+        names = archive.namelist()
+        archive.extract("sc-mp3/sc-mp3.exe.config", tmp_path / "unzipped")
+    assert "sc-mp3/sc-mp3.exe" in names
+    config = tmp_path / "unzipped" / "sc-mp3" / "sc-mp3.exe.config"
+    assert bundle_check.exe_config_problem(config) is None
+
+
+def test_a_windows_build_whose_config_doesnt_trust_downloaded_assemblies_stops_before_the_zip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(build, "EXE_CONFIG", "<configuration><runtime/></configuration>")
+    with pytest.raises(build.BuildError, match=r"sc-mp3\.exe\.config doesn't hold"):
+        build.build(FakeRunner(), VERSION, WINDOWS, tmp_path)
+    assert not (tmp_path / build.zip_name(VERSION, WINDOWS)).exists()
 
 
 def test_the_zip_unpacks_as_one_folder_named_after_the_app(tmp_path: Path) -> None:

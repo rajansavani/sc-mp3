@@ -1,15 +1,20 @@
-"""Find what in a built app would publish where it was built: local-only metadata, or paths.
+"""Check a built app for what would publish where it was built, and check the Windows exe's config.
 
-packaging/build.py runs this on the app folder after PyInstaller, and stops the build on a find.
+packaging/build.py runs these on the app folder, and stops the build on a find.
 """
 
 from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path, PureWindowsPath
 from urllib.parse import quote
+from xml.etree import ElementTree
 
 # An editable install's metadata holds the builder's checkout path and build times (T-002), and a
 # delvewheel-repaired wheel's DELVEWHEEL holds the paths of the machine that repaired it.
 LOCAL_ONLY_FILES = frozenset({"direct_url.json", "uv_cache.json", "DELVEWHEEL"})
+
+# The setting in sc-mp3.exe.config that lets .NET load pythonnet's assembly from a folder Windows
+# marks as downloaded, which is every folder unzipped from a browser download (T-100).
+TRUST_SETTING = "runtime/loadFromRemoteSources"
 
 # Something in the app folder, by its name, with its bytes.
 type Entry = tuple[str, bytes]
@@ -92,3 +97,20 @@ def entries_naming(entries: Iterable[Entry], private_paths: Sequence[str]) -> li
 def leaks(folder: Path, exe: Path, private_paths: Sequence[str]) -> list[str]:
     """What in the app folder would say where it was built, or nothing when it's clean."""
     return local_only_files(folder) or entries_naming(bundle_entries(folder, exe), private_paths)
+
+
+def exe_config_problem(config: Path) -> str | None:
+    """What keeps a .NET config from trusting the app's own assemblies, or None when it does."""
+    if not config.is_file():
+        return f"There's no {config.name}."
+    try:
+        root = ElementTree.parse(config).getroot()
+    except ElementTree.ParseError as error:
+        return f"{config.name} isn't valid XML: {error}."
+    setting = root.find(TRUST_SETTING) if root.tag == "configuration" else None
+    if setting is None or setting.get("enabled") != "true":
+        return (
+            f"{config.name} doesn't hold <configuration><runtime>"
+            '<loadFromRemoteSources enabled="true"/>.'
+        )
+    return None

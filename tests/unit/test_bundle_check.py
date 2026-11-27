@@ -114,6 +114,50 @@ def test_every_spelling_of_a_private_path_is_a_leak(
     assert [Path(found).name for found in leaks(app, [private])] == ["info.txt"]
 
 
+TRUSTING_CONFIG = (
+    '<?xml version="1.0" encoding="utf-8"?>\r\n'
+    '<configuration><runtime><loadFromRemoteSources enabled="true"/></runtime></configuration>\r\n'
+)
+
+
+def test_a_config_that_loads_from_remote_sources_trusts_the_apps_assemblies(
+    tmp_path: Path,
+) -> None:
+    config = tmp_path / "sc-mp3.exe.config"
+    config.write_text(TRUSTING_CONFIG, encoding="utf-8")
+    assert check.exe_config_problem(config) is None
+
+
+@pytest.mark.parametrize(
+    ("content", "problem"),
+    [
+        (None, "There's no sc-mp3.exe.config."),
+        ("<configuration><runtime>", "isn't valid XML"),
+        ("<configuration><runtime/></configuration>", "doesn't hold"),
+        (
+            '<configuration><runtime><loadFromRemoteSources enabled="false"/></runtime>'
+            "</configuration>",
+            "doesn't hold",
+        ),
+        ('<configuration><loadFromRemoteSources enabled="true"/></configuration>', "doesn't hold"),
+        (
+            '<settings><runtime><loadFromRemoteSources enabled="true"/></runtime></settings>',
+            "doesn't hold",
+        ),
+    ],
+    ids=["missing", "not xml", "no setting", "turned off", "outside runtime", "wrong root"],
+)
+def test_a_config_that_doesnt_trust_the_apps_assemblies_names_the_problem(
+    tmp_path: Path, content: str | None, problem: str
+) -> None:
+    config = tmp_path / "sc-mp3.exe.config"
+    if content is not None:
+        config.write_text(content, encoding="utf-8")
+    found = check.exe_config_problem(config)
+    assert found is not None
+    assert problem in found
+
+
 def test_a_private_path_packed_inside_the_exe_is_a_leak(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

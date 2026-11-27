@@ -35,6 +35,17 @@ APP_NAME = "sc-mp3"
 # Files from the repo that go next to the app, by the name they get there; .txt opens in Notepad.
 RELEASE_FILES = {"LICENSE": "LICENSE.txt", "THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.txt"}
 
+# .NET reads this from beside the exe. Without it, a copy unzipped from a browser download can't
+# load pythonnet's assembly, so the window never opens (T-100).
+EXE_CONFIG = (
+    '<?xml version="1.0" encoding="utf-8"?>\n'
+    "<configuration>\n"
+    "  <runtime>\n"
+    '    <loadFromRemoteSources enabled="true"/>\n'
+    "  </runtime>\n"
+    "</configuration>\n"
+)
+
 # GitHub's runners build as one of these accounts, whose home folder also turns up in the wheels
 # that other projects built on those runners. It names no person, so there it doesn't count.
 RUNNER_ACCOUNTS = frozenset({"runner", "runneradmin"})
@@ -89,10 +100,17 @@ class Layout:
     zipper: Zipper
     # The .app PyInstaller writes beside its folder on macOS, which the sc-mp3 folder then holds.
     bundle: str | None = None
+    # The .NET config the build writes beside the launcher, which only Windows needs.
+    exe_config: str | None = None
 
 
 LAYOUTS = {
-    "windows": Layout(f"{APP_NAME}.exe", f"{APP_NAME}.exe", zip_with_python),
+    "windows": Layout(
+        f"{APP_NAME}.exe",
+        f"{APP_NAME}.exe",
+        zip_with_python,
+        exe_config=f"{APP_NAME}.exe.config",
+    ),
     "macos": Layout(
         APP_NAME,
         f"{APP_NAME}.app/Contents/MacOS/{APP_NAME}",
@@ -199,6 +217,27 @@ def add_release_files(folder: Path) -> None:
             raise BuildError(f"Couldn't copy {source} into the app folder: {error}") from error
 
 
+def add_exe_config(folder: Path, layout: Layout) -> None:
+    """Write the .NET config beside the Windows exe, so a downloaded copy can open its window."""
+    if layout.exe_config is None:
+        return
+    try:
+        (folder / layout.exe_config).write_text(EXE_CONFIG, encoding="utf-8", newline="\r\n")
+    except OSError as error:
+        raise BuildError(f"Couldn't write {layout.exe_config}: {error}") from error
+
+
+def check_exe_config(folder: Path, layout: Layout) -> None:
+    """Stop the build unless the config beside the Windows exe trusts the app's own assemblies."""
+    if layout.exe_config is None:
+        return
+    problem = bundle_check.exe_config_problem(folder / layout.exe_config)
+    if problem is not None:
+        raise BuildError(
+            f"{problem} Without it, a copy unzipped from a download can't open its window."
+        )
+
+
 def add_licenses(built: Path, folder: Path, target: Target) -> None:
     """Fill licenses/ next to the app with the license files of what PyInstaller bundled."""
     exe = built / target.layout.exe
@@ -295,8 +334,10 @@ def build(run: Runner, version: str, target: Target, dist_dir: Path) -> None:
         verify_signature(run, folder / layout.bundle)
     check_bundle(folder, folder / layout.launcher, builder_paths(os.environ, Path.home()))
     add_release_files(folder)
+    add_exe_config(folder, layout)
     add_licenses(pyinstaller_dist / APP_NAME, folder, target)
     check_version(run, folder / layout.launcher, version)
+    check_exe_config(folder, layout)
     print(f"Writing {zip_path.name}...", flush=True)
     write_zip(run, folder, zip_path, layout.zipper)
     print_summary(folder, zip_path, write_checksum(zip_path))
